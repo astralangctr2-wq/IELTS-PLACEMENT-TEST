@@ -1,0 +1,16 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/submissions/route": "app/api/submissions/route.js",
+  "/api/teacher/content/route": "app/api/teacher/content/route.js",
+  "/api/teacher/login/route": "app/api/teacher/login/route.js",
+  "/api/teacher/logout/route": "app/api/teacher/logout/route.js",
+  "/page": "app/page.js",
+  "/teacher/content/page": "app/teacher/content/page.js",
+  "/teacher/login/page": "app/teacher/login/page.js",
+  "/test/status/[id]/page": "app/test/status/[id]/page.js",
+  "/test/page": "app/test/page.js",
+  "/teacher/page": "app/teacher/page.js",
+  "/teacher/[id]/page": "app/teacher/[id]/page.js",
+  "/api/content/route": "app/api/content/route.js",
+  "/api/submissions/[id]/route": "app/api/submissions/[id]/route.js"
+}
