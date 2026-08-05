@@ -11,11 +11,11 @@ export default function ContentEditor() {
   const fileRef = useRef(null);
 
   useEffect(() => {
-    fetch("/api/content").then((r) => r.json()).then(setCurrent).catch(() => {});
+    fetch("/api/content", { cache: "no-store" }).then((r) => r.json()).then(setCurrent).catch(() => {});
   }, []);
 
   const downloadTemplate = async () => {
-    const res = await fetch("/api/content");
+    const res = await fetch("/api/content", { cache: "no-store" });
     const data = await res.json();
     // strip ids and correct-answer values for a clean editable template,
     // while keeping each question's type and structure intact
@@ -70,7 +70,7 @@ export default function ContentEditor() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Không lưu được đề thi.");
       setSuccess("✓ Đã cập nhật đề thi. Học viên vào /test từ giờ sẽ làm bộ đề mới này.");
-      const refreshed = await fetch("/api/content").then((r) => r.json());
+      const refreshed = await fetch("/api/content", { cache: "no-store" }).then((r) => r.json());
       setCurrent(refreshed);
     } catch (err) {
       setError(err.message);
