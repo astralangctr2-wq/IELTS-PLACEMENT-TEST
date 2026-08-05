@@ -143,7 +143,7 @@ export default function TestRunner({ config }) {
   };
 
   useEffect(() => {
-    fetch("/api/content")
+    fetch("/api/content", { cache: "no-store" })
       .then((r) => r.json())
       .then(setContent)
       .catch(() => setLoadError("Không tải được đề thi. Vui lòng tải lại trang."));
