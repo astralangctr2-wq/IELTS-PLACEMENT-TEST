@@ -51,7 +51,8 @@ export async function PATCH(req, { params }) {
   const { rows } = await sql`SELECT objective_band FROM submissions WHERE id = ${params.id} LIMIT 1`;
   if (rows.length === 0) return NextResponse.json({ error: "Không tìm thấy bài làm." }, { status: 404 });
 
-  const finalBand = roundHalf((Number(rows[0].objective_band) + writingBand) / 2);
+  const objBand = rows[0].objective_band;
+  const finalBand = objBand !== null ? roundHalf((Number(objBand) + writingBand) / 2) : roundHalf(writingBand);
 
   await sql`
     UPDATE submissions

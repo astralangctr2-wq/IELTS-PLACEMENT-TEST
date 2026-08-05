@@ -50,13 +50,15 @@ export default function GradeForm({ submissionId, objectiveBand, initialBand, in
 
       <div className="row">
         <p className="mono muted" style={{ fontSize: 12 }}>
-          Band cuối (TB Ngữ pháp/Reading/Listening + Writing): <b>{((objectiveBand + band) / 2).toFixed(1)}</b>
+          {objectiveBand !== null
+            ? <>Band cuối (TB Ngữ pháp/Reading/Listening + Writing): <b>{((objectiveBand + band) / 2).toFixed(1)}</b></>
+            : <>Band cuối (chỉ Writing, HV không làm phần trắc nghiệm nào): <b>{band.toFixed(1)}</b></>}
         </p>
         <button className="btn" onClick={save} disabled={saving}>{saving ? "Đang lưu…" : "Lưu điểm →"}</button>
       </div>
 
       {error && <p className="accent">{error}</p>}
-      {saved && !error && <p className="success">✓ Đã lưu — học viên có thể xem kết quả qua link trạng thái của họ.</p>}
+      {saved && !error && <p className="success">✓ Đã lưu điểm.</p>}
     </div>
   );
 }

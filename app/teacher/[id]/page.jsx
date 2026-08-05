@@ -15,13 +15,17 @@ export default async function SubmissionDetail({ params }) {
   if (rows.length === 0) notFound();
   const s = rows[0];
   const snapshot = s.content_snapshot || null;
+  const skills = Array.isArray(s.skills_included) ? s.skills_included : ["grammar", "reading", "listening", "writing"];
 
   return (
     <div className="wrap">
       <div className="topbar">
         <div>
           <p className="serif" style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{s.student_name}</p>
-          <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>{new Date(s.created_at).toLocaleString("vi-VN")}</p>
+          <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>
+            {new Date(s.created_at).toLocaleString("vi-VN")}
+            {s.target_band ? ` · Mục tiêu: ${s.target_band}` : ""}
+          </p>
         </div>
         <div className="row" style={{ gap: 10 }}>
           <a href="/teacher"><button className="btn-ghost btn-sm">← Danh sách</button></a>
@@ -31,17 +35,17 @@ export default async function SubmissionDetail({ params }) {
 
       <div className="card stack">
         <p className="mono muted" style={{ fontSize: 12 }}>ĐIỂM TỰ ĐỘNG</p>
-        <p>Ngữ pháp: <b>{s.grammar_score}/{s.grammar_total}</b></p>
-        <p>Reading: <b>{s.reading_score}/{s.reading_total}</b></p>
-        <p>Listening: <b>{s.listening_score}/{s.listening_total}</b></p>
-        <p>Band ước tính (chưa gồm Writing): <b>{Number(s.objective_band).toFixed(1)}</b></p>
+        {skills.includes("grammar") && <p>Ngữ pháp: <b>{s.grammar_score}/{s.grammar_total}</b></p>}
+        {skills.includes("reading") && <p>Reading: <b>{s.reading_score}/{s.reading_total}</b></p>}
+        {skills.includes("listening") && <p>Listening: <b>{s.listening_score}/{s.listening_total}</b></p>}
+        <p>Band ước tính (chưa gồm Writing): <b>{s.objective_band !== null ? Number(s.objective_band).toFixed(1) : "— (HV không làm phần trắc nghiệm nào)"}</b></p>
       </div>
 
       {snapshot && Array.isArray(snapshot.grammar) && Array.isArray(snapshot.reading) && Array.isArray(snapshot.listening) ? (
         <>
-          <AnswerReview title="CHI TIẾT — NGỮ PHÁP" questions={snapshot.grammar} answers={s.answers?.grammar} />
-          <AnswerReview title="CHI TIẾT — READING" questions={snapshot.reading} answers={s.answers?.reading} />
-          <AnswerReview title="CHI TIẾT — LISTENING" questions={snapshot.listening} answers={s.answers?.listening} />
+          {skills.includes("grammar") && <AnswerReview title="CHI TIẾT — NGỮ PHÁP" questions={snapshot.grammar} answers={s.answers?.grammar} />}
+          {skills.includes("reading") && <AnswerReview title="CHI TIẾT — READING" questions={snapshot.reading} answers={s.answers?.reading} />}
+          {skills.includes("listening") && <AnswerReview title="CHI TIẾT — LISTENING" questions={snapshot.listening} answers={s.answers?.listening} />}
         </>
       ) : (
         <div className="card">
@@ -56,7 +60,7 @@ export default async function SubmissionDetail({ params }) {
 
       <GradeForm
         submissionId={s.id}
-        objectiveBand={Number(s.objective_band)}
+        objectiveBand={s.objective_band !== null ? Number(s.objective_band) : null}
         initialBand={s.writing_band !== null ? Number(s.writing_band) : 6}
         initialFeedback={s.writing_feedback || ""}
         graded={s.graded}

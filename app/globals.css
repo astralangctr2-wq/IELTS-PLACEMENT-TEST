@@ -54,13 +54,15 @@ a { color: inherit; }
 .option:hover { border-color: var(--grid); }
 .option.selected { background: var(--paper); }
 
-input[type="text"], textarea, input[type="password"] {
+input[type="text"], input[type="number"], textarea, input[type="password"], select {
   font-family: var(--font-body);
   border: 1px solid var(--grid);
   background: var(--card);
   padding: 10px;
   width: 100%;
 }
+input[type="number"] { width: auto; }
+input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--ink); }
 textarea { font-family: var(--font-heading); line-height: 1.6; }
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }

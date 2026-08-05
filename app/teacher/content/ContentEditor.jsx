@@ -17,12 +17,26 @@ export default function ContentEditor() {
   const downloadTemplate = async () => {
     const res = await fetch("/api/content");
     const data = await res.json();
-    // strip ids for a clean editable template
-    const strip = (q) => ({ q: q.q, opts: q.opts, a: 0 });
+    // strip ids and correct-answer values for a clean editable template,
+    // while keeping each question's type and structure intact
+    const strip = (q) => {
+      const type = q.type || "mc";
+      if (type === "mc") return { type: "mc", q: q.q, opts: q.opts, a: 0 };
+      if (type === "multi_select") return { type: "multi_select", q: q.q, opts: q.opts, a: q.opts.slice(0, q.selectCount || 2).map((_, i) => i) };
+      if (type === "gap") return { type: "gap", q: q.q, answers: [""] };
+      return { q: q.q };
+    };
+    const stripSections = (sections, textKey) =>
+      sections.map((sec) => ({
+        title: sec.title || "",
+        instructions: sec.instructions || "",
+        [textKey]: sec[textKey],
+        questions: sec.questions.map(strip),
+      }));
     const template = {
-      grammar: data.grammar.map((q) => ({ q: q.q, opts: q.opts, a: 0 })),
-      reading: { passage: data.reading.passage, questions: data.reading.questions.map((q) => ({ q: q.q, opts: q.opts, a: 0 })) },
-      listening: { script: data.listening.script, questions: data.listening.questions.map((q) => ({ q: q.q, opts: q.opts, a: 0 })) },
+      grammar: data.grammar.map(strip),
+      reading: { sections: stripSections(data.reading.sections, "passage") },
+      listening: { sections: stripSections(data.listening.sections, "script") },
       writing: { prompt: data.writing.prompt },
     };
     const blob = new Blob([JSON.stringify(template, null, 2)], { type: "application/json" });
@@ -78,7 +92,9 @@ export default function ContentEditor() {
       {current && (
         <div className="card">
           <p className="mono muted" style={{ fontSize: 12, marginBottom: 8 }}>ĐỀ THI ĐANG DÙNG</p>
-          <p>Ngữ pháp: {current.grammar.length} câu · Reading: {current.reading.questions.length} câu · Listening: {current.listening.questions.length} câu</p>
+          <p>
+            Ngữ pháp: {current.grammar.length} câu · Reading: {current.reading.sections.length} đoạn / {current.reading.sections.reduce((n, s) => n + s.questions.length, 0)} câu · Listening: {current.listening.sections.length} đoạn / {current.listening.sections.reduce((n, s) => n + s.questions.length, 0)} câu
+          </p>
         </div>
       )}
 
