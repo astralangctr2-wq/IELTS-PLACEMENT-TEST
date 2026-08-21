@@ -10,17 +10,24 @@ const SKILL_LABELS = {
 };
 const TIMED_SKILLS = ["grammar", "reading", "writing"];
 
-export default function SessionManager({ initialSessions }) {
+export default function SessionManager({ initialSessions, banks }) {
   const [sessions, setSessions] = useState(initialSessions);
   const [name, setName] = useState("");
   const [skills, setSkills] = useState({ grammar: true, reading: true, listening: true, writing: true });
   const [times, setTimes] = useState({ grammar: 40, reading: 40, writing: 30 });
   const [listeningPlays, setListeningPlays] = useState(1);
+  const defaultBank = banks.find((b) => b.is_default);
+  const [contentBankId, setContentBankId] = useState(defaultBank ? defaultBank.id : "");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [newLink, setNewLink] = useState("");
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const bankName = (id) => {
+    if (!id) return "Mặc định";
+    const b = banks.find((bk) => bk.id === id);
+    return b ? b.name : "(bộ đề đã xoá)";
+  };
 
   const toggleSkill = (s) => setSkills((prev) => ({ ...prev, [s]: !prev[s] }));
 
@@ -38,6 +45,7 @@ export default function SessionManager({ initialSessions }) {
           skills: chosenSkills,
           timeLimits: times,
           listeningPlays,
+          contentBankId: contentBankId || null,
         }),
       });
       const data = await res.json();
@@ -79,6 +87,13 @@ export default function SessionManager({ initialSessions }) {
         <p className="mono muted" style={{ fontSize: 12, marginBottom: 12 }}>TẠO PHIÊN THI MỚI</p>
         <p style={{ marginBottom: 6 }}>Tên phiên thi (chỉ để bạn nhận biết, học viên không thấy):</p>
         <input type="text" placeholder="VD: Lớp A2 — chỉ Grammar + Reading" value={name} onChange={(e) => setName(e.target.value)} />
+
+        <p style={{ margin: "16px 0 8px" }}>Bộ đề sử dụng:</p>
+        <select value={contentBankId} onChange={(e) => setContentBankId(e.target.value)}>
+          {banks.map((b) => (
+            <option key={b.id} value={b.id}>{b.name}{b.is_default ? " (mặc định)" : ""}</option>
+          ))}
+        </select>
 
         <p style={{ margin: "16px 0 8px" }}>Kỹ năng đưa vào phiên thi:</p>
         <div className="stack">
@@ -143,6 +158,7 @@ export default function SessionManager({ initialSessions }) {
             <thead>
               <tr>
                 <th>Tên</th>
+                <th>Bộ đề</th>
                 <th>Kỹ năng</th>
                 <th>Link</th>
                 <th>Trạng thái</th>
@@ -155,6 +171,7 @@ export default function SessionManager({ initialSessions }) {
                 return (
                   <tr key={s.id}>
                     <td>{s.name}</td>
+                    <td className="mono muted" style={{ fontSize: 12 }}>{bankName(s.content_bank_id)}</td>
                     <td className="mono muted" style={{ fontSize: 12 }}>{(s.skills || []).map((sk) => SKILL_LABELS[sk] || sk).join(", ")}</td>
                     <td>
                       <button className="btn-ghost btn-sm" onClick={() => copy(link)}>Copy link</button>

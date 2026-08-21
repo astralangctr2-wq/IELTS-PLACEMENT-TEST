@@ -13,12 +13,13 @@ export async function POST(req) {
   const studentName = (body.studentName || "").toString().trim().slice(0, 120) || "Học viên ẩn danh";
   const targetBand = (body.targetBand || "").toString().trim().slice(0, 20) || null;
   const sessionId = (body.sessionId || "").toString().trim().slice(0, 20) || null;
+  const contentBankId = (body.contentBankId || "").toString().trim().slice(0, 20) || null;
   const skillsIncluded = ALL_SKILLS.filter((s) => Array.isArray(body.skills) ? body.skills.includes(s) : true);
 
   const writingText = (body.writingText || "").toString();
   const wordCount = writingText.trim().length === 0 ? 0 : writingText.trim().split(/\s+/).length;
 
-  const content = await getActiveContentWithAnswers();
+  const content = await getActiveContentWithAnswers(contentBankId);
 
   const grammarQs = content.grammar;
   const readingQs = flattenSectionQuestions(content.reading.sections);
@@ -46,7 +47,7 @@ export async function POST(req) {
       reading_score, reading_total,
       listening_score, listening_total,
       objective_band, writing_text, writing_word_count, content_snapshot,
-      target_band, session_id, skills_included
+      target_band, session_id, skills_included, content_bank_id
     ) VALUES (
       ${id}, ${studentName}, ${JSON.stringify({
         grammar: body.grammarAnswers || {},
@@ -57,7 +58,7 @@ export async function POST(req) {
       ${r.earned}, ${r.total},
       ${l.earned}, ${l.total},
       ${objectiveBand}, ${writingText}, ${wordCount}, ${JSON.stringify(contentSnapshot)}::jsonb,
-      ${targetBand}, ${sessionId}, ${JSON.stringify(skillsIncluded)}::jsonb
+      ${targetBand}, ${sessionId}, ${JSON.stringify(skillsIncluded)}::jsonb, ${contentBankId}
     )
   `;
 

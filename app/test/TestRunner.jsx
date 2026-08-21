@@ -167,7 +167,8 @@ export default function TestRunner({ config }) {
   };
 
   useEffect(() => {
-    fetch("/api/content", { cache: "no-store" })
+    const url = config.contentBankId ? `/api/content?bank=${encodeURIComponent(config.contentBankId)}` : "/api/content";
+    fetch(url, { cache: "no-store" })
       .then((r) => r.json())
       .then(setContent)
       .catch(() => setLoadError("Không tải được đề thi. Vui lòng tải lại trang."));
@@ -281,6 +282,7 @@ export default function TestRunner({ config }) {
           studentName: name,
           targetBand,
           sessionId: config.sessionId || null,
+          contentBankId: config.contentBankId || null,
           skills: SECTION_STEPS,
           grammarAnswers: gAns,
           readingAnswers: rAns,
