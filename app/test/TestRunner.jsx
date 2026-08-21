@@ -1,12 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { flattenSectionQuestions } from "@/lib/content";
+import { flattenSectionQuestions, renderMarkedText } from "@/lib/content";
 import BrandBar from "../components/BrandBar";
 
 const ALL_SKILLS = ["grammar", "reading", "listening", "writing"];
 const SKILL_TITLES = { grammar: "Ngữ pháp", reading: "Reading", listening: "Listening", writing: "Writing" };
 const BAND_OPTIONS = ["4.0", "4.5", "5.0", "5.5", "6.0", "6.5", "7.0", "7.5", "8.0", "8.5", "Chưa rõ mục tiêu"];
+
+function MarkedText({ text }) {
+  const parts = renderMarkedText(text);
+  return parts.map((part) =>
+    typeof part === "string" ? part : <u key={part.key} className="vocab-underline">{part.text}</u>
+  );
+}
 
 function QuestionCard({ q, index, answer, onChange, locked }) {
   const type = q.type || "mc";
@@ -174,23 +181,29 @@ export default function TestRunner({ config }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [now]);
 
-  const stopSpeakingRef = useRef(null);
+  const audioRefs = useRef({});
+
   const stopSpeaking = () => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    try {
-      window.speechSynthesis.pause();
-      window.speechSynthesis.cancel();
-    } catch (e) {}
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+    }
+    Object.values(audioRefs.current).forEach((a) => {
+      try { a.pause(); } catch (e) {}
+    });
     setSpeakingIdx(null);
     if (stopSpeakingRef.current) clearTimeout(stopSpeakingRef.current);
     let attempts = 0;
     const retry = () => {
       attempts += 1;
-      try { window.speechSynthesis.cancel(); } catch (e) {}
+      try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
       if (attempts < 4) stopSpeakingRef.current = setTimeout(retry, 150);
     };
     stopSpeakingRef.current = setTimeout(retry, 150);
   };
+  const stopSpeakingRef = useRef(null);
 
   useEffect(() => {
     if (stage !== "listening") stopSpeaking();
@@ -199,20 +212,41 @@ export default function TestRunner({ config }) {
   useEffect(() => {
     return () => {
       if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+      Object.values(audioRefs.current).forEach((a) => { try { a.pause(); } catch (e) {} });
     };
   }, []);
 
-  const playListening = (idx, script) => {
-    if (!window.speechSynthesis) return;
+  // Plays a listening section's real audio file (sec.audioUrl) when
+  // available, otherwise falls back to browser voice-synthesis reading
+  // sec.script. Either way, playback is capped at config.listeningPlays
+  // and no seek controls are exposed (custom buttons only), so students
+  // can't rewind/scrub past what they've already heard.
+  const playListening = (idx, sec) => {
     const count = playCounts[idx] || 0;
     if (count >= config.listeningPlays) return;
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(script);
-    utter.lang = "en-US";
-    utter.rate = 0.95;
-    utter.onstart = () => setSpeakingIdx(idx);
-    utter.onend = () => setSpeakingIdx(null);
-    window.speechSynthesis.speak(utter);
+    stopSpeaking();
+
+    if (sec.audioUrl) {
+      let audio = audioRefs.current[idx];
+      if (!audio) {
+        audio = new Audio(sec.audioUrl);
+        audio.preload = "auto";
+        audioRefs.current[idx] = audio;
+      }
+      audio.onended = () => setSpeakingIdx(null);
+      audio.onerror = () => setSpeakingIdx(null);
+      audio.currentTime = 0;
+      audio.play().then(() => setSpeakingIdx(idx)).catch(() => setSpeakingIdx(null));
+    } else if (sec.script && typeof window !== "undefined" && window.speechSynthesis) {
+      const utter = new SpeechSynthesisUtterance(sec.script);
+      utter.lang = "en-US";
+      utter.rate = 0.95;
+      utter.onstart = () => setSpeakingIdx(idx);
+      utter.onend = () => setSpeakingIdx(null);
+      window.speechSynthesis.speak(utter);
+    } else {
+      return;
+    }
     setPlayCounts((p) => ({ ...p, [idx]: count + 1 }));
   };
 
@@ -263,7 +297,7 @@ export default function TestRunner({ config }) {
   };
 
   return (
-    <div className="wrap">
+    <div className={stage === "reading" ? "wrap-reading" : "wrap"}>
       <div className="topbar">
         <div>
           <p className="serif" style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>IELTS Placement Test</p>
@@ -345,13 +379,19 @@ export default function TestRunner({ config }) {
           {content.reading.sections.map((sec, si) => {
             const priorCount = content.reading.sections.slice(0, si).reduce((n, s) => n + s.questions.length, 0);
             return (
-              <div key={si}>
-                {sec.title && <p className="mono muted" style={{ fontSize: 12, marginTop: si > 0 ? 28 : 0, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{sec.title}</p>}
+              <div key={si} style={{ marginTop: si > 0 ? 40 : 0 }}>
+                {sec.title && <p className="mono muted" style={{ fontSize: 12, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{sec.title}</p>}
                 {sec.instructions && <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>{sec.instructions}</p>}
-                <div className="card">
-                  <p className="serif" style={{ lineHeight: 1.7, whiteSpace: "pre-line" }}>{sec.passage}</p>
+                <div className="reading-split">
+                  <div className="reading-passage-pane">
+                    <div className="card">
+                      <p className="serif" style={{ lineHeight: 1.7, whiteSpace: "pre-line" }}><MarkedText text={sec.passage} /></p>
+                    </div>
+                  </div>
+                  <div className="reading-questions-pane">
+                    <QuestionListBlock questions={sec.questions} answers={rAns} setAnswers={setRAns} startIndex={priorCount} locked={expired.reading} />
+                  </div>
                 </div>
-                <QuestionListBlock questions={sec.questions} answers={rAns} setAnswers={setRAns} startIndex={priorCount} locked={expired.reading} />
               </div>
             );
           })}
@@ -374,7 +414,7 @@ export default function TestRunner({ config }) {
                 {sec.instructions && <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>{sec.instructions}</p>}
                 <div className="card row">
                   <div className="row" style={{ gap: 10, justifyContent: "flex-start" }}>
-                    <button className="btn-ghost" disabled={count >= config.listeningPlays || speakingIdx === si} onClick={() => playListening(si, sec.script)}>
+                    <button className="btn-ghost" disabled={count >= config.listeningPlays || speakingIdx === si} onClick={() => playListening(si, sec)}>
                       {speakingIdx === si ? "▶ Đang phát…" : "▶ Phát audio"}
                     </button>
                     <button className="btn-ghost" onClick={stopSpeaking}>⏹ Dừng phát</button>

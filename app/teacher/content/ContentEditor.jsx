@@ -26,17 +26,25 @@ export default function ContentEditor() {
       if (type === "gap") return { type: "gap", q: q.q, answers: [""] };
       return { q: q.q };
     };
-    const stripSections = (sections, textKey) =>
+    const stripReadingSections = (sections) =>
       sections.map((sec) => ({
         title: sec.title || "",
         instructions: sec.instructions || "",
-        [textKey]: sec[textKey],
+        passage: sec.passage,
+        questions: sec.questions.map(strip),
+      }));
+    const stripListeningSections = (sections) =>
+      sections.map((sec) => ({
+        title: sec.title || "",
+        instructions: sec.instructions || "",
+        script: sec.script || "",
+        audioUrl: sec.audioUrl || "",
         questions: sec.questions.map(strip),
       }));
     const template = {
       grammar: data.grammar.map(strip),
-      reading: { sections: stripSections(data.reading.sections, "passage") },
-      listening: { sections: stripSections(data.listening.sections, "script") },
+      reading: { sections: stripReadingSections(data.reading.sections) },
+      listening: { sections: stripListeningSections(data.listening.sections) },
       writing: { prompt: data.writing.prompt },
     };
     const blob = new Blob([JSON.stringify(template, null, 2)], { type: "application/json" });
@@ -101,6 +109,7 @@ export default function ContentEditor() {
       <div className="card stack">
         <p className="mono muted" style={{ fontSize: 12 }}>NẠP BỘ ĐỀ MỚI</p>
         <p className="muted" style={{ fontSize: 14 }}>Tải mẫu JSON, chỉnh nội dung theo đúng cấu trúc, rồi tải lên hoặc dán lại vào đây.</p>
+        <p className="muted" style={{ fontSize: 12 }}>Mẹo: gạch chân 1 từ trong bài đọc bằng cách bọc quanh nó hai dấu gạch dưới, vd <code>__nurture__</code>. Với Listening, dán link chia sẻ Google Drive bình thường vào trường <code>audioUrl</code> — hệ thống tự chuyển thành link phát được.</p>
         <div className="row" style={{ justifyContent: "flex-start", gap: 10 }}>
           <button className="btn-ghost btn-sm" onClick={downloadTemplate}>⬇ Tải mẫu JSON</button>
           <button className="btn-ghost btn-sm" onClick={() => fileRef.current?.click()}>⬆ Tải file JSON lên</button>

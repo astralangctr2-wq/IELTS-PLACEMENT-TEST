@@ -28,6 +28,16 @@ a { color: inherit; }
 
 .wrap { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
 .wrap-wide { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
+.wrap-reading { max-width: 1200px; margin: 0 auto; padding: 32px 20px 64px; }
+
+.reading-split { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+.reading-passage-pane { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; padding-right: 4px; }
+.reading-questions-pane { min-width: 0; }
+@media (max-width: 860px) {
+  .reading-split { grid-template-columns: 1fr; }
+  .reading-passage-pane { position: static; max-height: none; }
+}
+.vocab-underline { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px; font-weight: 600; }
 
 .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; padding-bottom: 12px; border-bottom: 1.5px solid var(--ink); }
 .serif { font-family: var(--font-heading); }
