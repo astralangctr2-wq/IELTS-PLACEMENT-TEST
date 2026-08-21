@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { flattenSectionQuestions, renderMarkedText } from "@/lib/content";
+import { flattenSectionQuestions, renderMarkedText, parsePassageBlocks } from "@/lib/content";
 import BrandBar from "../components/BrandBar";
 
 const ALL_SKILLS = ["grammar", "reading", "listening", "writing"];
@@ -13,6 +13,23 @@ function MarkedText({ text }) {
   return parts.map((part) =>
     typeof part === "string" ? part : <u key={part.key} className="vocab-underline">{part.text}</u>
   );
+}
+
+function PassageBlocks({ text }) {
+  const blocks = parsePassageBlocks(text);
+  return blocks.map((b, i) => {
+    if (b.type === "title") {
+      return <p key={i} style={{ fontWeight: 700, fontSize: 18, marginTop: i > 0 ? 20 : 0, marginBottom: 10 }}>{b.text}</p>;
+    }
+    if (b.type === "heading") {
+      return <p key={i} style={{ fontWeight: 700, fontSize: 15, marginTop: i > 0 ? 18 : 0, marginBottom: 4 }}>{b.text}</p>;
+    }
+    return (
+      <p key={i} className="serif" style={{ lineHeight: 1.7, whiteSpace: "pre-line", marginBottom: 12 }}>
+        <MarkedText text={b.text} />
+      </p>
+    );
+  });
 }
 
 function QuestionCard({ q, index, answer, onChange, locked }) {
@@ -385,7 +402,7 @@ export default function TestRunner({ config }) {
                 <div className="reading-split">
                   <div className="reading-passage-pane">
                     <div className="card">
-                      <p className="serif" style={{ lineHeight: 1.7, whiteSpace: "pre-line" }}><MarkedText text={sec.passage} /></p>
+                      <PassageBlocks text={sec.passage} />
                     </div>
                   </div>
                   <div className="reading-questions-pane">
