@@ -307,12 +307,18 @@ export default function TestRunner({ config }) {
     return <div className="wrap"><div className="card"><p className="muted">Đang tải đề thi…</p></div></div>;
   }
 
-  const readingFlat = flattenSectionQuestions(content.reading.sections);
-  const listeningFlat = flattenSectionQuestions(content.listening.sections);
+  // Only include stages the content bank actually has data for — a bank
+  // can cover just one or two skills (e.g. a grammar-only practice quiz),
+  // so this guards against a session accidentally requesting a skill
+  // that skips silently instead of crashing.
+  const activeSteps = SECTION_STEPS.filter((s) => content[s]);
+
+  const readingFlat = flattenSectionQuestions(content.reading?.sections);
+  const listeningFlat = flattenSectionQuestions(content.listening?.sections);
 
   const nextAfter = (s) => {
-    const idx = SECTION_STEPS.indexOf(s);
-    return SECTION_STEPS[idx + 1] || "writing";
+    const idx = activeSteps.indexOf(s);
+    return activeSteps[idx + 1] || activeSteps[activeSteps.length - 1] || s;
   };
 
   return (
@@ -321,7 +327,7 @@ export default function TestRunner({ config }) {
         <div>
           <p className="serif" style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>IELTS Placement Test</p>
           <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>
-            {stage === "intro" ? "Bắt đầu" : stage === "done" ? "Hoàn tất" : `Bước ${SECTION_STEPS.indexOf(stage) + 1}/${SECTION_STEPS.length}`}
+            {stage === "intro" ? "Bắt đầu" : stage === "done" ? "Hoàn tất" : `Bước ${activeSteps.indexOf(stage) + 1}/${activeSteps.length}`}
           </p>
         </div>
         <BrandBar />
@@ -329,8 +335,8 @@ export default function TestRunner({ config }) {
 
       {SECTION_STEPS.includes(stage) && (
         <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: "wrap", justifyContent: "flex-start" }}>
-          {SECTION_STEPS.map((s, i) => {
-            const enabled = i <= furthestIndex;
+          {activeSteps.map((s, i) => {
+            const enabled = SECTION_STEPS.indexOf(s) <= furthestIndex;
             const active = s === stage;
             return (
               <button
@@ -369,17 +375,17 @@ export default function TestRunner({ config }) {
           <div className="card">
             <p className="mono muted" style={{ fontSize: 12, marginBottom: 10 }}>CẤU TRÚC BÀI TEST</p>
             <ul style={{ paddingLeft: 18, margin: 0, lineHeight: 1.9 }}>
-              {SECTION_STEPS.includes("grammar") && <li>Ngữ pháp & Từ vựng: {content.grammar.length} câu trắc nghiệm{config.timeLimits.grammar ? ` — ${config.timeLimits.grammar} phút` : ""}</li>}
-              {SECTION_STEPS.includes("reading") && <li>Reading: {content.reading.sections.length} đoạn văn, {readingFlat.length} câu hỏi{config.timeLimits.reading ? ` — ${config.timeLimits.reading} phút` : ""}</li>}
-              {SECTION_STEPS.includes("listening") && <li>Listening: nghe audio (tối đa {config.listeningPlays} lần/đoạn), {listeningFlat.length} câu hỏi</li>}
-              {SECTION_STEPS.includes("writing") && <li>Writing: bài luận{config.timeLimits.writing ? ` — ${config.timeLimits.writing} phút` : ""}, sẽ được giáo viên chấm điểm</li>}
+              {activeSteps.includes("grammar") && <li>Ngữ pháp & Từ vựng: {content.grammar.length} câu trắc nghiệm{config.timeLimits.grammar ? ` — ${config.timeLimits.grammar} phút` : ""}</li>}
+              {activeSteps.includes("reading") && <li>Reading: {content.reading.sections.length} đoạn văn, {readingFlat.length} câu hỏi{config.timeLimits.reading ? ` — ${config.timeLimits.reading} phút` : ""}</li>}
+              {activeSteps.includes("listening") && <li>Listening: nghe audio (tối đa {config.listeningPlays} lần/đoạn), {listeningFlat.length} câu hỏi</li>}
+              {activeSteps.includes("writing") && <li>Writing: bài luận{config.timeLimits.writing ? ` — ${config.timeLimits.writing} phút` : ""}, sẽ được giáo viên chấm điểm</li>}
             </ul>
           </div>
-          <button className="btn" disabled={!name.trim()} onClick={() => goStage(SECTION_STEPS[0])}>Bắt đầu làm bài →</button>
+          <button className="btn" disabled={!name.trim() || activeSteps.length === 0} onClick={() => goStage(activeSteps[0])}>Bắt đầu làm bài →</button>
         </div>
       )}
 
-      {stage === "grammar" && (
+      {stage === "grammar" && content.grammar && (
         <div>
           <div className="row"><p className="serif" style={{ fontSize: 22, marginBottom: 16 }}>Ngữ pháp & Từ vựng</p><BrandBar size="small" /></div>
           {expired.grammar && <p className="accent" style={{ marginBottom: 12 }}>⚠ Đã hết giờ — phần này đã bị khoá.</p>}
@@ -391,7 +397,7 @@ export default function TestRunner({ config }) {
         </div>
       )}
 
-      {stage === "reading" && (
+      {stage === "reading" && content.reading && (
         <div>
           <div className="row"><p className="serif" style={{ fontSize: 22, marginBottom: 16 }}>Reading</p><BrandBar size="small" /></div>
           {expired.reading && <p className="accent" style={{ marginBottom: 12 }}>⚠ Đã hết giờ — phần này đã bị khoá.</p>}
@@ -421,7 +427,7 @@ export default function TestRunner({ config }) {
         </div>
       )}
 
-      {stage === "listening" && (
+      {stage === "listening" && content.listening && (
         <div>
           <div className="row"><p className="serif" style={{ fontSize: 22, marginBottom: 16 }}>Listening</p><BrandBar size="small" /></div>
           {content.listening.sections.map((sec, si) => {
@@ -451,7 +457,7 @@ export default function TestRunner({ config }) {
         </div>
       )}
 
-      {stage === "writing" && (
+      {stage === "writing" && content.writing && (
         <div>
           <div className="row"><p className="serif" style={{ fontSize: 22, marginBottom: 16 }}>Writing</p><BrandBar size="small" /></div>
           <div className="card">

@@ -10,21 +10,24 @@ const SKILL_LABELS = {
 };
 const TIMED_SKILLS = ["grammar", "reading", "writing"];
 
-export default function SessionManager({ initialSessions, banks }) {
+const CATEGORY_LABELS = { placement: "Placement Test", midterm: "Mid-term Test", mock: "Mock Test", final: "Final Test", other: "Khác" };
+
+export default function SessionManager({ initialSessions, banks, initialCategory }) {
   const [sessions, setSessions] = useState(initialSessions);
   const [name, setName] = useState("");
   const [skills, setSkills] = useState({ grammar: true, reading: true, listening: true, writing: true });
   const [times, setTimes] = useState({ grammar: 40, reading: 40, writing: 30 });
   const [listeningPlays, setListeningPlays] = useState(1);
-  const defaultBank = banks.find((b) => b.is_default);
-  const [contentBankId, setContentBankId] = useState(defaultBank ? defaultBank.id : "");
+  const filteredBanks = initialCategory ? banks.filter((b) => b.category === initialCategory) : banks;
+  const bankChoices = filteredBanks.length > 0 ? filteredBanks : banks;
+  const [contentBankId, setContentBankId] = useState(bankChoices[0] ? bankChoices[0].id : "");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [newLink, setNewLink] = useState("");
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const bankName = (id) => {
-    if (!id) return "Mặc định";
+    if (!id) return "(chưa gán bộ đề)";
     const b = banks.find((bk) => bk.id === id);
     return b ? b.name : "(bộ đề đã xoá)";
   };
@@ -89,11 +92,18 @@ export default function SessionManager({ initialSessions, banks }) {
         <input type="text" placeholder="VD: Lớp A2 — chỉ Grammar + Reading" value={name} onChange={(e) => setName(e.target.value)} />
 
         <p style={{ margin: "16px 0 8px" }}>Bộ đề sử dụng:</p>
-        <select value={contentBankId} onChange={(e) => setContentBankId(e.target.value)}>
-          {banks.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}{b.is_default ? " (mặc định)" : ""}</option>
-          ))}
-        </select>
+        {bankChoices.length === 0 ? (
+          <p className="accent" style={{ fontSize: 13 }}>⚠ Chưa có bộ đề nào. Vào "Quản lý các bộ đề" để tạo trước.</p>
+        ) : (
+          <select value={contentBankId} onChange={(e) => setContentBankId(e.target.value)}>
+            {bankChoices.map((b) => (
+              <option key={b.id} value={b.id}>{b.name} — {CATEGORY_LABELS[b.category] || "Khác"}</option>
+            ))}
+          </select>
+        )}
+        {initialCategory && filteredBanks.length === 0 && (
+          <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>Chưa có bộ đề nào gắn nhãn "{CATEGORY_LABELS[initialCategory]}" — đang hiện tất cả bộ đề thay thế.</p>
+        )}
 
         <p style={{ margin: "16px 0 8px" }}>Kỹ năng đưa vào phiên thi:</p>
         <div className="stack">
@@ -134,7 +144,7 @@ export default function SessionManager({ initialSessions, banks }) {
           </div>
         </div>
 
-        <button className="btn" style={{ marginTop: 20 }} disabled={creating} onClick={create}>
+        <button className="btn" style={{ marginTop: 20 }} disabled={creating || bankChoices.length === 0} onClick={create}>
           {creating ? "Đang tạo…" : "Tạo phiên thi →"}
         </button>
         {error && <p className="accent" style={{ marginTop: 10 }}>⚠ {error}</p>}

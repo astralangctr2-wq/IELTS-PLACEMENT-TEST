@@ -13,11 +13,12 @@ export default async function TeacherContentPage() {
   const summaries = banks.map((b) => ({
     id: b.id,
     name: b.name,
-    is_default: b.is_default,
+    category: b.category,
     created_at: b.created_at,
-    grammarCount: b.content.grammar.length,
-    readingCount: b.content.reading.sections.reduce((n, s) => n + s.questions.length, 0),
-    listeningCount: b.content.listening.sections.reduce((n, s) => n + s.questions.length, 0),
+    grammarCount: b.content.grammar?.length ?? null,
+    readingCount: b.content.reading ? b.content.reading.sections.reduce((n, s) => n + s.questions.length, 0) : null,
+    listeningCount: b.content.listening ? b.content.listening.sections.reduce((n, s) => n + s.questions.length, 0) : null,
+    hasWriting: Boolean(b.content.writing),
   }));
   return (
     <div className="wrap">

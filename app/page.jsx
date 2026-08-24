@@ -1,31 +1,67 @@
 import Link from "next/link";
+import { isTeacherLoggedIn } from "@/lib/auth";
+import { CATEGORY_LABELS } from "@/lib/contentBanks";
+import BrandBar from "./components/BrandBar";
 
-export default function Home() {
+const TEST_TYPES = [
+  {
+    key: "placement",
+    tag: CATEGORY_LABELS.placement,
+    desc: "Đánh giá năng lực đầu vào của học viên mới, giúp xếp đúng lớp học phù hợp với trình độ.",
+  },
+  {
+    key: "midterm",
+    tag: CATEGORY_LABELS.midterm,
+    desc: "Kiểm tra giữa kỳ, theo dõi tiến độ học tập của học viên trong quá trình học.",
+  },
+  {
+    key: "mock",
+    tag: CATEGORY_LABELS.mock,
+    desc: "Luyện tập với giao diện làm bài gần giống thi thật — cơ hội để học viên làm quen và tự tin hơn trước kỳ thi chính thức.",
+  },
+  {
+    key: "final",
+    tag: CATEGORY_LABELS.final,
+    desc: "Kiểm tra cuối kỳ, đánh giá tổng kết năng lực học viên sau khi hoàn thành khoá học.",
+  },
+];
+
+export default function HomePage() {
+  const loggedIn = isTeacherLoggedIn();
+
+  const hrefFor = (category) => {
+    const target = `/teacher/sessions?category=${category}`;
+    return loggedIn ? target : `/teacher/login?redirect=${encodeURIComponent(target)}`;
+  };
+
   return (
-    <div className="wrap">
-      <div className="topbar">
-        <div>
-          <p className="serif" style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>IELTS Placement Test</p>
-          <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>Bài kiểm tra xếp lớp</p>
-        </div>
+    <div className="wrap-wide">
+      <div className="hero">
+        <BrandBar size="hero" style={{ justifyContent: "center" }} />
+        <p className="serif hero-title">Hệ thống kiểm tra & luyện thi</p>
+        <p className="muted hero-sub">
+          Mỗi bài test được gửi tới học viên qua một đường link riêng. Chọn loại bài test bên dưới để tạo link cho lớp của bạn.
+        </p>
       </div>
 
-      <div className="card card-strong stack">
-        <div>
-          <span className="tag">Học viên</span>
-          <p className="serif" style={{ fontSize: 18, margin: "8px 0" }}>Làm bài kiểm tra đầu vào</p>
-          <p className="muted" style={{ fontSize: 14, margin: "0 0 12px" }}>Ngữ pháp, Reading, Listening được chấm tự động. Writing sẽ được giáo viên chấm sau.</p>
-          <Link href="/test"><button className="btn">Bắt đầu làm bài →</button></Link>
-        </div>
+      <div className="test-grid">
+        {TEST_TYPES.map((t) => (
+          <div key={t.key} className="test-card">
+            <p className="tag" style={{ marginBottom: 12 }}>{t.tag}</p>
+            <p className="test-card-desc">{t.desc}</p>
+            <Link href={hrefFor(t.key)}>
+              <button className="btn">Tạo link cho bài này →</button>
+            </Link>
+          </div>
+        ))}
       </div>
 
-      <div className="card stack">
-        <div>
-          <span className="tag">Giáo viên</span>
-          <p className="serif" style={{ fontSize: 18, margin: "8px 0" }}>Xem & chấm bài học viên</p>
-          <p className="muted" style={{ fontSize: 14, margin: "0 0 12px" }}>Đăng nhập để xem danh sách bài nộp và chấm điểm Writing.</p>
-          <Link href="/teacher/login"><button className="btn-ghost">Đăng nhập giáo viên →</button></Link>
-        </div>
+      <div className="row" style={{ justifyContent: "center" }}>
+        {loggedIn ? (
+          <Link href="/teacher"><button className="btn-ghost btn-sm">Bảng điều khiển Giáo viên →</button></Link>
+        ) : (
+          <Link href="/teacher/login"><button className="btn-ghost btn-sm">Giáo viên đăng nhập →</button></Link>
+        )}
       </div>
     </div>
   );

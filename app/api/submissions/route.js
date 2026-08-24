@@ -21,9 +21,9 @@ export async function POST(req) {
 
   const content = await getActiveContentWithAnswers(contentBankId);
 
-  const grammarQs = content.grammar;
-  const readingQs = flattenSectionQuestions(content.reading.sections);
-  const listeningQs = flattenSectionQuestions(content.listening.sections);
+  const grammarQs = content.grammar || [];
+  const readingQs = flattenSectionQuestions(content.reading?.sections);
+  const listeningQs = flattenSectionQuestions(content.listening?.sections);
 
   const zero = { earned: 0, total: 0 };
   const g = skillsIncluded.includes("grammar") ? scoreQuestions(body.grammarAnswers, grammarQs) : zero;

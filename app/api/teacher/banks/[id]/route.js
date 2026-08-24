@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isValidSessionValue } from "@/lib/auth";
-import { getContentBank, updateContentBank, setDefaultContentBank, deleteContentBank } from "@/lib/contentBanks";
+import { getContentBank, updateContentBank, deleteContentBank } from "@/lib/contentBanks";
 
 function requireTeacher() {
   const value = cookies().get("teacher_session")?.value;
@@ -19,12 +19,8 @@ export async function PATCH(req, { params }) {
   if (!requireTeacher()) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   try {
     const body = await req.json();
-    if (body.action === "setDefault") {
-      await setDefaultContentBank(params.id);
-      return NextResponse.json({ ok: true });
-    }
     if (body.content) {
-      await updateContentBank(params.id, body.content, body.name);
+      await updateContentBank(params.id, body.content, body.name, body.category);
       return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: "Không có thay đổi hợp lệ." }, { status: 400 });
