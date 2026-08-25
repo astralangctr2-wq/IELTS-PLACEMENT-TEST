@@ -4,7 +4,7 @@ function OptionRow({ opt, index, chosen, correct }) {
   let bg = "transparent";
   let border = "var(--grid)";
   if (isCorrect) { bg = "rgba(47,111,99,0.12)"; border = "var(--success)"; }
-  if (isChosen && !isCorrect) { bg = "rgba(180,57,44,0.12)"; border = "var(--accent)"; }
+  if (isChosen && !isCorrect) { bg = "rgba(225,89,107,0.14)"; border = "var(--danger)"; }
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", border: `1px solid ${border}`, background: bg, marginBottom: 4 }}>
@@ -26,7 +26,7 @@ function MultiSelectReview({ opts, chosen, correct }) {
         let bg = "transparent";
         let border = "var(--grid)";
         if (isCorrect) { bg = "rgba(47,111,99,0.12)"; border = "var(--success)"; }
-        if (isChosen && !isCorrect) { bg = "rgba(180,57,44,0.12)"; border = "var(--accent)"; }
+        if (isChosen && !isCorrect) { bg = "rgba(225,89,107,0.14)"; border = "var(--danger)"; }
         return (
           <div key={oi} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", border: `1px solid ${border}`, background: bg, marginBottom: 4 }}>
             <span className="mono" style={{ fontSize: 11, width: 16 }}>{String.fromCharCode(65 + oi)}</span>
@@ -85,7 +85,7 @@ export default function AnswerReview({ title, questions, answers }) {
               )}
               <p style={{ fontSize: 13, marginBottom: 6 }}>
                 <span className="mono muted">Câu {i + 1}.</span> {q.q}{" "}
-                {isRight ? <span className="success mono" style={{ fontSize: 11 }}>ĐÚNG</span> : <span className="accent mono" style={{ fontSize: 11 }}>SAI</span>}
+                {isRight ? <span className="success mono" style={{ fontSize: 11 }}>ĐÚNG</span> : <span className="danger mono" style={{ fontSize: 11 }}>SAI</span>}
               </p>
               {type === "mc" && q.opts.map((opt, oi) => (
                 <OptionRow key={oi} opt={opt} index={oi} chosen={chosen} correct={q.a} />

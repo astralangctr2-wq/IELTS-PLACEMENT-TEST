@@ -41,6 +41,17 @@ export async function PATCH(req, { params }) {
   }
   await ensureSchema();
   const body = await req.json();
+
+  // Moving a submission into a different session/folder — a separate
+  // concern from grading, kept in the same route since both act on a
+  // single submission by id.
+  if (body.action === "moveSession") {
+    const sessionId = body.sessionId ? String(body.sessionId).slice(0, 20) : null;
+    const { rowCount } = await sql`UPDATE submissions SET session_id = ${sessionId} WHERE id = ${params.id}`;
+    if (rowCount === 0) return NextResponse.json({ error: "Không tìm thấy bài làm." }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  }
+
   const writingBand = Number(body.writingBand);
   const writingFeedback = (body.writingFeedback || "").toString().slice(0, 4000);
 

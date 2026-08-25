@@ -40,7 +40,7 @@ export default function HomePage() {
         <BrandBar size="hero" style={{ justifyContent: "center" }} />
         <p className="serif hero-title">Hệ thống kiểm tra & luyện thi</p>
         <p className="muted hero-sub">
-          Mỗi bài test được gửi tới học viên qua một đường link riêng. Chọn loại bài test bên dưới để tạo link cho lớp của bạn.
+          Nền tảng đánh giá năng lực tiếng Anh chuẩn quốc tế — từ kiểm tra đầu vào đến luyện thi thực chiến.
         </p>
       </div>
 

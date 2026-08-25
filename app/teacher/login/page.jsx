@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 function LoginForm() {
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -35,7 +36,33 @@ function LoginForm() {
     <form onSubmit={submit} className="card card-strong stack">
       <div>
         <p style={{ marginBottom: 8 }}>Mật khẩu:</p>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+        <div style={{ position: "relative" }}>
+          <input
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoFocus
+            style={{ paddingRight: 70 }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="mono muted"
+            style={{
+              position: "absolute",
+              right: 6,
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 13,
+              padding: "6px 8px",
+            }}
+          >
+            {showPassword ? "Ẩn" : "Hiện"}
+          </button>
+        </div>
       </div>
       {error && <p className="accent">{error}</p>}
       <button className="btn" type="submit" disabled={loading || !password}>

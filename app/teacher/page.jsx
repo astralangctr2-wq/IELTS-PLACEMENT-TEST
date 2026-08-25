@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { requireTeacherOrRedirect } from "@/lib/auth";
 import { sql, ensureSchema } from "@/lib/db";
+import { listSessions } from "@/lib/testSessions";
 import LogoutButton from "./LogoutButton";
-import DeleteButton from "./DeleteButton";
+import SubmissionsBoard from "./SubmissionsBoard";
 
 export const dynamic = "force-dynamic";
 
@@ -11,24 +11,45 @@ export default async function TeacherDashboard() {
   await ensureSchema();
 
   const { rows } = await sql`
-    SELECT id, student_name, created_at, objective_band, writing_word_count, final_band, graded, target_band, skills_included
-    FROM submissions
-    ORDER BY created_at DESC
+    SELECT s.id, s.student_name, s.created_at, s.objective_band, s.writing_word_count,
+           s.final_band, s.graded, s.target_band, s.skills_included, s.session_id,
+           ts.name AS session_name
+    FROM submissions s
+    LEFT JOIN test_sessions ts ON ts.id = s.session_id
+    ORDER BY s.created_at DESC
   `;
 
+  const sessions = await listSessions();
+  const allSessions = sessions.map((s) => ({ id: s.id, name: s.name }));
+
+  // Group by session — submissions whose session was deleted (or that
+  // never had one) fall into "Chưa phân loại".
+  const groupsMap = new Map();
+  for (const r of rows) {
+    const key = r.session_id && r.session_name ? r.session_id : "__unassigned__";
+    const label = r.session_id && r.session_name ? r.session_name : "Chưa phân loại";
+    if (!groupsMap.has(key)) groupsMap.set(key, { sessionId: r.session_id && r.session_name ? r.session_id : null, name: label, rows: [] });
+    groupsMap.get(key).rows.push(r);
+  }
+  // Sort groups by most recent submission in each, unassigned last.
+  const groups = [...groupsMap.values()].sort((a, b) => {
+    if (a.sessionId === null) return 1;
+    if (b.sessionId === null) return -1;
+    return new Date(b.rows[0].created_at) - new Date(a.rows[0].created_at);
+  });
+
   const pendingCount = rows.filter((r) => !r.graded).length;
-  const skillLabel = { grammar: "NP", reading: "R", listening: "L", writing: "W" };
 
   return (
     <div className="wrap-wide">
       <div className="topbar">
         <div>
-          <p className="serif" style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Bảng điều khiển Giáo viên</p>
-          <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>{rows.length} bài nộp — {pendingCount} chưa chấm Writing</p>
+          <p className="serif" style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Bảng điều khiển Giáo viên</p>
+          <p className="mono muted" style={{ fontSize: 13, margin: "4px 0 0" }}>{rows.length} bài nộp — {pendingCount} chưa chấm Writing</p>
         </div>
-        <div className="row" style={{ gap: 10 }}>
-          <Link href="/teacher/sessions"><button className="btn-ghost btn-sm">Tạo link phiên thi</button></Link>
-          <Link href="/teacher/content"><button className="btn-ghost btn-sm">Quản lý đề thi</button></Link>
+        <div className="row" style={{ gap: 10, width: "auto" }}>
+          <a href="/teacher/sessions"><button className="btn-ghost btn-sm">Tạo link phiên thi</button></a>
+          <a href="/teacher/content"><button className="btn-ghost btn-sm">Quản lý đề thi</button></a>
           <LogoutButton />
         </div>
       </div>
@@ -36,43 +57,7 @@ export default async function TeacherDashboard() {
       {rows.length === 0 ? (
         <div className="card"><p className="muted">Chưa có bài nộp nào.</p></div>
       ) : (
-        <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Học viên</th>
-                <th>Mục tiêu</th>
-                <th>Kỹ năng làm</th>
-                <th>Thời gian</th>
-                <th>Band tự động</th>
-                <th>Số từ Writing</th>
-                <th>Trạng thái</th>
-                <th>Band cuối</th>
-                <th></th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const skills = Array.isArray(r.skills_included) ? r.skills_included : ["grammar", "reading", "listening", "writing"];
-                return (
-                  <tr key={r.id}>
-                    <td>{r.student_name}</td>
-                    <td className="mono muted">{r.target_band || "—"}</td>
-                    <td className="mono muted">{skills.map((s) => skillLabel[s] || s).join(", ")}</td>
-                    <td className="mono muted">{new Date(r.created_at).toLocaleString("vi-VN")}</td>
-                    <td>{Number(r.objective_band).toFixed(1)}</td>
-                    <td>{r.writing_word_count}</td>
-                    <td>{r.graded ? <span className="success">Đã chấm</span> : <span className="accent">Chưa chấm</span>}</td>
-                    <td>{r.graded ? Number(r.final_band).toFixed(1) : "—"}</td>
-                    <td><Link href={`/teacher/${r.id}`}><button className="btn-ghost btn-sm">Xem & chấm →</button></Link></td>
-                    <td><DeleteButton id={r.id} studentName={r.student_name} /></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <SubmissionsBoard initialGroups={groups} allSessions={allSessions} />
       )}
     </div>
   );
