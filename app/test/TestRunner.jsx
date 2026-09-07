@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { flattenSectionQuestions, renderMarkedText, parsePassageBlocks } from "@/lib/content";
 import BrandBar from "../components/BrandBar";
 
 const ALL_SKILLS = ["grammar", "reading", "listening", "writing"];
 const SKILL_TITLES = { grammar: "Ngữ pháp", reading: "Reading", listening: "Listening", writing: "Writing" };
 const BAND_OPTIONS = ["4.0", "4.5", "5.0", "5.5", "6.0", "6.5", "7.0", "7.5", "8.0", "8.5", "Chưa rõ mục tiêu"];
+const FONT_SIZES = { small: 0.9, medium: 1, large: 1.15 };
 
 function MarkedText({ text }) {
   const parts = renderMarkedText(text);
@@ -15,7 +16,11 @@ function MarkedText({ text }) {
   );
 }
 
-function PassageBlocks({ text }) {
+// Memoized so it renders exactly once per passage and never again — the
+// countdown timer ticks every second and would otherwise wipe out any
+// highlights the student has manually added via text selection (React
+// would reconcile the subtree from scratch on every tick).
+const PassageBlocks = memo(function PassageBlocks({ text }) {
   const blocks = parsePassageBlocks(text);
   return blocks.map((b, i) => {
     if (b.type === "title") {
@@ -30,6 +35,65 @@ function PassageBlocks({ text }) {
       </p>
     );
   });
+});
+
+// Wraps a passage in a highlight-on-select layer: dragging over text
+// wraps the selection in a <mark>, clicking an existing highlight
+// removes it. Implemented as direct DOM manipulation (not React state)
+// specifically because the passage subtree above is memoized/frozen —
+// this is what lets highlights survive the app's frequent re-renders.
+function HighlightablePassage({ text }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const onMouseUp = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      if (!el.contains(range.commonAncestorContainer) || range.collapsed) return;
+      const mark = document.createElement("mark");
+      mark.className = "reading-highlight";
+      try {
+        range.surroundContents(mark);
+      } catch (err) {
+        // selection crosses element boundaries (e.g. an underlined word) —
+        // surroundContents can't handle that, so extract + rewrap instead.
+        try {
+          const contents = range.extractContents();
+          mark.appendChild(contents);
+          range.insertNode(mark);
+        } catch (err2) {
+          // give up quietly rather than breaking the page
+        }
+      }
+      sel.removeAllRanges();
+    };
+
+    const onClick = (e) => {
+      const mark = e.target.closest && e.target.closest("mark.reading-highlight");
+      if (!mark || !el.contains(mark)) return;
+      const parent = mark.parentNode;
+      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+      parent.removeChild(mark);
+      parent.normalize();
+    };
+
+    el.addEventListener("mouseup", onMouseUp);
+    el.addEventListener("click", onClick);
+    return () => {
+      el.removeEventListener("mouseup", onMouseUp);
+      el.removeEventListener("click", onClick);
+    };
+  }, []);
+
+  return (
+    <div ref={ref} className="highlightable">
+      <PassageBlocks text={text} />
+    </div>
+  );
 }
 
 function QuestionCard({ q, index, answer, onChange, locked }) {
@@ -156,6 +220,55 @@ export default function TestRunner({ config }) {
   const [expired, setExpired] = useState({}); // { grammar: true, ... } once time has run out
   const [now, setNow] = useState(Date.now());
   const autoActionDone = useRef({});
+
+  // Text size preference — set via the same control cluster as the
+  // light/dark toggle (top-right corner), shared across the whole app
+  // via localStorage but only visually applied within this test view.
+  const [fontSize, setFontSize] = useState("medium");
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("fontSize");
+      if (saved && FONT_SIZES[saved]) setFontSize(saved);
+    } catch (e) {}
+    const onStorage = (e) => {
+      if (e.key === "fontSize" && FONT_SIZES[e.newValue]) setFontSize(e.newValue);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // Draggable divider ratio for the Reading split-screen (percentage
+  // width of the passage column), shared across all sections on the page.
+  const [splitRatio, setSplitRatio] = useState(50);
+  const splitRef = useRef(null);
+  const draggingRef = useRef(false);
+
+  useEffect(() => {
+    const move = (clientX) => {
+      if (!draggingRef.current || !splitRef.current) return;
+      const rect = splitRef.current.getBoundingClientRect();
+      const pct = ((clientX - rect.left) / rect.width) * 100;
+      setSplitRatio(Math.min(75, Math.max(25, pct)));
+    };
+    const onMouseMove = (e) => move(e.clientX);
+    const onTouchMove = (e) => { if (e.touches[0]) move(e.touches[0].clientX); };
+    const onEnd = () => { draggingRef.current = false; document.body.style.cursor = ""; };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove);
+    window.addEventListener("mouseup", onEnd);
+    window.addEventListener("touchend", onEnd);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", onEnd);
+      window.removeEventListener("touchend", onEnd);
+    };
+  }, []);
+
+  const startDrag = () => {
+    draggingRef.current = true;
+    document.body.style.cursor = "col-resize";
+  };
 
   const goStage = (next) => {
     const idx = SECTION_STEPS.indexOf(next);
@@ -322,7 +435,7 @@ export default function TestRunner({ config }) {
   };
 
   return (
-    <div className={stage === "reading" ? "wrap-reading" : "wrap"}>
+    <div className={stage === "reading" ? "wrap-reading" : "wrap"} style={{ zoom: FONT_SIZES[fontSize] }}>
       <div className="topbar">
         <div>
           <p className="serif" style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>IELTS Placement Test</p>
@@ -354,10 +467,10 @@ export default function TestRunner({ config }) {
       )}
 
       {["grammar", "reading", "writing"].includes(stage) && config.timeLimits[stage] && (
-        <div className="row" style={{ marginBottom: 20 }}>
-          <p className={`mono ${deadlines[stage] && now >= deadlines[stage] - 60000 ? "accent" : "muted"}`} style={{ fontSize: 13 }}>
-            ⏱ Thời gian còn lại: {deadlines[stage] ? formatClock(deadlines[stage] - now) : `${config.timeLimits[stage]}:00`}
-          </p>
+        <div className="timer-pin">
+          <span className={`timer-badge ${deadlines[stage] && now >= deadlines[stage] - 60000 ? "low" : ""}`}>
+            ⏱ {deadlines[stage] ? formatClock(deadlines[stage] - now) : `${config.timeLimits[stage]}:00`}
+          </span>
         </div>
       )}
 
@@ -407,11 +520,19 @@ export default function TestRunner({ config }) {
               <div key={si} style={{ marginTop: si > 0 ? 40 : 0 }}>
                 {sec.title && <p className="mono muted" style={{ fontSize: 12, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{sec.title}</p>}
                 {sec.instructions && <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>{sec.instructions}</p>}
-                <div className="reading-split">
+                <div className="reading-split" ref={splitRef} style={{ gridTemplateColumns: `${splitRatio}% 10px ${100 - splitRatio}%` }}>
                   <div className="reading-passage-pane">
                     <div className="card">
-                      <PassageBlocks text={sec.passage} />
+                      <HighlightablePassage text={sec.passage} />
                     </div>
+                  </div>
+                  <div
+                    className="split-handle"
+                    onMouseDown={startDrag}
+                    onTouchStart={startDrag}
+                    title="Kéo để đổi tỉ lệ 2 bên"
+                  >
+                    <span />
                   </div>
                   <div className="reading-questions-pane">
                     <QuestionListBlock questions={sec.questions} answers={rAns} setAnswers={setRAns} startIndex={priorCount} locked={expired.reading} />
@@ -482,7 +603,7 @@ export default function TestRunner({ config }) {
         </div>
       )}
 
-      <div style={{ marginTop: 40, paddingTop: 16, borderTop: "1px solid var(--grid)" }}>
+      <div style={{ marginTop: 40, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
         <BrandBar size="small" style={{ justifyContent: "center" }} />
       </div>
     </div>

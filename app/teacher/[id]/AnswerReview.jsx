@@ -2,7 +2,7 @@ function OptionRow({ opt, index, chosen, correct }) {
   const isChosen = chosen === index;
   const isCorrect = correct === index;
   let bg = "transparent";
-  let border = "var(--grid)";
+  let border = "var(--border)";
   if (isCorrect) { bg = "rgba(47,111,99,0.12)"; border = "var(--success)"; }
   if (isChosen && !isCorrect) { bg = "rgba(225,89,107,0.14)"; border = "var(--danger)"; }
 
@@ -24,7 +24,7 @@ function MultiSelectReview({ opts, chosen, correct }) {
         const isChosen = chosenArr.includes(oi);
         const isCorrect = correct.includes(oi);
         let bg = "transparent";
-        let border = "var(--grid)";
+        let border = "var(--border)";
         if (isCorrect) { bg = "rgba(47,111,99,0.12)"; border = "var(--success)"; }
         if (isChosen && !isCorrect) { bg = "rgba(225,89,107,0.14)"; border = "var(--danger)"; }
         return (
