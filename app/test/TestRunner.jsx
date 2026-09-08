@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { flattenSectionQuestions, renderMarkedText, parsePassageBlocks } from "@/lib/content";
 import BrandBar from "../components/BrandBar";
 
@@ -37,12 +37,15 @@ const PassageBlocks = memo(function PassageBlocks({ text }) {
   });
 });
 
-// Wraps a passage in a highlight-on-select layer: dragging over text
-// wraps the selection in a <mark>, clicking an existing highlight
-// removes it. Implemented as direct DOM manipulation (not React state)
-// specifically because the passage subtree above is memoized/frozen —
-// this is what lets highlights survive the app's frequent re-renders.
-function HighlightablePassage({ text }) {
+// Enables "drag to select → auto-highlight" over its children: dragging
+// over text wraps the selection in a <mark>, clicking an existing
+// highlight removes it. Implemented as direct DOM manipulation (not
+// React state), so it only stays reliable over content that doesn't
+// re-render on its own (see the memoized PassageBlocks/QuestionCard
+// below) — a re-render of a specific piece of text will still reset
+// any highlight sitting on exactly that text, which is an accepted
+// trade-off for keeping this feature simple.
+function HighlightZone({ children }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -59,8 +62,9 @@ function HighlightablePassage({ text }) {
       try {
         range.surroundContents(mark);
       } catch (err) {
-        // selection crosses element boundaries (e.g. an underlined word) —
-        // surroundContents can't handle that, so extract + rewrap instead.
+        // selection crosses element boundaries (e.g. an underlined word,
+        // or spans two <p> tags) — surroundContents can't handle that,
+        // so extract + rewrap instead.
         try {
           const contents = range.extractContents();
           mark.appendChild(contents);
@@ -91,12 +95,17 @@ function HighlightablePassage({ text }) {
 
   return (
     <div ref={ref} className="highlightable">
-      <PassageBlocks text={text} />
+      {children}
     </div>
   );
 }
 
-function QuestionCard({ q, index, answer, onChange, locked }) {
+// Memoized so a question card only re-renders when its OWN answer,
+// lock state, or index actually changes — not on every tick of the
+// countdown timer elsewhere on the page. This is what lets highlights
+// on a question's text survive as long as the student isn't actively
+// answering that specific question.
+const QuestionCard = memo(function QuestionCard({ q, qId, index, answer, onChange, locked }) {
   const type = q.type || "mc";
   return (
     <div className="card">
@@ -109,11 +118,11 @@ function QuestionCard({ q, index, answer, onChange, locked }) {
             <div
               key={oi}
               className={`option ${answer === oi ? "selected" : ""}`}
-              onClick={() => !locked && onChange(oi)}
+              onClick={() => !locked && onChange(qId, oi)}
               role="button"
               tabIndex={0}
               style={locked ? { opacity: 0.6, cursor: "not-allowed" } : {}}
-              onKeyDown={(e) => { if (!locked && (e.key === "Enter" || e.key === " ")) onChange(oi); }}
+              onKeyDown={(e) => { if (!locked && (e.key === "Enter" || e.key === " ")) onChange(qId, oi); }}
             >
               <span className={`bubble ${answer === oi ? "selected" : ""}`}>{String.fromCharCode(65 + oi)}</span>
               <span>{opt}</span>
@@ -128,7 +137,7 @@ function QuestionCard({ q, index, answer, onChange, locked }) {
           disabled={locked}
           placeholder="Nhập câu trả lời…"
           value={typeof answer === "string" ? answer : ""}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(qId, e.target.value)}
         />
       )}
 
@@ -148,7 +157,7 @@ function QuestionCard({ q, index, answer, onChange, locked }) {
                   onClick={() => {
                     if (locked || atLimit) return;
                     const next = selected ? arr.filter((i) => i !== oi) : [...arr, oi];
-                    onChange(next);
+                    onChange(qId, next);
                   }}
                   role="button"
                   tabIndex={0}
@@ -163,24 +172,29 @@ function QuestionCard({ q, index, answer, onChange, locked }) {
       )}
     </div>
   );
-}
+});
 
-function QuestionListBlock({ questions, answers, setAnswers, startIndex = 0, locked }) {
+const QuestionListBlock = memo(function QuestionListBlock({ questions, answers, setAnswers, startIndex = 0, locked }) {
+  const handleChange = useCallback((qId, val) => {
+    setAnswers((prev) => ({ ...prev, [qId]: val }));
+  }, [setAnswers]);
+
   return (
     <div className="stack">
       {questions.map((q, i) => (
         <QuestionCard
           key={q.id}
           q={q}
+          qId={q.id}
           index={startIndex + i}
           answer={answers[q.id]}
           locked={locked}
-          onChange={(val) => setAnswers((prev) => ({ ...prev, [q.id]: val }))}
+          onChange={handleChange}
         />
       ))}
     </div>
   );
-}
+});
 
 function isAnswered(val) {
   if (val === undefined || val === null) return false;
@@ -514,16 +528,19 @@ export default function TestRunner({ config }) {
         <div>
           <div className="row"><p className="serif" style={{ fontSize: 22, marginBottom: 16 }}>Reading</p><BrandBar size="small" /></div>
           {expired.reading && <p className="accent" style={{ marginBottom: 12 }}>⚠ Đã hết giờ — phần này đã bị khoá.</p>}
+          <div ref={splitRef}>
           {content.reading.sections.map((sec, si) => {
             const priorCount = content.reading.sections.slice(0, si).reduce((n, s) => n + s.questions.length, 0);
             return (
               <div key={si} style={{ marginTop: si > 0 ? 40 : 0 }}>
                 {sec.title && <p className="mono muted" style={{ fontSize: 12, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{sec.title}</p>}
                 {sec.instructions && <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>{sec.instructions}</p>}
-                <div className="reading-split" ref={splitRef} style={{ gridTemplateColumns: `${splitRatio}% 10px ${100 - splitRatio}%` }}>
+                <div className="reading-split" style={{ gridTemplateColumns: `${splitRatio}% 14px ${100 - splitRatio}%` }}>
                   <div className="reading-passage-pane">
                     <div className="card">
-                      <HighlightablePassage text={sec.passage} />
+                      <HighlightZone>
+                        <PassageBlocks text={sec.passage} />
+                      </HighlightZone>
                     </div>
                   </div>
                   <div
@@ -532,15 +549,19 @@ export default function TestRunner({ config }) {
                     onTouchStart={startDrag}
                     title="Kéo để đổi tỉ lệ 2 bên"
                   >
-                    <span />
+                    <span className="split-handle-line" />
+                    <span className="split-handle-grip">⟷</span>
                   </div>
                   <div className="reading-questions-pane">
-                    <QuestionListBlock questions={sec.questions} answers={rAns} setAnswers={setRAns} startIndex={priorCount} locked={expired.reading} />
+                    <HighlightZone>
+                      <QuestionListBlock questions={sec.questions} answers={rAns} setAnswers={setRAns} startIndex={priorCount} locked={expired.reading} />
+                    </HighlightZone>
                   </div>
                 </div>
               </div>
             );
           })}
+          </div>
           <div className="row" style={{ marginTop: 20 }}>
             <p className="mono muted" style={{ fontSize: 12 }}>{answeredCount(rAns, readingFlat)}/{readingFlat.length} đã trả lời</p>
             <button className="btn" onClick={() => goStage(nextAfter("reading"))}>Tiếp theo →</button>
@@ -567,7 +588,9 @@ export default function TestRunner({ config }) {
                   </div>
                   <p className="mono muted" style={{ fontSize: 12 }}>Đã phát: {count}/{config.listeningPlays} lần</p>
                 </div>
-                <QuestionListBlock questions={sec.questions} answers={lAns} setAnswers={setLAns} startIndex={priorCount} />
+                <HighlightZone>
+                  <QuestionListBlock questions={sec.questions} answers={lAns} setAnswers={setLAns} startIndex={priorCount} />
+                </HighlightZone>
               </div>
             );
           })}

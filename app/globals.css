@@ -81,9 +81,28 @@ a { color: inherit; text-decoration: none; }
 }
 .vocab-underline { text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 3px; text-underline-offset: 4px; font-weight: 700; color: var(--ink); }
 
-.split-handle { display: flex; align-items: stretch; justify-content: center; cursor: col-resize; }
-.split-handle span { width: 4px; border-radius: 4px; background: var(--border); transition: background .12s ease; }
-.split-handle:hover span, .split-handle:active span { background: var(--primary); }
+.split-handle { align-self: stretch; position: relative; display: flex; justify-content: center; cursor: col-resize; }
+.split-handle-line { position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: 3px; border-radius: 4px; background: var(--border); transition: background .12s ease; }
+.split-handle:hover .split-handle-line, .split-handle:active .split-handle-line { background: var(--primary); }
+.split-handle-grip {
+  position: sticky;
+  top: 50vh;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--muted);
+  box-shadow: var(--shadow);
+  z-index: 5;
+  transition: border-color .12s ease, color .12s ease;
+}
+.split-handle:hover .split-handle-grip, .split-handle:active .split-handle-grip { border-color: var(--primary); color: var(--primary); }
 
 .highlightable ::selection { background: rgba(79, 99, 255, 0.35); }
 mark.reading-highlight { background: rgba(240, 180, 41, 0.45); color: var(--ink); border-radius: 2px; padding: 0 1px; cursor: pointer; }
