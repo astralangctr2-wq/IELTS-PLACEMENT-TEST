@@ -188,14 +188,14 @@ export default function BankManager({ initialBanks }) {
     const res = await fetch(url, { cache: "no-store" });
     const data = await res.json();
     const stripReading = (sections) =>
-      sections.map((sec) => ({ title: sec.title || "", instructions: sec.instructions || "", passage: sec.passage, questions: sec.questions.map(stripQuestion) }));
+      sections.map((sec) => ({ title: sec.title || "", instructions: sec.instructions || "", passage: sec.passage, imageUrl: sec.imageUrl || "", questions: sec.questions.map(stripQuestion) }));
     const stripListening = (sections) =>
       sections.map((sec) => ({ title: sec.title || "", instructions: sec.instructions || "", script: sec.script || "", audioUrl: sec.audioUrl || "", questions: sec.questions.map(stripQuestion) }));
     const template = {
       grammar: data.grammar ? data.grammar.map(stripQuestion) : undefined,
       reading: data.reading ? { sections: stripReading(data.reading.sections) } : undefined,
       listening: data.listening ? { sections: stripListening(data.listening.sections) } : undefined,
-      writing: data.writing ? { prompt: data.writing.prompt } : undefined,
+      writing: data.writing ? { prompt: data.writing.prompt, imageUrl: data.writing.imageUrl || "" } : undefined,
     };
     downloadJSON(template, "mau-bo-de-ielts.json");
   };
@@ -258,7 +258,7 @@ export default function BankManager({ initialBanks }) {
       <div className="card stack">
         <p className="mono muted" style={{ fontSize: 12 }}>TẠO BỘ ĐỀ MỚI</p>
         <p className="muted" style={{ fontSize: 14 }}>Tải mẫu JSON, chỉnh nội dung theo đúng cấu trúc, rồi tải lên hoặc dán vào đây để lưu thành 1 bộ đề riêng — không ảnh hưởng tới các bộ đề đang có.</p>
-        <p className="muted" style={{ fontSize: 12 }}>Mẹo: gạch chân 1 từ trong bài đọc bằng cách bọc quanh nó hai dấu gạch dưới, vd <code>__nurture__</code>. Dòng bắt đầu bằng <code># </code> là tiêu đề đậm, <code>## </code> là nhãn tiểu mục đậm. Với Listening, dán link chia sẻ Google Drive vào <code>audioUrl</code> — hệ thống tự chuyển thành link phát được (khuyến nghị dùng file mp3 đặt trong <code>public/</code> để tránh lỗi CORS của Drive).</p>
+        <p className="muted" style={{ fontSize: 12 }}>Mẹo: gạch chân 1 từ trong bài đọc bằng cách bọc quanh nó hai dấu gạch dưới, vd <code>__nurture__</code>. Dòng bắt đầu bằng <code># </code> là tiêu đề đậm, <code>## </code> là nhãn tiểu mục đậm. Với Listening, dán link chia sẻ Google Drive vào <code>audioUrl</code> — hệ thống tự chuyển thành link phát được (khuyến nghị dùng file mp3 đặt trong <code>public/</code> để tránh lỗi CORS của Drive). Để hiện ảnh (vd sơ đồ Writing Task 1), thêm trường <code>imageUrl</code> vào section Reading hoặc vào <code>writing</code> — dùng ảnh đặt trong <code>public/images/</code> là chắc ăn nhất.</p>
         <div className="row" style={{ gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <p style={{ marginBottom: 6 }}>Tên bộ đề:</p>

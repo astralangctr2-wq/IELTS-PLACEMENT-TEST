@@ -538,6 +538,9 @@ export default function TestRunner({ config }) {
                 <div className="reading-split" style={{ gridTemplateColumns: `${splitRatio}% 14px ${100 - splitRatio}%` }}>
                   <div className="reading-passage-pane">
                     <div className="card">
+                      {sec.imageUrl && (
+                        <img src={sec.imageUrl} alt="" className="passage-image" />
+                      )}
                       <HighlightZone>
                         <PassageBlocks text={sec.passage} />
                       </HighlightZone>
@@ -605,6 +608,9 @@ export default function TestRunner({ config }) {
         <div>
           <div className="row"><p className="serif" style={{ fontSize: 22, marginBottom: 16 }}>Writing</p><BrandBar size="small" /></div>
           <div className="card">
+            {content.writing.imageUrl && (
+              <img src={content.writing.imageUrl} alt="" className="passage-image" />
+            )}
             <p style={{ lineHeight: 1.6, whiteSpace: "pre-line" }}>{content.writing.prompt}</p>
           </div>
           <textarea style={{ minHeight: 260 }} placeholder="Viết bài luận của bạn tại đây…" value={writing} onChange={(e) => setWriting(e.target.value)} disabled={expired.writing} />
