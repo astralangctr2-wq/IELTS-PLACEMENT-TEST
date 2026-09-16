@@ -1,4 +1,5 @@
 import { getSession, toRunnerConfig } from "@/lib/testSessions";
+import { getContentBank, getDefaultContentBank } from "@/lib/contentBanks";
 import TestRunner from "../../TestRunner";
 
 export const dynamic = "force-dynamic";
@@ -29,5 +30,17 @@ export default async function SessionTestPage({ params }) {
   }
 
   const config = toRunnerConfig(session);
-  return <TestRunner config={{ ...config, sessionId: session.id }} />;
+
+  // The category (placement / midterm / mock / final / other) lives on
+  // the content bank, not on the session — fetched here so the runner
+  // can title itself correctly and only ask "target band" for Placement
+  // tests. Falls back to the currently-default bank for older sessions
+  // created before content banks existed (contentBankId === null), and
+  // to "placement" if even that can't be resolved.
+  const bank = config.contentBankId
+    ? await getContentBank(config.contentBankId)
+    : await getDefaultContentBank();
+  const category = bank?.category || "placement";
+
+  return <TestRunner config={{ ...config, sessionId: session.id, category }} />;
 }

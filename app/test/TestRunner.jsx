@@ -221,7 +221,9 @@ export default function TestRunner({ config }) {
   const [gAns, setGAns] = useState({});
   const [rAns, setRAns] = useState({});
   const [lAns, setLAns] = useState({});
-  const [writing, setWriting] = useState("");
+  // Keyed by task index (0 = Task 1, 1 = Task 2, ...) since writing can
+  // now hold more than one task, each with its own answer box.
+  const [writingAnswers, setWritingAnswers] = useState({});
   const [playCounts, setPlayCounts] = useState({});
   const [speakingIdx, setSpeakingIdx] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -395,8 +397,19 @@ export default function TestRunner({ config }) {
     setPlayCounts((p) => ({ ...p, [idx]: count + 1 }));
   };
 
-  const wordCount = writing.trim().length === 0 ? 0 : writing.trim().split(/\s+/).length;
+  const wordsOf = (text) => (text || "").trim().length === 0 ? 0 : text.trim().split(/\s+/).length;
+  const writingTasks = content?.writing?.tasks || [];
+  const writingWordCount = writingTasks.reduce((n, _, ti) => n + wordsOf(writingAnswers[ti]), 0);
   const answeredCount = (answers, qs) => qs.filter((q) => isAnswered(answers[q.id])).length;
+
+  // Combine every task's answer into the single writing_text column the
+  // backend stores. A lone task is sent as-is (matches older single-task
+  // banks 1:1); 2+ tasks get a "TASK n" label so the teacher's review
+  // screen still shows which paragraph belongs to which task.
+  const combinedWritingText = () => {
+    if (writingTasks.length <= 1) return writingAnswers[0] || "";
+    return writingTasks.map((_, ti) => `TASK ${ti + 1}\n${writingAnswers[ti] || ""}`).join("\n\n\n");
+  };
 
   const submit = async () => {
     setSubmitting(true);
@@ -414,7 +427,7 @@ export default function TestRunner({ config }) {
           grammarAnswers: gAns,
           readingAnswers: rAns,
           listeningAnswers: lAns,
-          writingText: writing,
+          writingText: combinedWritingText(),
         }),
       });
       const data = await res.json();
@@ -449,10 +462,10 @@ export default function TestRunner({ config }) {
   };
 
   return (
-    <div className={stage === "reading" ? "wrap-reading" : "wrap"} style={{ zoom: FONT_SIZES[fontSize] }}>
+    <div className={["reading", "writing"].includes(stage) ? "wrap-reading" : "wrap"} style={{ zoom: FONT_SIZES[fontSize] }}>
       <div className="topbar">
         <div>
-          <p className="serif" style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>IELTS Placement Test</p>
+          <p className="serif" style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{config.name || "Bài kiểm tra IELTS"}</p>
           <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>
             {stage === "intro" ? "Bắt đầu" : stage === "done" ? "Hoàn tất" : `Bước ${activeSteps.indexOf(stage) + 1}/${activeSteps.length}`}
           </p>
@@ -493,11 +506,15 @@ export default function TestRunner({ config }) {
           <div className="card card-strong">
             <p style={{ marginBottom: 8 }}>Nhập tên của bạn:</p>
             <input type="text" placeholder="Nguyễn Văn A" value={name} onChange={(e) => setName(e.target.value)} />
-            <p style={{ margin: "16px 0 8px" }}>Mục tiêu band điểm hiện tại của bạn:</p>
-            <select value={targetBand} onChange={(e) => setTargetBand(e.target.value)}>
-              <option value="">— Chọn mục tiêu —</option>
-              {BAND_OPTIONS.map((b) => <option key={b} value={b}>{b}</option>)}
-            </select>
+            {config.category === "placement" && (
+              <>
+                <p style={{ margin: "16px 0 8px" }}>Mục tiêu band điểm hiện tại của bạn:</p>
+                <select value={targetBand} onChange={(e) => setTargetBand(e.target.value)}>
+                  <option value="">— Chọn mục tiêu —</option>
+                  {BAND_OPTIONS.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </>
+            )}
           </div>
           <div className="card">
             <p className="mono muted" style={{ fontSize: 12, marginBottom: 10 }}>CẤU TRÚC BÀI TEST</p>
@@ -505,7 +522,7 @@ export default function TestRunner({ config }) {
               {activeSteps.includes("grammar") && <li>Ngữ pháp & Từ vựng: {content.grammar.length} câu trắc nghiệm{config.timeLimits.grammar ? ` — ${config.timeLimits.grammar} phút` : ""}</li>}
               {activeSteps.includes("reading") && <li>Reading: {content.reading.sections.length} đoạn văn, {readingFlat.length} câu hỏi{config.timeLimits.reading ? ` — ${config.timeLimits.reading} phút` : ""}</li>}
               {activeSteps.includes("listening") && <li>Listening: nghe audio (tối đa {config.listeningPlays} lần/đoạn), {listeningFlat.length} câu hỏi</li>}
-              {activeSteps.includes("writing") && <li>Writing: bài luận{config.timeLimits.writing ? ` — ${config.timeLimits.writing} phút` : ""}, sẽ được giáo viên chấm điểm</li>}
+              {activeSteps.includes("writing") && <li>Writing: {content.writing.tasks.length > 1 ? `${content.writing.tasks.length} bài (Task 1, Task 2)` : "1 bài luận"}{config.timeLimits.writing ? ` — ${config.timeLimits.writing} phút` : ""}, sẽ được giáo viên chấm điểm</li>}
             </ul>
           </div>
           <button className="btn" disabled={!name.trim() || activeSteps.length === 0} onClick={() => goStage(activeSteps[0])}>Bắt đầu làm bài →</button>
@@ -607,15 +624,52 @@ export default function TestRunner({ config }) {
       {stage === "writing" && content.writing && (
         <div>
           <div className="row"><p className="serif" style={{ fontSize: 22, marginBottom: 16 }}>Writing</p><BrandBar size="small" /></div>
-          <div className="card">
-            {content.writing.imageUrl && (
-              <img src={content.writing.imageUrl} alt="" className="passage-image" />
-            )}
-            <p style={{ lineHeight: 1.6, whiteSpace: "pre-line" }}>{content.writing.prompt}</p>
+          {expired.writing && <p className="accent" style={{ marginBottom: 12 }}>⚠ Đã hết giờ — bài viết đã được tự động nộp.</p>}
+          <div ref={splitRef}>
+          {writingTasks.map((task, ti) => {
+            const tWordCount = wordsOf(writingAnswers[ti]);
+            return (
+              <div key={ti} style={{ marginTop: ti > 0 ? 40 : 0 }}>
+                {writingTasks.length > 1 && (
+                  <p className="mono muted" style={{ fontSize: 12, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Task {ti + 1}</p>
+                )}
+                <div className="reading-split" style={{ gridTemplateColumns: `${splitRatio}% 14px ${100 - splitRatio}%` }}>
+                  <div className="reading-passage-pane">
+                    <div className="card">
+                      {task.imageUrl && (
+                        <img src={task.imageUrl} alt="" className="passage-image" />
+                      )}
+                      <p className="serif" style={{ lineHeight: 1.7, whiteSpace: "pre-line" }}>{task.prompt}</p>
+                    </div>
+                  </div>
+                  <div
+                    className="split-handle"
+                    onMouseDown={startDrag}
+                    onTouchStart={startDrag}
+                    title="Kéo để đổi tỉ lệ 2 bên"
+                  >
+                    <span className="split-handle-line" />
+                    <span className="split-handle-grip">⟷</span>
+                  </div>
+                  <div className="reading-questions-pane">
+                    <textarea
+                      style={{ minHeight: 420, height: "100%" }}
+                      placeholder="Viết bài làm của bạn tại đây…"
+                      value={writingAnswers[ti] || ""}
+                      onChange={(e) => setWritingAnswers((prev) => ({ ...prev, [ti]: e.target.value }))}
+                      disabled={expired.writing}
+                    />
+                    <p className={`mono ${tWordCount >= 150 ? "success" : "accent"}`} style={{ fontSize: 12, marginTop: 8 }}>
+                      {tWordCount} từ {tWordCount < 150 ? "" : "✓"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
           </div>
-          <textarea style={{ minHeight: 260 }} placeholder="Viết bài luận của bạn tại đây…" value={writing} onChange={(e) => setWriting(e.target.value)} disabled={expired.writing} />
-          <div className="row" style={{ marginTop: 12 }}>
-            <p className={`mono ${wordCount >= 200 ? "success" : "accent"}`} style={{ fontSize: 12 }}>{wordCount} từ {wordCount < 200 ? "(khuyến nghị tối thiểu 200 từ)" : "✓"}</p>
+          <div className="row" style={{ marginTop: 20 }}>
+            <p className="mono muted" style={{ fontSize: 12 }}>{writingWordCount} từ tổng cộng</p>
             <button className="btn" disabled={submitting} onClick={submit}>
               {submitting ? "Đang nộp bài…" : "Nộp bài →"}
             </button>
