@@ -97,7 +97,7 @@ export default function SessionManager({ initialSessions, banks, initialCategory
         ) : (
           <select value={contentBankId} onChange={(e) => setContentBankId(e.target.value)}>
             {bankChoices.map((b) => (
-              <option key={b.id} value={b.id}>{b.name} — {CATEGORY_LABELS[b.category] || "Khác"}</option>
+              <option key={b.id} value={b.id}>{b.className ? `[${b.className}] ` : ""}{b.name} — {CATEGORY_LABELS[b.category] || "Khác"}</option>
             ))}
           </select>
         )}

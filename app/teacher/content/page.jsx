@@ -14,6 +14,7 @@ export default async function TeacherContentPage() {
     id: b.id,
     name: b.name,
     category: b.category,
+    className: b.class_name || "",
     created_at: b.created_at,
     grammarCount: b.content.grammar?.length ?? null,
     readingCount: b.content.reading ? b.content.reading.sections.reduce((n, s) => n + s.questions.length, 0) : null,

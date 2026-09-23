@@ -71,9 +71,18 @@ function HighlightZone({ children }) {
           range.insertNode(mark);
         } catch (err2) {
           // give up quietly rather than breaking the page
+          return;
         }
       }
+      // Re-select the text that just got highlighted instead of clearing
+      // the selection outright. Previously calling sel.removeAllRanges()
+      // here wiped the browser's selection the instant a highlight was
+      // made, which silently broke Ctrl+C right after highlighting —
+      // there was nothing left selected for the browser to copy.
+      const newRange = document.createRange();
+      newRange.selectNodeContents(mark);
       sel.removeAllRanges();
+      sel.addRange(newRange);
     };
 
     const onClick = (e) => {

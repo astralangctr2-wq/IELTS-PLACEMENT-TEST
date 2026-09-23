@@ -2,8 +2,8 @@
 
 import { useRef, useState } from "react";
 
-const CATEGORY_LABELS = { placement: "Placement Test", midterm: "Mid-term Test", mock: "Mock Test", final: "Final Test", other: "Khác" };
-const CATEGORY_ORDER = ["placement", "midterm", "mock", "final", "other"];
+const CATEGORY_LABELS = { placement: "Placement Test", midterm: "Mid-term Test", mock: "Mock Test", final: "Final Test", aptis: "Aptis ESOL", other: "Khác" };
+const CATEGORY_ORDER = ["placement", "midterm", "mock", "final", "aptis", "other"];
 
 function stripQuestion(q) {
   const type = q.type || "mc";
@@ -25,6 +25,17 @@ function downloadJSON(obj, filename) {
   URL.revokeObjectURL(url);
 }
 
+// Splits a filename like "IELTS 5.5 -- Mock Test 1.json" into its class
+// name and test name, using "--" as the delimiter (chosen because it
+// almost never appears naturally in a class or test name, unlike a
+// single "-" or "_"). No "--" in the filename → the whole filename
+// becomes the test name and the class is left blank (editable later).
+function parseBulkFileName(filename) {
+  const base = filename.replace(/\.json$/i, "").trim();
+  const idx = base.indexOf("--");
+  if (idx === -1) return { className: "", testName: base || filename };
+  return { className: base.slice(0, idx).trim(), testName: base.slice(idx + 2).trim() || base };
+}
 function CategorySelect({ value, onChange, disabled }) {
   return (
     <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} style={{ width: "auto" }}>
@@ -38,6 +49,7 @@ function BankRow({ bank, onChanged }) {
   const [text, setText] = useState("");
   const [name, setName] = useState(bank.name);
   const [category, setCategory] = useState(bank.category || "other");
+  const [className, setClassName] = useState(bank.className || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -75,7 +87,7 @@ function BankRow({ bank, onChanged }) {
       const res = await fetch(`/api/teacher/banks/${bank.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: parsed, name, category }),
+        body: JSON.stringify({ content: parsed, name, category, className }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Không lưu được.");
@@ -111,7 +123,10 @@ function BankRow({ bank, onChanged }) {
     <div className="card">
       <div className="row" style={{ alignItems: "flex-start" }}>
         <div>
-          <p style={{ fontWeight: 700, marginBottom: 4 }}>{bank.name}</p>
+          <p style={{ fontWeight: 700, marginBottom: 4 }}>
+            {bank.name}
+            {bank.className && <span className="mono muted" style={{ fontWeight: 400, fontSize: 12, marginLeft: 8 }}>· {bank.className}</span>}
+          </p>
           <p className="mono muted" style={{ fontSize: 12 }}>
             Ngữ pháp: {bank.grammarCount ?? "—"} câu · Reading: {bank.readingCount ?? "—"} câu · Listening: {bank.listeningCount ?? "—"} câu · Writing: {bank.hasWriting ? "có" : "—"}
           </p>
@@ -126,6 +141,8 @@ function BankRow({ bank, onChanged }) {
         <div style={{ marginTop: 14 }}>
           <p style={{ marginBottom: 6 }}>Tên bộ đề:</p>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} style={{ marginBottom: 12 }} />
+          <p style={{ marginBottom: 6 }}>Tên lớp (để dò lại sau khi giao bài, có thể để trống):</p>
+          <input type="text" placeholder="Vd: IELTS 5.5" value={className} onChange={(e) => setClassName(e.target.value)} style={{ marginBottom: 12 }} />
           <p style={{ marginBottom: 6 }}>Loại bài test:</p>
           <div style={{ marginBottom: 12 }}><CategorySelect value={category} onChange={setCategory} /></div>
           <div className="row" style={{ justifyContent: "flex-start", gap: 10, marginBottom: 10 }}>
@@ -149,10 +166,106 @@ function BankRow({ bank, onChanged }) {
   );
 }
 
+function BulkUpload({ onDone }) {
+  const [category, setCategory] = useState("other");
+  const [files, setFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [results, setResults] = useState([]);
+  const fileRef = useRef(null);
+
+  const handleFiles = (e) => {
+    setFiles(Array.from(e.target.files || []));
+    setResults([]);
+  };
+
+  const upload = async () => {
+    setUploading(true);
+    const done = [];
+    for (const file of files) {
+      const { className, testName } = parseBulkFileName(file.name);
+      try {
+        const text = await file.text();
+        let parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          throw new Error("Không đọc được JSON — kiểm tra lại định dạng file.");
+        }
+        const res = await fetch("/api/teacher/banks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: testName, content: parsed, category, className }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Không tạo được bộ đề.");
+        done.push({ fileName: file.name, status: "ok", className, testName });
+      } catch (err) {
+        done.push({ fileName: file.name, status: "error", className, testName, message: err.message });
+      }
+      setResults([...done]); // update progressively so long batches show live progress
+    }
+    setUploading(false);
+    setFiles([]);
+    if (fileRef.current) fileRef.current.value = "";
+    onDone();
+  };
+
+  const okCount = results.filter((r) => r.status === "ok").length;
+  const errCount = results.filter((r) => r.status === "error").length;
+
+  return (
+    <div className="card stack" style={{ marginBottom: 24 }}>
+      <p className="mono muted" style={{ fontSize: 12 }}>TẢI NHIỀU BỘ ĐỀ CÙNG LÚC</p>
+      <p className="muted" style={{ fontSize: 14 }}>
+        Chọn nhiều file <code>.json</code> cùng lúc — mỗi file tạo thành 1 bộ đề riêng. Đặt tên file theo quy tắc{" "}
+        <code>Tên lớp -- Tên bài test.json</code> (vd <code>IELTS 5.5 -- Mock Test 1.json</code>) để hệ thống tự tách ra tên lớp và tên bài. Nếu file không có <code>--</code>, cả tên file sẽ dùng làm tên bài test và để trống tên lớp (sửa tay sau trong mục "Sửa nội dung").
+      </p>
+      <div className="row" style={{ gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div>
+          <p style={{ marginBottom: 6 }}>Loại bài test (áp dụng cho cả loạt đang chọn):</p>
+          <CategorySelect value={category} onChange={setCategory} disabled={uploading} />
+        </div>
+        <button className="btn-ghost btn-sm" disabled={uploading} onClick={() => fileRef.current?.click()}>⬆ Chọn nhiều file JSON</button>
+        <input ref={fileRef} type="file" accept=".json,application/json" multiple onChange={handleFiles} style={{ display: "none" }} />
+      </div>
+      {files.length > 0 && !uploading && <p className="mono muted" style={{ fontSize: 12 }}>{files.length} file đã chọn.</p>}
+      <button className="btn" disabled={files.length === 0 || uploading} onClick={upload}>
+        {uploading ? `Đang tải… (${results.length}/${files.length})` : `Tải lên ${files.length || ""} bộ đề →`}
+      </button>
+      {results.length > 0 && (
+        <div style={{ marginTop: 6 }}>
+          {!uploading && (
+            <p className="mono" style={{ fontSize: 12, marginBottom: 8 }}>
+              Kết quả: <span className="success">{okCount} thành công</span>
+              {errCount > 0 && <> · <span className="accent">{errCount} lỗi</span></>}
+            </p>
+          )}
+          <div className="stack" style={{ gap: 6 }}>
+            {results.map((r, i) => (
+              <div key={i} className="row" style={{ fontSize: 12, gap: 8, alignItems: "flex-start" }}>
+                <span className={r.status === "ok" ? "success" : "accent"}>{r.status === "ok" ? "✓" : "✗"}</span>
+                <span className="mono" style={{ flex: 1, wordBreak: "break-all" }}>{r.fileName}</span>
+                {r.status === "ok" ? (
+                  <span className="muted">→ Lớp: {r.className || "(chưa có)"} · {r.testName}</span>
+                ) : (
+                  <span className="accent">{r.message}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function BankManager({ initialBanks }) {
   const [banks, setBanks] = useState(initialBanks);
+  const [filterText, setFilterText] = useState("");
   const [newName, setNewName] = useState("");
   const [newCategory, setNewCategory] = useState("other");
+  const [newClassName, setNewClassName] = useState("");
   const [newText, setNewText] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
@@ -168,6 +281,7 @@ export default function BankManager({ initialBanks }) {
           id: b.id,
           name: b.name,
           category: b.category,
+          className: b.class_name || "",
           created_at: b.created_at,
           grammarCount: b.content.grammar?.length ?? null,
           readingCount: b.content.reading ? b.content.reading.sections.reduce((n, s) => n + s.questions.length, 0) : null,
@@ -226,12 +340,13 @@ export default function BankManager({ initialBanks }) {
       const res = await fetch("/api/teacher/banks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim() || "Bộ đề mới", content: parsed, category: newCategory }),
+        body: JSON.stringify({ name: newName.trim() || "Bộ đề mới", content: parsed, category: newCategory, className: newClassName }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Không tạo được bộ đề.");
       setCreateSuccess("✓ Đã tạo bộ đề mới. Vào Tạo link phiên thi để gửi link cho học viên.");
       setNewName("");
+      setNewClassName("");
       setNewText("");
       await refresh();
     } catch (err) {
@@ -240,31 +355,75 @@ export default function BankManager({ initialBanks }) {
     setCreating(false);
   };
 
-  const grouped = CATEGORY_ORDER.map((cat) => ({ cat, items: banks.filter((b) => (b.category || "other") === cat) })).filter((g) => g.items.length > 0);
+  const filtered = banks.filter((b) => {
+    if (!filterText.trim()) return true;
+    const needle = filterText.trim().toLowerCase();
+    return b.name.toLowerCase().includes(needle) || (b.className || "").toLowerCase().includes(needle);
+  });
+
+  // Group first by class name (so a teacher can quickly find "IELTS 5.5"
+  // when assigning a test later), then by category within each class.
+  // Banks with no class name are grouped under "Chưa phân loại lớp" and
+  // always sorted last.
+  const classNames = Array.from(new Set(filtered.map((b) => b.className || ""))).sort((a, b) => {
+    if (!a && b) return 1;
+    if (a && !b) return -1;
+    return a.localeCompare(b, "vi");
+  });
+  const groupedByClass = classNames.map((cls) => ({
+    className: cls,
+    categories: CATEGORY_ORDER
+      .map((cat) => ({ cat, items: filtered.filter((b) => (b.className || "") === cls && (b.category || "other") === cat) }))
+      .filter((g) => g.items.length > 0),
+  }));
 
   return (
     <div>
-      {grouped.length === 0 ? (
-        <div className="card"><p className="muted">Chưa có bộ đề nào — tạo bộ đề đầu tiên ở form bên dưới.</p></div>
+      {banks.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <input
+            type="text"
+            placeholder="🔎 Tìm theo tên lớp hoặc tên bộ đề…"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+          />
+        </div>
+      )}
+
+      <BulkUpload onDone={refresh} />
+
+      {groupedByClass.length === 0 ? (
+        <div className="card"><p className="muted">{banks.length === 0 ? "Chưa có bộ đề nào — tạo bộ đề đầu tiên ở form bên dưới, hoặc tải nhiều file cùng lúc ở trên." : "Không tìm thấy bộ đề nào khớp với từ khoá."}</p></div>
       ) : (
-        grouped.map(({ cat, items }) => (
-          <div key={cat} style={{ marginBottom: 24 }}>
-            <p className="mono muted" style={{ fontSize: 12, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>{CATEGORY_LABELS[cat]}</p>
-            <div className="stack">
-              {items.map((b) => <BankRow key={b.id} bank={b} onChanged={refresh} />)}
-            </div>
+        groupedByClass.map(({ className, categories }) => (
+          <div key={className || "_none"} style={{ marginBottom: 32 }}>
+            <p className="serif" style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>
+              {className || "Chưa phân loại lớp"}
+            </p>
+            {categories.map(({ cat, items }) => (
+              <div key={cat} style={{ marginBottom: 20, paddingLeft: 4 }}>
+                <p className="mono muted" style={{ fontSize: 12, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>{CATEGORY_LABELS[cat]}</p>
+                <div className="stack">
+                  {items.map((b) => <BankRow key={b.id} bank={b} onChanged={refresh} />)}
+                </div>
+              </div>
+            ))}
           </div>
         ))
       )}
 
       <div className="card stack">
-        <p className="mono muted" style={{ fontSize: 12 }}>TẠO BỘ ĐỀ MỚI</p>
-        <p className="muted" style={{ fontSize: 14 }}>Tải mẫu JSON, chỉnh nội dung theo đúng cấu trúc, rồi tải lên hoặc dán vào đây để lưu thành 1 bộ đề riêng — không ảnh hưởng tới các bộ đề đang có.</p>
+        <p className="mono muted" style={{ fontSize: 12 }}>TẠO 1 BỘ ĐỀ MỚI</p>
+        <p className="muted" style={{ fontSize: 14 }}>Tải mẫu JSON, chỉnh nội dung theo đúng cấu trúc, rồi tải lên hoặc dán vào đây để lưu thành 1 bộ đề riêng — không ảnh hưởng tới các bộ đề đang có. Nếu cần tạo nhiều bộ đề cùng lúc, dùng khung "Tải nhiều bộ đề cùng lúc" ở trên thay vì form này.</p>
         <p className="muted" style={{ fontSize: 12 }}>Mẹo: gạch chân 1 từ trong bài đọc bằng cách bọc quanh nó hai dấu gạch dưới, vd <code>__nurture__</code>. Dòng bắt đầu bằng <code># </code> là tiêu đề đậm, <code>## </code> là nhãn tiểu mục đậm. Với Listening, dán link chia sẻ Google Drive vào <code>audioUrl</code> — hệ thống tự chuyển thành link phát được (khuyến nghị dùng file mp3 đặt trong <code>public/</code> để tránh lỗi CORS của Drive). Để hiện ảnh (vd sơ đồ Writing Task 1), thêm trường <code>imageUrl</code> vào section Reading hoặc vào từng task trong <code>writing.tasks</code> — dùng ảnh đặt trong <code>public/images/</code> là chắc ăn nhất. Với Writing, dùng <code>writing: {`{ tasks: [ { prompt, imageUrl }, { prompt } ] }`}</code> để có Task 1 (kèm hình, chia đôi màn hình) và Task 2 (đề bài chữ, cũng chia đôi màn hình) hiển thị tách riêng — có thể chỉ khai báo 1 task nếu chỉ cần 1 đề.</p>
         <div className="row" style={{ gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <p style={{ marginBottom: 6 }}>Tên bộ đề:</p>
             <input type="text" placeholder="Vd: Practice Test 1" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          </div>
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <p style={{ marginBottom: 6 }}>Tên lớp (tuỳ chọn):</p>
+            <input type="text" placeholder="Vd: IELTS 5.5" value={newClassName} onChange={(e) => setNewClassName(e.target.value)} />
           </div>
           <div>
             <p style={{ marginBottom: 6 }}>Loại bài test:</p>

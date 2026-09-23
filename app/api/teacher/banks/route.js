@@ -19,7 +19,7 @@ export async function POST(req) {
   if (!requireTeacher()) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   try {
     const body = await req.json();
-    const id = await createContentBank(body.name, body.content, body.category);
+    const id = await createContentBank(body.name, body.content, body.category, body.className);
     return NextResponse.json({ id });
   } catch (err) {
     return NextResponse.json({ error: err.message || "Không tạo được bộ đề." }, { status: 400 });

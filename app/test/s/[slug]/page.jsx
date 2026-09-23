@@ -40,7 +40,16 @@ export default async function SessionTestPage({ params }) {
   const bank = config.contentBankId
     ? await getContentBank(config.contentBankId)
     : await getDefaultContentBank();
-  const category = bank?.category || "placement";
+
+  // Content banks created before the category system existed were all
+  // silently migrated to category "other" (see lib/db.js). The very first
+  // bank in the app was always the Placement Test, so a still-"other",
+  // still-default bank is almost certainly that original Placement Test
+  // and should keep asking for a target band — teachers can always
+  // override this by explicitly setting a category in /teacher/content.
+  const category = bank?.category && bank.category !== "other"
+    ? bank.category
+    : (bank?.is_default ? "placement" : "other");
 
   return <TestRunner config={{ ...config, sessionId: session.id, category }} />;
 }

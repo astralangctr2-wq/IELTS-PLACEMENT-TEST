@@ -20,7 +20,7 @@ export async function PATCH(req, { params }) {
   try {
     const body = await req.json();
     if (body.content) {
-      await updateContentBank(params.id, body.content, body.name, body.category);
+      await updateContentBank(params.id, body.content, body.name, body.category, body.className);
       return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: "Không có thay đổi hợp lệ." }, { status: 400 });

@@ -10,7 +10,7 @@ export default async function SessionsPage({ searchParams }) {
   const category = searchParams?.category || "";
   const sessions = await listSessions();
   const banks = await listContentBanks();
-  const bankSummaries = banks.map((b) => ({ id: b.id, name: b.name, category: b.category }));
+  const bankSummaries = banks.map((b) => ({ id: b.id, name: b.name, category: b.category, className: b.class_name || "" }));
   return (
     <div className="wrap">
       <div className="topbar">
