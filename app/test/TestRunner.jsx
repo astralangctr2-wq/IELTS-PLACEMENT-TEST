@@ -109,6 +109,108 @@ function HighlightZone({ children }) {
   );
 }
 
+// DiagramOverlay — renders an image with gap-fill inputs overlaid at
+// precise positions declared in each question's `pin` field:
+//   pin: { x: 42, y: 67, width: 18 }
+// x/y are percentages of the image's rendered width/height (top-left
+// corner of the input box). width is the input width as a % of the
+// image width. All three are optional — if any is missing the input
+// falls back to rendering below the image as a normal card.
+//
+// Questions that share the same `imageUrl` AND all have a `pin` field
+// are grouped into one DiagramOverlay block by QuestionListBlock.
+function DiagramOverlay({ questions, answers, onChange, locked, startIndex }) {
+  const imgRef = useRef(null);
+  const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
+
+  useEffect(() => {
+    const el = imgRef.current;
+    if (!el) return;
+    const update = () => setImgSize({ w: el.offsetWidth, h: el.offsetHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const imageUrl = questions[0]?.imageUrl;
+
+  return (
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ position: "relative", display: "inline-block", width: "100%" }}>
+        <img
+          ref={imgRef}
+          src={imageUrl}
+          alt="diagram"
+          style={{ display: "block", width: "100%", height: "auto", borderRadius: 0 }}
+          onLoad={() => {
+            if (imgRef.current) setImgSize({ w: imgRef.current.offsetWidth, h: imgRef.current.offsetHeight });
+          }}
+        />
+        {questions.map((q, i) => {
+          const pin = q.pin || {};
+          if (pin.x == null || pin.y == null) return null;
+          const left = `${pin.x}%`;
+          const top = `${pin.y}%`;
+          const width = pin.width ? `${pin.width}%` : "14%";
+          return (
+            <div
+              key={q.id}
+              style={{ position: "absolute", left, top, width, transform: "translateY(-50%)" }}
+              title={`Câu ${startIndex + i + 1}: ${q.q}`}
+            >
+              <div style={{
+                display: "flex", alignItems: "center", gap: 3,
+                background: "var(--primary)", borderRadius: 4,
+                padding: "1px 4px", marginBottom: 2, width: "fit-content"
+              }}>
+                <span style={{ color: "#fff", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>
+                  {startIndex + i + 1}
+                </span>
+              </div>
+              <input
+                type="text"
+                disabled={locked}
+                placeholder="…"
+                value={typeof answers[q.id] === "string" ? answers[q.id] : ""}
+                onChange={(e) => onChange(q.id, e.target.value)}
+                style={{
+                  width: "100%", fontSize: 11, padding: "2px 5px",
+                  borderRadius: 4, border: "2px solid var(--primary)",
+                  background: "var(--card)", color: "var(--text)",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
+                  opacity: locked ? 0.6 : 1,
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      {/* Fallback: questions without pin still render as plain cards below */}
+      {questions.some((q) => !q.pin || q.pin.x == null) && (
+        <div style={{ padding: "12px 16px" }} className="stack">
+          {questions.filter((q) => !q.pin || q.pin.x == null).map((q, i) => {
+            const globalIdx = startIndex + questions.findIndex((qq) => qq.id === q.id);
+            return (
+              <div key={q.id}>
+                <p className="mono muted" style={{ fontSize: 12, marginBottom: 4 }}>Câu {globalIdx + 1}</p>
+                <p style={{ marginBottom: 8, lineHeight: 1.5, fontSize: 14 }}>{q.q}</p>
+                <input
+                  type="text"
+                  disabled={locked}
+                  placeholder="Nhập câu trả lời…"
+                  value={typeof answers[q.id] === "string" ? answers[q.id] : ""}
+                  onChange={(e) => onChange(q.id, e.target.value)}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Memoized so a question card only re-renders when its OWN answer,
 // lock state, or index actually changes — not on every tick of the
 // countdown timer elsewhere on the page. This is what lets highlights
@@ -119,6 +221,10 @@ const QuestionCard = memo(function QuestionCard({ q, qId, index, answer, onChang
   return (
     <div className="card">
       <p className="mono muted" style={{ fontSize: 12, marginBottom: 8 }}>Câu {index + 1}</p>
+      {/* Per-question image (non-overlay): shown when imageUrl is set but no pin coords */}
+      {q.imageUrl && (!q.pin || q.pin.x == null) && (
+        <img src={q.imageUrl} alt="" className="passage-image" style={{ marginBottom: 12 }} />
+      )}
       <p style={{ marginBottom: 12, lineHeight: 1.5 }}>{q.q}</p>
 
       {type === "mc" && (
@@ -183,24 +289,62 @@ const QuestionCard = memo(function QuestionCard({ q, qId, index, answer, onChang
   );
 });
 
+// Groups consecutive gap questions that share the same imageUrl AND
+// have pin coordinates into DiagramOverlay blocks. All other questions
+// render as individual QuestionCards as before.
 const QuestionListBlock = memo(function QuestionListBlock({ questions, answers, setAnswers, startIndex = 0, locked }) {
   const handleChange = useCallback((qId, val) => {
     setAnswers((prev) => ({ ...prev, [qId]: val }));
   }, [setAnswers]);
 
+  // Build render groups: each group is either a single QuestionCard or
+  // a DiagramOverlay (consecutive gap questions with same imageUrl+pin).
+  const groups = [];
+  let i = 0;
+  while (i < questions.length) {
+    const q = questions[i];
+    const hasDiagram = q.type === "gap" && q.imageUrl && q.pin && q.pin.x != null;
+    if (hasDiagram) {
+      // Collect all consecutive questions with the same imageUrl that have pins
+      const imgUrl = q.imageUrl;
+      let j = i;
+      while (
+        j < questions.length &&
+        questions[j].type === "gap" &&
+        questions[j].imageUrl === imgUrl
+      ) j++;
+      groups.push({ type: "diagram", questions: questions.slice(i, j), startIndex: startIndex + i });
+      i = j;
+    } else {
+      groups.push({ type: "card", q, index: startIndex + i });
+      i++;
+    }
+  }
+
   return (
     <div className="stack">
-      {questions.map((q, i) => (
-        <QuestionCard
-          key={q.id}
-          q={q}
-          qId={q.id}
-          index={startIndex + i}
-          answer={answers[q.id]}
-          locked={locked}
-          onChange={handleChange}
-        />
-      ))}
+      {groups.map((g, gi) =>
+        g.type === "diagram" ? (
+          <DiagramOverlay
+            key={`diagram-${gi}`}
+            questions={g.questions}
+            answers={answers}
+            onChange={handleChange}
+            locked={locked}
+            startIndex={g.startIndex}
+          />
+        ) : (
+          <QuestionCard
+            key={g.q.id}
+            q={g.q}
+            qId={g.q.id}
+            index={g.index}
+            answer={answers[g.q.id]}
+            locked={locked}
+            onChange={handleChange}
+          />
+        )
+      )}
     </div>
   );
 });
