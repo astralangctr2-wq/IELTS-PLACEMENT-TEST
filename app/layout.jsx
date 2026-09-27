@@ -1,6 +1,6 @@
 import "./globals.css";
-import ThemeToggle from "./components/ThemeToggle";
-import FontSizeToggle from "./components/FontSizeToggle";
+import { ThemeProvider } from "./contexts/ThemeContext";
+import TopControls from "./components/TopControls";
 
 export const metadata = {
   title: "IELTS Placement Test",
@@ -13,11 +13,16 @@ export const metadata = {
 const themeInitScript = `
 (function () {
   try {
-    var saved = localStorage.getItem('theme');
-    var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+    var savedTheme = localStorage.getItem('theme');
+    var theme = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
     document.documentElement.setAttribute('data-theme', theme);
+    
+    var savedFontSize = localStorage.getItem('fontSize');
+    var fontSize = (savedFontSize === 'small' || savedFontSize === 'medium' || savedFontSize === 'large') ? savedFontSize : 'medium';
+    document.documentElement.setAttribute('data-font-size', fontSize);
   } catch (e) {
     document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.setAttribute('data-font-size', 'medium');
   }
 })();
 `;
@@ -29,11 +34,10 @@ export default function RootLayout({ children }) {
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <div className="top-controls">
-          <FontSizeToggle />
-          <ThemeToggle />
-        </div>
-        {children}
+        <ThemeProvider>
+          <TopControls />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

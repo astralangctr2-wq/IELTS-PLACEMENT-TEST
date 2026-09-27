@@ -83,6 +83,36 @@ a { color: inherit; text-decoration: none; }
 
 .passage-image { max-width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--border); display: block; margin: 0 auto 16px; background: #fff; }
 
+/* Zoomable image wrapper — click to open full-screen lightbox */
+.zoomable-image-wrap { position: relative; cursor: zoom-in; display: block; }
+.zoomable-image-wrap:hover .passage-image { opacity: 0.92; }
+.zoomable-image-wrap .zoom-hint {
+  position: absolute; bottom: 24px; right: 8px;
+  background: rgba(0, 0, 0, 0.65); color: #fff;
+  font-size: 11px; padding: 3px 8px; border-radius: 999px;
+  opacity: 0; transition: opacity 0.15s ease; pointer-events: none;
+}
+.zoomable-image-wrap:hover .zoom-hint { opacity: 1; }
+
+.image-lightbox-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.88);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; cursor: zoom-out; padding: 24px;
+}
+.image-lightbox-img {
+  max-width: 95vw; max-height: 92vh; width: auto; height: auto;
+  border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  background: #fff; cursor: default;
+}
+.image-lightbox-close {
+  position: fixed; top: 20px; right: 24px;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(255,255,255,0.15); color: #fff; border: none;
+  font-size: 18px; cursor: pointer; z-index: 1001;
+  display: flex; align-items: center; justify-content: center;
+}
+.image-lightbox-close:hover { background: rgba(255,255,255,0.28); }
+
 .split-handle { align-self: stretch; position: relative; display: flex; justify-content: center; cursor: col-resize; }
 .split-handle-line { position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: 3px; border-radius: 4px; background: var(--border); transition: background .12s ease; }
 .split-handle:hover .split-handle-line, .split-handle:active .split-handle-line { background: var(--primary); }
@@ -107,8 +137,35 @@ a { color: inherit; text-decoration: none; }
 .split-handle:hover .split-handle-grip, .split-handle:active .split-handle-grip { border-color: var(--primary); color: var(--primary); }
 
 .highlightable ::selection { background: rgba(79, 99, 255, 0.35); }
-mark.reading-highlight { background: rgba(240, 180, 41, 0.45); color: var(--ink); border-radius: 2px; padding: 0 1px; cursor: pointer; }
+mark.reading-highlight { background: rgba(240, 180, 41, 0.45); color: var(--ink); border-radius: 2px; padding: 0 1px; }
 [data-theme="light"] mark.reading-highlight { background: rgba(240, 180, 41, 0.55); }
+
+/* Floating toolbar shown after selecting passage text — lets the
+   student explicitly choose to highlight or un-highlight, instead of
+   highlighting automatically on every selection. */
+.highlight-toolbar {
+  position: fixed;
+  transform: translate(-50%, -110%);
+  display: flex;
+  gap: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  z-index: 500;
+}
+.highlight-toolbar button {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  background: var(--subtle);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.highlight-toolbar button:hover { background: var(--primary); color: #fff; }
 
 .timer-pin { position: sticky; top: 12px; z-index: 40; display: flex; justify-content: center; margin-bottom: 22px; }
 .timer-badge { font-family: var(--font-heading); font-weight: 700; font-size: 21px; letter-spacing: 0.02em; background: var(--surface); border: 2px solid var(--primary); color: var(--ink); padding: 10px 24px; border-radius: 999px; box-shadow: var(--shadow-strong); }
@@ -207,3 +264,58 @@ tr:hover td { background: rgba(79, 99, 255, 0.06); }
   transition: border-color .15s ease, transform .1s ease;
 }
 .theme-toggle:hover { border-color: var(--primary); transform: translateY(-1px); }
+
+/* ---- Teacher login landing page ---- */
+.landing { max-width: 1080px; margin: 0 auto; padding: 0 22px 0; }
+
+.landing-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px 0; margin-bottom: 8px;
+}
+
+.landing-hero {
+  padding: 56px 0 48px;
+  display: flex; flex-direction: column; align-items: flex-start;
+}
+
+.landing-section { padding: 40px 0; border-top: 1px solid var(--border); }
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+.feature-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 20px; box-shadow: var(--shadow);
+  transition: border-color .15s ease, transform .1s ease;
+}
+.feature-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+
+.landing-login {
+  padding: 48px 0; border-top: 1px solid var(--border);
+  display: flex; justify-content: center;
+}
+
+.landing-footer {
+  border-top: 1px solid var(--border);
+  padding: 40px 0 32px;
+  margin-top: 24px;
+}
+.landing-footer-inner { max-width: 100%; }
+.landing-footer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.landing-footer-grid a { color: var(--primary); }
+.landing-footer-grid a:hover { text-decoration: underline; }
+.landing-footer-bottom {
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  padding-top: 20px; border-top: 1px solid var(--border);
+}
+
+@media (max-width: 640px) {
+  .landing-footer-bottom { flex-direction: column; }
+}

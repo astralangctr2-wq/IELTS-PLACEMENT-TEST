@@ -1,6 +1,7 @@
 import { getSession, toRunnerConfig } from "@/lib/testSessions";
 import { getContentBank, getDefaultContentBank } from "@/lib/contentBanks";
 import TestRunner from "../../TestRunner";
+import AptisRunner from "../../AptisRunner";
 
 export const dynamic = "force-dynamic";
 
@@ -51,5 +52,7 @@ export default async function SessionTestPage({ params }) {
     ? bank.category
     : (bank?.is_default ? "placement" : "other");
 
-  return <TestRunner config={{ ...config, sessionId: session.id, category }} />;
+  return category === "aptis"
+    ? <AptisRunner config={{ ...config, sessionId: session.id, category }} />
+    : <TestRunner config={{ ...config, sessionId: session.id, category }} />;
 }

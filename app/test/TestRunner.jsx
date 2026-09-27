@@ -16,6 +16,58 @@ function MarkedText({ text }) {
   );
 }
 
+// ZoomableImage — a normal <img> that opens a full-screen lightbox on
+// click. Used for reading passage diagrams and writing task charts,
+// which are often too small to read comfortably at inline size.
+// The lightbox lets the user pinch/scroll-zoom further via native
+// browser image zoom since the image is rendered at its natural size
+// (up to viewport bounds) rather than force-fit, so a higher-resolution
+// source image will look sharper here than the inline thumbnail.
+function ZoomableImage({ src, alt, className }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  return (
+    <>
+      <div
+        className={`zoomable-image-wrap ${className || ""}`}
+        onClick={() => setOpen(true)}
+        role="button"
+        tabIndex={0}
+        title="Bấm để phóng to"
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setOpen(true); }}
+      >
+        <img src={src} alt={alt || ""} className="passage-image" />
+        <span className="zoom-hint">🔍 Bấm để phóng to</span>
+      </div>
+      {open && (
+        <div className="image-lightbox-overlay" onClick={() => setOpen(false)}>
+          <button
+            type="button"
+            className="image-lightbox-close"
+            onClick={() => setOpen(false)}
+            aria-label="Đóng"
+          >
+            ✕
+          </button>
+          <img
+            src={src}
+            alt={alt || ""}
+            className="image-lightbox-img"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
 // Memoized so it renders exactly once per passage and never again — the
 // countdown timer ticks every second and would otherwise wipe out any
 // highlights the student has manually added via text selection (React
@@ -45,66 +97,153 @@ const PassageBlocks = memo(function PassageBlocks({ text }) {
 // below) — a re-render of a specific piece of text will still reset
 // any highlight sitting on exactly that text, which is an accepted
 // trade-off for keeping this feature simple.
+// HighlightZone — lets the student select passage text and choose to
+// highlight or un-highlight it via a floating toolbar, instead of the
+// previous behaviour (auto-highlight on every mouseup). The toolbar
+// approach fixes three problems the old version had:
+//   1. Double-clicking a word (a normal way to select-then-copy) used to
+//      trigger an instant highlight; now nothing happens until the
+//      student explicitly presses a button.
+//   2. Selecting text that overlaps an existing highlight used to create
+//      nested <mark> elements with jagged, doubled-up backgrounds. The
+//      "Tô đậm" button now first un-wraps any marks the new selection
+//      touches, then wraps the whole selection in one clean mark.
+//   3. Ctrl+C right after selecting text now works reliably, because the
+//      browser's native selection is left completely untouched until a
+//      toolbar button is actually clicked — there's no DOM mutation (and
+//      so no lost selection) in the common case of "select then copy".
 function HighlightZone({ children }) {
   const ref = useRef(null);
+  const [toolbarPos, setToolbarPos] = useState(null); // { x, y } in viewport coords
+  const pendingRangeRef = useRef(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    const onMouseUp = () => {
-      const sel = window.getSelection();
-      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-      const range = sel.getRangeAt(0);
-      if (!el.contains(range.commonAncestorContainer) || range.collapsed) return;
-      const mark = document.createElement("mark");
-      mark.className = "reading-highlight";
-      try {
-        range.surroundContents(mark);
-      } catch (err) {
-        // selection crosses element boundaries (e.g. an underlined word,
-        // or spans two <p> tags) — surroundContents can't handle that,
-        // so extract + rewrap instead.
-        try {
-          const contents = range.extractContents();
-          mark.appendChild(contents);
-          range.insertNode(mark);
-        } catch (err2) {
-          // give up quietly rather than breaking the page
-          return;
-        }
-      }
-      // Re-select the text that just got highlighted instead of clearing
-      // the selection outright. Previously calling sel.removeAllRanges()
-      // here wiped the browser's selection the instant a highlight was
-      // made, which silently broke Ctrl+C right after highlighting —
-      // there was nothing left selected for the browser to copy.
-      const newRange = document.createRange();
-      newRange.selectNodeContents(mark);
-      sel.removeAllRanges();
-      sel.addRange(newRange);
+    const hideToolbar = () => {
+      setToolbarPos(null);
+      pendingRangeRef.current = null;
     };
 
-    const onClick = (e) => {
-      const mark = e.target.closest && e.target.closest("mark.reading-highlight");
-      if (!mark || !el.contains(mark)) return;
-      const parent = mark.parentNode;
-      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
-      parent.removeChild(mark);
-      parent.normalize();
+    const onMouseUp = (e) => {
+      if (e.target.closest && e.target.closest(".highlight-toolbar")) return;
+
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+        hideToolbar();
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      if (!el.contains(range.commonAncestorContainer) || range.collapsed) {
+        hideToolbar();
+        return;
+      }
+      const rect = range.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        hideToolbar();
+        return;
+      }
+
+      pendingRangeRef.current = range.cloneRange();
+      setToolbarPos({ x: rect.left + rect.width / 2, y: rect.top });
     };
+
+    const onMouseDown = (e) => {
+      if (e.target.closest && e.target.closest(".highlight-toolbar")) return;
+      hideToolbar();
+    };
+
+    const onScroll = () => hideToolbar();
 
     el.addEventListener("mouseup", onMouseUp);
-    el.addEventListener("click", onClick);
+    document.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       el.removeEventListener("mouseup", onMouseUp);
-      el.removeEventListener("click", onClick);
+      document.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, []);
+
+  // Un-wraps every existing highlight the given range touches, moving
+  // its text nodes back up to the parent instead of deleting them —
+  // this keeps the Range's node references valid so it can still be
+  // used afterwards (e.g. to then apply a fresh, non-nested highlight).
+  const unwrapIntersectingMarks = (range) => {
+    const el = ref.current;
+    if (!el) return;
+    const marks = Array.from(el.querySelectorAll("mark.reading-highlight"));
+    marks.forEach((mark) => {
+      if (!range.intersectsNode(mark)) return;
+      const parent = mark.parentNode;
+      if (!parent) return;
+      while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+      parent.removeChild(mark);
+    });
+  };
+
+  const applyHighlight = () => {
+    const range = pendingRangeRef.current;
+    if (!range) return;
+
+    // Flatten any highlights this selection overlaps first, so the new
+    // mark we create below is the only one covering this text — this is
+    // what prevents the jagged, doubled-up look from nested <mark>s.
+    unwrapIntersectingMarks(range);
+
+    const mark = document.createElement("mark");
+    mark.className = "reading-highlight";
+    try {
+      range.surroundContents(mark);
+    } catch (err) {
+      try {
+        const contents = range.extractContents();
+        mark.appendChild(contents);
+        range.insertNode(mark);
+      } catch (err2) {
+        // selection crossed something surroundContents/extractContents
+        // can't handle — give up quietly rather than breaking the page
+      }
+    }
+    ref.current && ref.current.normalize();
+
+    // Re-select the newly highlighted text so a follow-up Ctrl+C still
+    // copies exactly what the student just marked.
+    try {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      const newRange = document.createRange();
+      newRange.selectNodeContents(mark);
+      sel.addRange(newRange);
+    } catch (err) {}
+
+    setToolbarPos(null);
+    pendingRangeRef.current = null;
+  };
+
+  const removeHighlight = () => {
+    const range = pendingRangeRef.current;
+    if (!range) return;
+    unwrapIntersectingMarks(range);
+    ref.current && ref.current.normalize();
+    window.getSelection().removeAllRanges();
+    setToolbarPos(null);
+    pendingRangeRef.current = null;
+  };
 
   return (
     <div ref={ref} className="highlightable">
       {children}
+      {toolbarPos && (
+        <div
+          className="highlight-toolbar"
+          style={{ left: toolbarPos.x, top: toolbarPos.y }}
+        >
+          <button type="button" onClick={applyHighlight}>🖍 Tô đậm</button>
+          <button type="button" onClick={removeHighlight}>✖ Bỏ tô đậm</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -223,7 +362,7 @@ const QuestionCard = memo(function QuestionCard({ q, qId, index, answer, onChang
       <p className="mono muted" style={{ fontSize: 12, marginBottom: 8 }}>Câu {index + 1}</p>
       {/* Per-question image (non-overlay): shown when imageUrl is set but no pin coords */}
       {q.imageUrl && (!q.pin || q.pin.x == null) && (
-        <img src={q.imageUrl} alt="" className="passage-image" style={{ marginBottom: 12 }} />
+        <ZoomableImage src={q.imageUrl} alt="" className="mb-12" />
       )}
       <p style={{ marginBottom: 12, lineHeight: 1.5 }}>{q.q}</p>
 
@@ -709,7 +848,7 @@ export default function TestRunner({ config }) {
                   <div className="reading-passage-pane">
                     <div className="card">
                       {sec.imageUrl && (
-                        <img src={sec.imageUrl} alt="" className="passage-image" />
+                        <ZoomableImage src={sec.imageUrl} alt="" />
                       )}
                       <HighlightZone>
                         <PassageBlocks text={sec.passage} />
@@ -790,7 +929,7 @@ export default function TestRunner({ config }) {
                   <div className="reading-passage-pane">
                     <div className="card">
                       {task.imageUrl && (
-                        <img src={task.imageUrl} alt="" className="passage-image" />
+                        <ZoomableImage src={task.imageUrl} alt="" />
                       )}
                       <p className="serif" style={{ lineHeight: 1.7, whiteSpace: "pre-line" }}>{task.prompt}</p>
                     </div>
