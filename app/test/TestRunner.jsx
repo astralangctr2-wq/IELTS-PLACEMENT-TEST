@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useFontSize } from "@/app/contexts/ThemeContext";
 import { flattenSectionQuestions, renderMarkedText, parsePassageBlocks } from "@/lib/content";
 import BrandBar from "../components/BrandBar";
@@ -147,7 +148,12 @@ function HighlightZone({ children }) {
       }
 
       pendingRangeRef.current = range.cloneRange();
-      setToolbarPos({ x: rect.left + rect.width / 2, y: rect.top });
+      // Open above the selection; if there's no room above (selection is
+      // near the top of the screen) open below it instead. Keep it inside
+      // the viewport horizontally so it never gets cut off at an edge.
+      const below = rect.top < 72;
+      const x = Math.min(Math.max(rect.left + rect.width / 2, 110), window.innerWidth - 110);
+      setToolbarPos({ x, y: below ? rect.bottom : rect.top, below });
     };
 
     const onMouseDown = (e) => {
@@ -236,15 +242,21 @@ function HighlightZone({ children }) {
   return (
     <div ref={ref} className="highlightable">
       {children}
-      {toolbarPos && (
-        <div
-          className="highlight-toolbar"
-          style={{ left: toolbarPos.x, top: toolbarPos.y }}
-        >
-          <button type="button" onClick={applyHighlight}>🖍 Tô đậm</button>
-          <button type="button" onClick={removeHighlight}>✖ Bỏ tô đậm</button>
-        </div>
-      )}
+      {/* Rendered through a portal into <body>: the reading view can be
+          wrapped in a CSS zoom (for the text-size setting), and a
+          position:fixed element inside a zoomed ancestor gets placed at
+          the wrong spot. Outside that wrapper the coordinates are exact. */}
+      {toolbarPos &&
+        createPortal(
+          <div
+            className={`highlight-toolbar${toolbarPos.below ? " below" : ""}`}
+            style={{ left: toolbarPos.x, top: toolbarPos.y }}
+          >
+            <button type="button" className="hl-apply" onClick={applyHighlight}>🖍 Tô đậm</button>
+            <button type="button" className="hl-remove" onClick={removeHighlight}>✖ Bỏ tô đậm</button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

@@ -17,6 +17,12 @@
   --shadow-strong: 0 0 0 1px rgba(79, 99, 255, 0.12), 0 10px 30px rgba(0, 0, 0, 0.4);
   --font-heading: 'Space Grotesk', 'Inter', sans-serif;
   --font-body: 'Inter', sans-serif;
+  /* Aliases — several components reference these names; they follow the
+     active theme automatically because they point at the themed tokens. */
+  --card: var(--surface);
+  --subtle: var(--surface-2);
+  --text: var(--ink);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 :root[data-theme="light"] {
@@ -141,31 +147,60 @@ mark.reading-highlight { background: rgba(240, 180, 41, 0.45); color: var(--ink)
 [data-theme="light"] mark.reading-highlight { background: rgba(240, 180, 41, 0.55); }
 
 /* Floating toolbar shown after selecting passage text — lets the
-   student explicitly choose to highlight or un-highlight, instead of
-   highlighting automatically on every selection. */
+   student explicitly choose to highlight or un-highlight. Deliberately
+   a solid white card with dark text in BOTH themes (not theme tokens)
+   so it stays clearly readable on top of any passage text or highlight. */
 .highlight-toolbar {
   position: fixed;
-  transform: translate(-50%, -110%);
+  transform: translate(-50%, -118%);
   display: flex;
-  gap: 4px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 4px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-  z-index: 500;
+  gap: 6px;
+  background: #FFFFFF;
+  border: 1px solid #C4C9E2;
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 14px 36px rgba(10, 13, 24, 0.38), 0 2px 6px rgba(10, 13, 24, 0.22);
+  z-index: 2000;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* little arrow pointing at the selected text */
+.highlight-toolbar::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 10px;
+  height: 10px;
+  background: #FFFFFF;
+  border-right: 1px solid #C4C9E2;
+  border-bottom: 1px solid #C4C9E2;
+  transform: translateX(-50%) rotate(45deg);
+}
+/* when there's no room above the selection, open below it instead */
+.highlight-toolbar.below { transform: translate(-50%, 16px); }
+.highlight-toolbar.below::after {
+  bottom: auto;
+  top: -6px;
+  transform: translateX(-50%) rotate(225deg);
 }
 .highlight-toolbar button {
-  font-size: 12px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: none;
-  background: var(--subtle);
-  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  color: #1B2033;
   cursor: pointer;
   white-space: nowrap;
+  transition: background .12s ease, border-color .12s ease;
 }
-.highlight-toolbar button:hover { background: var(--primary); color: #fff; }
+.highlight-toolbar .hl-apply { background: #FFE38A; border-color: #EBC24A; }
+.highlight-toolbar .hl-apply:hover { background: #FFD24D; }
+.highlight-toolbar .hl-remove { background: #F1F2F9; border-color: #D9DCEE; }
+.highlight-toolbar .hl-remove:hover { background: #FFE1E6; border-color: #E9A0AD; color: #A81F38; }
 
 .timer-pin { position: sticky; top: 12px; z-index: 40; display: flex; justify-content: center; margin-bottom: 22px; }
 .timer-badge { font-family: var(--font-heading); font-weight: 700; font-size: 21px; letter-spacing: 0.02em; background: var(--surface); border: 2px solid var(--primary); color: var(--ink); padding: 10px 24px; border-radius: 999px; box-shadow: var(--shadow-strong); }
@@ -348,4 +383,26 @@ tr:hover td { background: rgba(79, 99, 255, 0.06); }
   background: rgba(79, 99, 255, 0.12);
   display: flex; align-items: center; justify-content: center;
   font-size: 22px; margin-bottom: 14px;
+}
+
+/* The font-size / theme controls are position:fixed in the top-right
+   corner of every page, so on narrower screens they sat on top of the
+   "Đăng nhập Giáo viên" button in the landing nav. Keep the nav clear
+   of them: make room on the right for medium screens, and on phones
+   drop the nav below the controls instead. */
+@media (max-width: 1400px) {
+  .landing-nav { padding-right: 170px; }
+}
+@media (max-width: 640px) {
+  .landing-nav {
+    padding-right: 0;
+    padding-top: 70px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .nav-login-popover {
+    right: auto;
+    left: 0;
+    width: min(280px, calc(100vw - 44px));
+  }
 }

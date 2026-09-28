@@ -234,7 +234,7 @@ function WritingPart({ partNumber, prompt, imageUrl, questions, answers, setAnsw
                   minHeight: isInformal ? 90 : 180,
                   padding: 10,
                   borderRadius: 4,
-                  border: `2px solid ${isOver ? "var(--accent)" : "var(--primary)"}`,
+                  border: `2px solid ${isOver ? "var(--danger)" : "var(--primary)"}`,
                   background: "var(--card)",
                   color: "var(--text)",
                   fontFamily: "var(--font-mono)",
@@ -243,7 +243,7 @@ function WritingPart({ partNumber, prompt, imageUrl, questions, answers, setAnsw
                   marginBottom: 6,
                 }}
               />
-              <p className="mono muted" style={{ fontSize: 11, margin: 0, color: isOver ? "var(--accent)" : "inherit" }}>
+              <p className="mono muted" style={{ fontSize: 11, margin: 0, color: isOver ? "var(--danger)" : "inherit" }}>
                 {wordCount} / {emailLimit} từ {isOver ? "⚠ Vượt quá giới hạn" : ""}
               </p>
             </div>
@@ -278,7 +278,7 @@ function WritingPart({ partNumber, prompt, imageUrl, questions, answers, setAnsw
                 minHeight: partNumber === 1 ? 44 : 90,
                 padding: 10,
                 borderRadius: 4,
-                border: `2px solid ${isOver ? "var(--accent)" : "var(--primary)"}`,
+                border: `2px solid ${isOver ? "var(--danger)" : "var(--primary)"}`,
                 background: "var(--card)",
                 color: "var(--text)",
                 fontFamily: "var(--font-mono)",
@@ -287,7 +287,7 @@ function WritingPart({ partNumber, prompt, imageUrl, questions, answers, setAnsw
               }}
             />
             {limit && (
-              <p className="mono muted" style={{ fontSize: 11, margin: "6px 0 0 0", color: isOver ? "var(--accent)" : "inherit" }}>
+              <p className="mono muted" style={{ fontSize: 11, margin: "6px 0 0 0", color: isOver ? "var(--danger)" : "inherit" }}>
                 {wordCount} / {limit} từ {isOver ? "⚠" : ""}
               </p>
             )}
@@ -683,7 +683,7 @@ export default function AptisRunner({ config }) {
 
           {/* Submit */}
           {submitError && (
-            <p style={{ color: "var(--accent)", marginBottom: 12 }}>{submitError}</p>
+            <p style={{ color: "var(--danger)", marginBottom: 12 }}>{submitError}</p>
           )}
           <button className="btn" onClick={handleSubmit} disabled={submitting} style={{ marginBottom: 24 }}>
             {submitting ? "Đang nộp bài…" : "Nộp bài thi"}

@@ -53,33 +53,6 @@ const PROGRAMS = [
   },
 ];
 
-const TEST_TYPES = [
-  {
-    key: "placement",
-    icon: "🎯",
-    title: "Placement Test",
-    desc: "Đánh giá năng lực đầu vào của học viên mới, giúp xếp đúng lớp học phù hợp với trình độ.",
-  },
-  {
-    key: "midterm",
-    icon: "📊",
-    title: "Mid-term Test",
-    desc: "Kiểm tra giữa kỳ, theo dõi tiến độ học tập của học viên trong quá trình học.",
-  },
-  {
-    key: "mock",
-    icon: "🧪",
-    title: "Mock Test",
-    desc: "Luyện tập với giao diện làm bài gần giống thi thật — cơ hội để học viên làm quen và tự tin hơn trước kỳ thi chính thức.",
-  },
-  {
-    key: "final",
-    icon: "🏁",
-    title: "Final Test",
-    desc: "Kiểm tra cuối kỳ, đánh giá tổng kết năng lực học viên sau khi hoàn thành khoá học.",
-  },
-];
-
 // Compact login form used inside the nav popover — same API call as the
 // dedicated /teacher/login page, just styled to fit a small dropdown.
 function LoginPopoverForm({ onSuccess }) {
@@ -189,13 +162,6 @@ function TeacherNavControl({ loggedIn }) {
 }
 
 export default function HomeContent({ loggedIn }) {
-  const heroLoginRef = useRef(null);
-
-  const hrefFor = (category) => {
-    const target = `/teacher/sessions?category=${category}`;
-    return loggedIn ? target : `/teacher/login?redirect=${encodeURIComponent(target)}`;
-  };
-
   return (
     <div className="landing">
       {/* Nav */}
@@ -220,24 +186,8 @@ export default function HomeContent({ loggedIn }) {
         </p>
       </header>
 
-      {/* Test type cards */}
-      <section className="landing-section" style={{ borderTop: "none", paddingTop: 0 }}>
-        <div className="test-grid">
-          {TEST_TYPES.map((t) => (
-            <div key={t.key} className="test-card">
-              <div style={{ fontSize: 26, marginBottom: 10 }}>{t.icon}</div>
-              <p className="test-card-title">{t.title}</p>
-              <p className="test-card-desc">{t.desc}</p>
-              <Link href={hrefFor(t.key)}>
-                <button className="btn">Tạo link cho bài này →</button>
-              </Link>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Programs — chương trình luyện thi */}
-      <section className="landing-section">
+      <section className="landing-section" style={{ borderTop: "none", paddingTop: 0 }}>
         <h2 className="serif" style={{ fontSize: 24, marginBottom: 8 }}>Chọn chương trình luyện thi</h2>
         <p className="muted" style={{ marginBottom: 28 }}>Mỗi chương trình gồm đủ 4 kỹ năng: Nghe, Nói, Đọc, Viết</p>
         <div className="program-grid">
