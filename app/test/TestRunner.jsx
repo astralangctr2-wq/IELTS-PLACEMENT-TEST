@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { useFontSize } from "@/app/contexts/ThemeContext";
 import { flattenSectionQuestions, renderMarkedText, parsePassageBlocks } from "@/lib/content";
 import BrandBar from "../components/BrandBar";
 
@@ -529,21 +530,11 @@ export default function TestRunner({ config }) {
   const [now, setNow] = useState(Date.now());
   const autoActionDone = useRef({});
 
-  // Text size preference — set via the same control cluster as the
-  // light/dark toggle (top-right corner), shared across the whole app
-  // via localStorage but only visually applied within this test view.
-  const [fontSize, setFontSize] = useState("medium");
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("fontSize");
-      if (saved && FONT_SIZES[saved]) setFontSize(saved);
-    } catch (e) {}
-    const onStorage = (e) => {
-      if (e.key === "fontSize" && FONT_SIZES[e.newValue]) setFontSize(e.newValue);
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  // Text size preference — set via the control cluster in the top-right
+  // corner and read from the shared ThemeProvider, so a change applies
+  // to this test view instantly (no separate copy of the state to keep
+  // in sync) and persists across pages.
+  const { fontSize } = useFontSize();
 
   // Draggable divider ratio for the Reading split-screen (percentage
   // width of the passage column), shared across all sections on the page.

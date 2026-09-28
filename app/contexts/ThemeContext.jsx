@@ -1,96 +1,98 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
-const ThemeContext = createContext();
-const FontSizeContext = createContext();
+const ThemeContext = createContext(null);
 
+const THEMES = ["dark", "light"];
+const FONT_SIZES = ["small", "medium", "large"];
+
+function readSaved(key, allowed, fallback) {
+  try {
+    const v = localStorage.getItem(key);
+    return allowed.includes(v) ? v : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+// Single source of truth for theme + font size.
+//
+// The <html data-theme> attribute is DERIVED from this state by an
+// effect that re-runs after every mount — it is not set once and then
+// trusted. That matters because if React ever has to discard the server
+// HTML and re-render the page from scratch (a "hydration mismatch"),
+// it wipes attributes it doesn't own, including data-theme. Since this
+// effect runs again after that re-render, the saved theme is re-applied
+// immediately instead of the page staying stuck on the dark default.
+//
+// The provider ALWAYS renders the same tree (no early return before
+// mount), so children are never torn down and remounted just because
+// the theme finished loading.
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(null);
-  const [fontSize, setFontSize] = useState(null);
+  const [theme, setThemeState] = useState("dark");
+  const [fontSize, setFontSizeState] = useState("medium");
   const [mounted, setMounted] = useState(false);
 
-  // Load from localStorage on first mount
+  // Load saved preferences once, on the client.
   useEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem("theme") || "dark";
-      const savedFontSize = localStorage.getItem("fontSize") || "medium";
-      setTheme(savedTheme);
-      setFontSize(savedFontSize);
-    } catch (e) {
-      setTheme("dark");
-      setFontSize("medium");
-    }
+    setThemeState(readSaved("theme", THEMES, "dark"));
+    setFontSizeState(readSaved("fontSize", FONT_SIZES, "medium"));
     setMounted(true);
   }, []);
 
-  // Listen for localStorage changes from other tabs
+  // Keep <html> attributes in sync with state (re-applies after any
+  // React re-render that wiped them).
   useEffect(() => {
     if (!mounted) return;
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.setAttribute("data-font-size", fontSize);
+  }, [theme, fontSize, mounted]);
 
-    const handleStorageChange = (e) => {
-      if (e.key === "theme" && e.newValue) {
-        setTheme(e.newValue);
-        document.documentElement.setAttribute("data-theme", e.newValue);
-      }
-      if (e.key === "fontSize" && e.newValue) {
-        setFontSize(e.newValue);
-        document.documentElement.setAttribute("data-font-size", e.newValue);
-      }
+  // Follow changes made in another browser tab.
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "theme" && THEMES.includes(e.newValue)) setThemeState(e.newValue);
+      if (e.key === "fontSize" && FONT_SIZES.includes(e.newValue)) setFontSizeState(e.newValue);
     };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, [mounted]);
+  const setTheme = useCallback((next) => {
+    setThemeState(next);
+    try { localStorage.setItem("theme", next); } catch (e) {}
+  }, []);
 
-  const toggleTheme = () => {
-    const next = theme === "light" ? "dark" : "light";
-    setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
-    try {
-      localStorage.setItem("theme", next);
-    } catch (e) {}
-  };
+  const toggleTheme = useCallback(() => {
+    setThemeState((prev) => {
+      const next = prev === "light" ? "dark" : "light";
+      try { localStorage.setItem("theme", next); } catch (e) {}
+      return next;
+    });
+  }, []);
 
-  const cycleFontSize = () => {
-    const sizes = ["small", "medium", "large"];
-    const currentIdx = sizes.indexOf(fontSize);
-    const next = sizes[(currentIdx + 1) % sizes.length];
-    setFontSize(next);
-    document.documentElement.setAttribute("data-font-size", next);
-    try {
-      localStorage.setItem("fontSize", next);
-    } catch (e) {}
-  };
-
-  // Don't render controls until after hydration
-  if (!mounted || theme === null || fontSize === null) {
-    return <>{children}</>;
-  }
+  const setFontSize = useCallback((next) => {
+    setFontSizeState(next);
+    try { localStorage.setItem("fontSize", next); } catch (e) {}
+  }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      <FontSizeContext.Provider value={{ fontSize, setFontSize, cycleFontSize }}>
-        {children}
-      </FontSizeContext.Provider>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme, fontSize, setFontSize, mounted }}>
+      {children}
     </ThemeContext.Provider>
   );
 }
 
+const SAFE_DEFAULT = {
+  theme: "dark", toggleTheme: () => {}, setTheme: () => {},
+  fontSize: "medium", setFontSize: () => {}, mounted: false,
+};
+
 export function useTheme() {
-  const context = useContext(ThemeContext);
-  // Return safe default during SSR if provider not available yet
-  if (!context) {
-    return { theme: "dark", toggleTheme: () => {} };
-  }
-  return context;
+  return useContext(ThemeContext) || SAFE_DEFAULT;
 }
 
 export function useFontSize() {
-  const context = useContext(FontSizeContext);
-  // Return safe default during SSR if provider not available yet
-  if (!context) {
-    return { fontSize: "medium", setFontSize: () => {}, cycleFontSize: () => {} };
-  }
-  return context;
+  return useContext(ThemeContext) || SAFE_DEFAULT;
 }

@@ -11,14 +11,6 @@ const SIZES = [
 export default function FontSizeToggle() {
   const { fontSize, setFontSize } = useFontSize();
 
-  const handleClick = (key) => {
-    document.documentElement.setAttribute("data-font-size", key);
-    try {
-      localStorage.setItem("fontSize", key);
-    } catch (e) {}
-    setFontSize(key);
-  };
-
   return (
     <div className="font-size-group" role="group" aria-label="Cỡ chữ">
       {SIZES.map((s) => (
@@ -27,7 +19,7 @@ export default function FontSizeToggle() {
           type="button"
           className={`font-size-btn ${fontSize === s.key ? "active" : ""}`}
           style={{ fontSize: s.fontSize }}
-          onClick={() => handleClick(s.key)}
+          onClick={() => setFontSize(s.key)}
           title={`Cỡ chữ ${s.key === "small" ? "nhỏ" : s.key === "large" ? "lớn" : "vừa"}`}
         >
           {s.label}

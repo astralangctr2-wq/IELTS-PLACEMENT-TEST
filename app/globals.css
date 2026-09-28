@@ -319,3 +319,33 @@ tr:hover td { background: rgba(79, 99, 255, 0.06); }
 @media (max-width: 640px) {
   .landing-footer-bottom { flex-direction: column; }
 }
+
+/* Nav-corner teacher login popover */
+.nav-login-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 280px;
+  z-index: 400;
+  margin: 0;
+  padding: 18px;
+}
+
+/* Programs section (IELTS / Aptis ESOL / Placement Test) */
+.program-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
+}
+.program-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 24px; box-shadow: var(--shadow);
+  transition: border-color .15s ease, transform .1s ease;
+}
+.program-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+.program-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: rgba(79, 99, 255, 0.12);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; margin-bottom: 14px;
+}

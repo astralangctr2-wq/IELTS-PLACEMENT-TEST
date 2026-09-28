@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import DeleteButton from "./DeleteButton";
+import { formatVN } from "@/lib/formatDate";
 
 const SKILL_LABEL = { grammar: "NP", reading: "R", listening: "L", writing: "W" };
 
@@ -66,7 +67,7 @@ function SubmissionRow({ row, allSessions, onMoved }) {
       <td>{row.student_name}</td>
       <td className="mono muted">{row.target_band || "—"}</td>
       <td className="mono muted">{skills.map((s) => SKILL_LABEL[s] || s).join(", ")}</td>
-      <td className="mono muted">{new Date(row.created_at).toLocaleString("vi-VN")}</td>
+      <td className="mono muted">{formatVN(row.created_at)}</td>
       <td>{row.objective_band !== null ? Number(row.objective_band).toFixed(1) : "—"}</td>
       <td>{row.writing_word_count}</td>
       <td>{row.graded ? <span className="success">Đã chấm</span> : <span className="accent">Chưa chấm</span>}</td>

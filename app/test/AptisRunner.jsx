@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { normalizeContent, withIds } from "@/lib/content";
+import { useFontSize } from "@/app/contexts/ThemeContext";
 
 // Word limit for each writing part
 const WRITING_LIMITS = {
@@ -297,7 +298,11 @@ function WritingPart({ partNumber, prompt, imageUrl, questions, answers, setAnsw
   );
 }
 
+const FONT_ZOOM = { small: 0.9, medium: 1, large: 1.15 };
+
 export default function AptisRunner({ config }) {
+  const { fontSize } = useFontSize();
+  const zoom = FONT_ZOOM[fontSize] || 1;
   const [content, setContent] = useState(null);
   const [answers, setAnswers] = useState({});
   const [locked, setLocked] = useState(false);
@@ -437,7 +442,7 @@ export default function AptisRunner({ config }) {
   // instead of landing anonymously (or not landing at all, as before).
   if (stage === "intro") {
     return (
-      <div className="container">
+      <div className="container" style={{ zoom }}>
         <h1>Aptis ESOL</h1>
         <div className="card stack" style={{ maxWidth: 420 }}>
           <div>
@@ -471,7 +476,7 @@ export default function AptisRunner({ config }) {
   }
 
   return (
-    <div className="container">
+    <div className="container" style={{ zoom }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h1 style={{ margin: 0 }}>Aptis ESOL</h1>

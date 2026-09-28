@@ -29,7 +29,7 @@ const themeInitScript = `
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="vi">
+    <html lang="vi" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>

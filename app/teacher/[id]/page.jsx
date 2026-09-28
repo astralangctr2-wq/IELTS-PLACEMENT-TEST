@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { formatVN } from "@/lib/formatDate";
 import { requireTeacherOrRedirect } from "@/lib/auth";
 import { sql, ensureSchema } from "@/lib/db";
 import GradeForm from "./GradeForm";
@@ -23,7 +24,7 @@ export default async function SubmissionDetail({ params }) {
         <div>
           <p className="serif" style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{s.student_name}</p>
           <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>
-            {new Date(s.created_at).toLocaleString("vi-VN")}
+            {formatVN(s.created_at)}
             {s.target_band ? ` · Mục tiêu: ${s.target_band}` : ""}
           </p>
         </div>
