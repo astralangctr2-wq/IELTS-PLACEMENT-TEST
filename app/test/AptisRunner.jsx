@@ -130,19 +130,38 @@ function ReorderQuestion({ q, qId, answers, onChange, locked }) {
   );
 }
 
-function HeadingMatchQuestion({ section, sectionIdx, answers, onChange, locked }) {
-  const headings = section.headings || [];
-  const paragraphs = section.paragraphs || [];
+function HeadingMatchQuestion({ question, answers, onChange, locked }) {
+  // headings/paragraphs live on the heading_match QUESTION object (see
+  // lib/content.js normalizeQuestion) — reading them from "section" here
+  // was a bug: normalizeReadingSections() never copies those fields onto
+  // the section, so this always rendered an empty exercise before.
+  const headings = question.headings || [];
+  const paragraphs = question.paragraphs || [];
+
+  // Stored as ONE array value under answers[question.id] (one heading
+  // index per paragraph, same order as "paragraphs") instead of separate
+  // "reading_{si}_para_{pIdx}" keys — those custom keys were never read
+  // back anywhere: handleSubmit() only collects answers[q.id] for every
+  // question, so every heading-match answer was silently dropped on
+  // submit before. Keying by question.id makes it flow through the same
+  // generic path as every other question type.
+  const selected = Array.isArray(answers[question.id]) ? answers[question.id] : [];
+
+  const setParaAnswer = (pIdx, headingIdx) => {
+    const next = [...selected];
+    while (next.length < paragraphs.length) next.push(null);
+    next[pIdx] = headingIdx;
+    onChange(question.id, next);
+  };
 
   return (
     <div className="card stack">
       <p className="mono muted" style={{ fontSize: 12, marginBottom: 12 }}>
-        Ghép tiêu đề phù hợp với mỗi đoạn văn. Có thể dùng 1 tiêu đề cho nhiều đoạn hoặc 1 tiêu đề không dùng.
+        Ghép tiêu đề phù hợp với mỗi đoạn văn.
       </p>
 
       {paragraphs.map((para, pIdx) => {
-        const answerId = `reading_${sectionIdx}_para_${pIdx}`;
-        const selectedIdx = answers[answerId];
+        const selectedIdx = selected[pIdx];
 
         return (
           <div key={pIdx} style={{ marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--subtle)" }}>
@@ -153,7 +172,7 @@ function HeadingMatchQuestion({ section, sectionIdx, answers, onChange, locked }
               <select
                 disabled={locked}
                 value={selectedIdx ?? ""}
-                onChange={(e) => onChange(answerId, e.target.value ? parseInt(e.target.value) : null)}
+                onChange={(e) => setParaAnswer(pIdx, e.target.value ? parseInt(e.target.value) : null)}
                 style={{
                   flex: 1,
                   padding: "6px 8px",
@@ -331,6 +350,7 @@ export default function AptisRunner({ config }) {
           if (q.type === "mc") init[q.id] = null;
           if (q.type === "multi_select") init[q.id] = [];
           if (q.type === "reorder") init[q.id] = [];
+          if (q.type === "heading_match") init[q.id] = [];
         });
       });
       withIdsContent.listening?.sections?.forEach((sec) => {
@@ -492,13 +512,14 @@ export default function AptisRunner({ config }) {
             <h2 style={{ marginBottom: 16 }}>READING</h2>
             <div className="stack">
               {readingSections.map((sec, si) => {
-                if (sec.questions?.some((q) => q.type === "heading_match")) {
-                  // Part 4: Heading match
+                const headingQuestion = sec.questions?.find((q) => q.type === "heading_match");
+                if (headingQuestion) {
+                  // Part 4: Heading match — pass the question itself (it
+                  // carries headings/paragraphs), not the section.
                   return (
                     <HeadingMatchQuestion
                       key={si}
-                      section={sec}
-                      sectionIdx={si}
+                      question={headingQuestion}
                       answers={answers}
                       onChange={(id, val) => setAnswers((prev) => ({ ...prev, [id]: val }))}
                       locked={locked}
