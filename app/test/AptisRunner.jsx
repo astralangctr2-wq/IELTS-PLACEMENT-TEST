@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { normalizeContent, withIds } from "@/lib/content";
 import { useFontSize } from "@/app/contexts/ThemeContext";
 
 // Word limit for each writing part
@@ -130,38 +129,19 @@ function ReorderQuestion({ q, qId, answers, onChange, locked }) {
   );
 }
 
-function HeadingMatchQuestion({ question, answers, onChange, locked }) {
-  // headings/paragraphs live on the heading_match QUESTION object (see
-  // lib/content.js normalizeQuestion) — reading them from "section" here
-  // was a bug: normalizeReadingSections() never copies those fields onto
-  // the section, so this always rendered an empty exercise before.
-  const headings = question.headings || [];
-  const paragraphs = question.paragraphs || [];
-
-  // Stored as ONE array value under answers[question.id] (one heading
-  // index per paragraph, same order as "paragraphs") instead of separate
-  // "reading_{si}_para_{pIdx}" keys — those custom keys were never read
-  // back anywhere: handleSubmit() only collects answers[q.id] for every
-  // question, so every heading-match answer was silently dropped on
-  // submit before. Keying by question.id makes it flow through the same
-  // generic path as every other question type.
-  const selected = Array.isArray(answers[question.id]) ? answers[question.id] : [];
-
-  const setParaAnswer = (pIdx, headingIdx) => {
-    const next = [...selected];
-    while (next.length < paragraphs.length) next.push(null);
-    next[pIdx] = headingIdx;
-    onChange(question.id, next);
-  };
+function HeadingMatchQuestion({ section, sectionIdx, answers, onChange, locked }) {
+  const headings = section.headings || [];
+  const paragraphs = section.paragraphs || [];
 
   return (
     <div className="card stack">
       <p className="mono muted" style={{ fontSize: 12, marginBottom: 12 }}>
-        Ghép tiêu đề phù hợp với mỗi đoạn văn.
+        Ghép tiêu đề phù hợp với mỗi đoạn văn. Có thể dùng 1 tiêu đề cho nhiều đoạn hoặc 1 tiêu đề không dùng.
       </p>
 
       {paragraphs.map((para, pIdx) => {
-        const selectedIdx = selected[pIdx];
+        const answerId = `reading_${sectionIdx}_para_${pIdx}`;
+        const selectedIdx = answers[answerId];
 
         return (
           <div key={pIdx} style={{ marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--subtle)" }}>
@@ -172,7 +152,7 @@ function HeadingMatchQuestion({ question, answers, onChange, locked }) {
               <select
                 disabled={locked}
                 value={selectedIdx ?? ""}
-                onChange={(e) => setParaAnswer(pIdx, e.target.value ? parseInt(e.target.value) : null)}
+                onChange={(e) => onChange(answerId, e.target.value ? parseInt(e.target.value) : null)}
                 style={{
                   flex: 1,
                   padding: "6px 8px",
@@ -330,55 +310,58 @@ export default function AptisRunner({ config }) {
   const [targetBand, setTargetBand] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [submitResult, setSubmitResult] = useState(null);
   const timerRef = useRef(null);
   const [timeLeft, setTimeLeft] = useState(0);
 
-  // Load & normalize content
+  // Load the exam from the server — same endpoint TestRunner uses. The
+  // response is already id-tagged and has the answer keys stripped out
+  // (scoring happens server-side on submit), so it is used as-is: it must
+  // NOT be re-run through normalizeContent, which requires answer keys.
   useEffect(() => {
-    if (!config.content) return;
-    try {
-      const normalized = normalizeContent(config.content);
-      const withIdsContent = withIds(normalized);
-      setContent(withIdsContent);
+    let cancelled = false;
+    const url = config.contentBankId
+      ? `/api/content?bank=${encodeURIComponent(config.contentBankId)}`
+      : "/api/content";
+    fetch(url, { cache: "no-store" })
+      .then((r) => r.json().then((d) => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
+        if (cancelled) return;
+        if (!ok || d.error) throw new Error(d.error || "Không tải được đề thi.");
+        setContent(d);
 
-      // Initialize answers object
-      const init = {};
-      withIdsContent.reading?.sections?.forEach((sec) => {
-        sec.questions?.forEach((q) => {
-          if (q.type === "gap") init[q.id] = "";
-          if (q.type === "mc") init[q.id] = null;
-          if (q.type === "multi_select") init[q.id] = [];
-          if (q.type === "reorder") init[q.id] = [];
-          if (q.type === "heading_match") init[q.id] = [];
+        // Initialize an empty answer for every question
+        const init = {};
+        const initQuestions = (sections) =>
+          sections?.forEach((sec) =>
+            sec.questions?.forEach((q) => {
+              if (q.type === "gap") init[q.id] = "";
+              else if (q.type === "multi_select" || q.type === "reorder") init[q.id] = [];
+              else init[q.id] = null; // mc
+            })
+          );
+        initQuestions(d.reading?.sections);
+        initQuestions(d.listening?.sections);
+        d.writing?.tasks?.forEach((task, ti) => {
+          if (Array.isArray(task.questions)) task.questions.forEach((q) => { init[q.id] = ""; });
+          else init[`w_${ti}_free`] = "";
         });
-      });
-      withIdsContent.listening?.sections?.forEach((sec) => {
-        sec.questions?.forEach((q) => {
-          if (q.type === "gap") init[q.id] = "";
-          if (q.type === "mc") init[q.id] = null;
-        });
-      });
-      withIdsContent.writing?.tasks?.forEach((task, ti) => {
-        if (Array.isArray(task.questions)) {
-          task.questions.forEach((q) => { init[q.id] = ""; });
-        } else {
-          init[`w_${ti}_free`] = "";
-        }
-      });
-      setAnswers(init);
+        setAnswers(init);
 
-      // Overall timer: sum of teacher-configured reading + writing minutes
-      // (listening has no separate limit — it's paced by the audio itself).
-      // Falls back to 45 minutes when the session has no configured limits.
-      const tl = config.timeLimits || {};
-      const totalMinutes = (Number(tl.reading) || 0) + (Number(tl.writing) || 0);
-      setTimeLeft(totalMinutes > 0 ? totalMinutes * 60 : 2700);
-    } catch (err) {
-      console.error("Content error:", err.message);
-      setSubmitError(err.message);
-    }
-  }, [config.content, config.timeLimits]);
+        // Overall timer: sum of teacher-configured reading + writing minutes
+        // (listening has no separate limit — it's paced by the audio itself).
+        // Falls back to 45 minutes when the session has no configured limits.
+        const tl = config.timeLimits || {};
+        const totalMinutes = (Number(tl.reading) || 0) + (Number(tl.writing) || 0);
+        setTimeLeft(totalMinutes > 0 ? totalMinutes * 60 : 2700);
+      })
+      .catch((err) => {
+        if (!cancelled) setLoadError(err.message || "Không tải được đề thi. Vui lòng tải lại trang.");
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.contentBankId]);
 
   // Timer — only runs once the student has actually started the test
   useEffect(() => {
@@ -451,7 +434,17 @@ export default function AptisRunner({ config }) {
     }
   };
 
-  if (!content) return <p>Đang tải đề thi…</p>;
+  if (loadError) {
+    return (
+      <div className="wrap">
+        <div className="card card-strong">
+          <p className="accent" style={{ fontSize: 16 }}>{loadError}</p>
+          <p className="muted" style={{ fontSize: 14, marginTop: 8 }}>Vui lòng tải lại trang, hoặc liên hệ giáo viên nếu lỗi vẫn còn.</p>
+        </div>
+      </div>
+    );
+  }
+  if (!content) return <div className="wrap"><p className="muted">Đang tải đề thi…</p></div>;
 
   const readingSections = content.reading?.sections || [];
   const listeningPages = content.listening?.sections || [];
@@ -512,14 +505,13 @@ export default function AptisRunner({ config }) {
             <h2 style={{ marginBottom: 16 }}>READING</h2>
             <div className="stack">
               {readingSections.map((sec, si) => {
-                const headingQuestion = sec.questions?.find((q) => q.type === "heading_match");
-                if (headingQuestion) {
-                  // Part 4: Heading match — pass the question itself (it
-                  // carries headings/paragraphs), not the section.
+                if (sec.questions?.some((q) => q.type === "heading_match")) {
+                  // Part 4: Heading match
                   return (
                     <HeadingMatchQuestion
                       key={si}
-                      question={headingQuestion}
+                      section={sec}
+                      sectionIdx={si}
                       answers={answers}
                       onChange={(id, val) => setAnswers((prev) => ({ ...prev, [id]: val }))}
                       locked={locked}

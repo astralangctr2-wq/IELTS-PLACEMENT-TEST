@@ -441,6 +441,293 @@ const QuestionCard = memo(function QuestionCard({ q, qId, index, answer, onChang
   );
 });
 
+// Renders one blank inside a line of text: splits on the "___" marker
+// and inserts either a free-text input (default) or a <select> bound to
+// wordBank (Summary Completion with a given word list). The numbered
+// badge sits right before the blank, matching how IELTS prints the
+// question number in-line with the sentence rather than above it.
+function InlineBlank({ text, value, wordBank, disabled, onChange, badgeNumber }) {
+  const idx = text.indexOf("___");
+  const before = idx >= 0 ? text.slice(0, idx) : text;
+  const after = idx >= 0 ? text.slice(idx + 3) : "";
+  return (
+    <span>
+      {before}
+      <span
+        className="mono"
+        style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          minWidth: 22, height: 22, borderRadius: 4, border: "1.5px solid var(--primary)",
+          fontSize: 11, fontWeight: 700, margin: "0 6px", padding: "0 4px", verticalAlign: "middle",
+        }}
+      >
+        {badgeNumber}
+      </span>
+      {wordBank ? (
+        <select
+          disabled={disabled}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          className="inline-blank-input"
+          style={{ display: "inline-block", width: "auto", minWidth: 160, verticalAlign: "middle" }}
+        >
+          <option value="">— chọn —</option>
+          {wordBank.map((w, wi) => (
+            <option key={wi} value={w}>{w}</option>
+          ))}
+        </select>
+      ) : (
+        <input
+          type="text"
+          disabled={disabled}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          className="inline-blank-input"
+          style={{ display: "inline-block", width: 170, verticalAlign: "middle" }}
+        />
+      )}
+      {after}
+    </span>
+  );
+}
+
+// MatchingQuestion — IELTS Matching Headings / Matching Information /
+// Matching Features / Matching Sentence Endings. One question object
+// carries several "items" (things to match) against a shared, fixed
+// "options" bank. The answer is stored as ONE array under
+// answers[q.id] (one options-index per item, same order as q.items) so
+// it flows through the exact same generic answers[q.id] collection the
+// rest of the runner already uses — no special-casing needed elsewhere.
+// "display": "grid" draws a radio-button table (best for short option
+// labels — letters, names, section codes); "bank" draws one dropdown
+// per item against the full-text option bank (best for long options —
+// headings, sentence endings).
+const MatchingQuestion = memo(function MatchingQuestion({ q, startIndex, answers, onChange, locked }) {
+  const selected = Array.isArray(answers[q.id]) ? answers[q.id] : [];
+
+  const setItemAnswer = (itemIdx, optIdx) => {
+    const next = [...selected];
+    while (next.length < q.items.length) next.push(null);
+    next[itemIdx] = optIdx;
+    onChange(q.id, next);
+  };
+
+  if (q.display === "grid") {
+    return (
+      <div className="card" style={{ overflowX: "auto" }}>
+        {q.q && <p style={{ marginBottom: 12, lineHeight: 1.5 }}>{q.q}</p>}
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              {q.options.map((opt, oi) => (
+                <th key={oi} style={{ textAlign: "center" }}>{opt}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {q.items.map((item, ii) => (
+              <tr key={ii}>
+                <td>
+                  <span className="mono muted" style={{ fontSize: 12, marginRight: 8 }}>{startIndex + ii + 1}</span>
+                  {item}
+                </td>
+                {q.options.map((opt, oi) => (
+                  <td key={oi} style={{ textAlign: "center" }}>
+                    <input
+                      type="radio"
+                      disabled={locked}
+                      checked={selected[ii] === oi}
+                      onChange={() => setItemAnswer(ii, oi)}
+                      style={{ cursor: locked ? "not-allowed" : "pointer" }}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card stack">
+      {q.q && <p style={{ marginBottom: 4, lineHeight: 1.5 }}>{q.q}</p>}
+      {q.items.map((item, ii) => (
+        <div key={ii}>
+          <p className="mono muted" style={{ fontSize: 12, marginBottom: 4 }}>Câu {startIndex + ii + 1}</p>
+          <p style={{ marginBottom: 8, lineHeight: 1.5 }}>{item}</p>
+          <select
+            disabled={locked}
+            value={selected[ii] ?? ""}
+            onChange={(e) => setItemAnswer(ii, e.target.value ? parseInt(e.target.value, 10) : null)}
+          >
+            <option value="">— Chọn đáp án —</option>
+            {q.options.map((opt, oi) => (
+              <option key={oi} value={oi}>{opt}</option>
+            ))}
+          </select>
+        </div>
+      ))}
+    </div>
+  );
+});
+
+// Splits `cell` on its single optional "___" and renders the part before,
+// an InlineBlank-style input (or nothing if the cell has no blank), and
+// the part after. Used by both the "table" format (per grid cell) and,
+// via InlineBlank itself, non-table formats (per line).
+function TableCell({ text, value, disabled, onChange, badgeNumber }) {
+  if (!text.includes("___")) return <>{text}</>;
+  return (
+    <InlineBlank
+      text={text}
+      value={value}
+      wordBank={undefined}
+      disabled={disabled}
+      onChange={onChange}
+      badgeNumber={badgeNumber}
+    />
+  );
+}
+
+// TextCompletionQuestion — IELTS Sentence/Summary/Note/Table/Flow-chart/
+// Form Completion, and diagram-label completion where captions sit in
+// text beside a reference image (for blanks overlaid ON an image, see
+// DiagramOverlay's "pin" instead — unchanged). One question object
+// carries either "lines" (prose/notes/flow) or a "rows" grid (table),
+// each with one or more "___" blanks; the answer is stored as ONE array
+// under answers[q.id] (one string per blank, in reading order), same
+// pattern as MatchingQuestion above.
+//   - "flow": draws a ↓ arrow between steps.
+//   - "notes": a line starting with "# " renders as a section heading
+//     (no blank, no question number); a line starting with "- " (plus 2
+//     extra leading spaces per nesting level, e.g. "  - " for one level
+//     deeper) renders as an indented bullet — matching how IELTS prints
+//     structured notes such as Section 4's headed, bulleted outlines.
+//   - "table": a real HTML table from "columns" (optional header row)
+//     and "rows" (a 2D grid of cell strings), each blank cell holding at
+//     most one "___" — matching a booking form or a multi-column
+//     comparison table exactly as printed, instead of flattened cards.
+const TextCompletionQuestion = memo(function TextCompletionQuestion({ q, startIndex, answers, onChange, locked }) {
+  const selected = Array.isArray(answers[q.id]) ? answers[q.id] : [];
+
+  const setBlankAnswer = (blankIdx, val) => {
+    const next = [...selected];
+    while (next.length <= blankIdx) next.push("");
+    next[blankIdx] = val;
+    onChange(q.id, next);
+  };
+
+  if (q.format === "table") {
+    let blankIdx = 0;
+    return (
+      <div className="card" style={{ overflowX: "auto" }}>
+        {q.q && <p className="mono muted" style={{ fontSize: 12, marginBottom: 8 }}>{q.q}</p>}
+        {q.imageUrl && <ZoomableImage src={q.imageUrl} alt="" className="mb-12" />}
+        {q.title && <p style={{ fontWeight: 700, marginBottom: 12 }}>{q.title}</p>}
+        <table className="text-completion-table">
+          {q.columns && (
+            <thead><tr>{q.columns.map((c, ci) => <th key={ci}>{c}</th>)}</tr></thead>
+          )}
+          <tbody>
+            {q.rows.map((row, ri) => (
+              <tr key={ri}>
+                {row.map((cell, ci) => {
+                  const hasBlank = cell.includes("___");
+                  const thisBlankIdx = hasBlank ? blankIdx++ : null;
+                  return (
+                    <td key={ci}>
+                      {hasBlank ? (
+                        <TableCell
+                          text={cell}
+                          value={selected[thisBlankIdx]}
+                          disabled={locked}
+                          onChange={(val) => setBlankAnswer(thisBlankIdx, val)}
+                          badgeNumber={startIndex + thisBlankIdx + 1}
+                        />
+                      ) : cell}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  // prose / notes / flow — precompute which lines are headings (no blank,
+  // no number) so numbering skips them cleanly.
+  let blankIdx = 0;
+  return (
+    <div className="card">
+      {q.q && <p className="mono muted" style={{ fontSize: 12, marginBottom: 8 }}>{q.q}</p>}
+      {q.imageUrl && <ZoomableImage src={q.imageUrl} alt="" className="mb-12" />}
+      {q.title && <p style={{ fontWeight: 700, marginBottom: 12 }}>{q.title}</p>}
+      <div className={q.format === "notes" ? "notes-outline" : "stack"}>
+        {q.lines.map((line, li) => {
+          if (q.format === "notes" && line.text.startsWith("# ")) {
+            return <p key={li} className="notes-outline-h1">{line.text.slice(2)}</p>;
+          }
+          const bulletMatch = q.format === "notes" ? line.text.match(/^(\s*)-\s?(.*)$/) : null;
+          const lineText = bulletMatch ? bulletMatch[2] : line.text;
+          const thisBlankIdx = blankIdx++;
+          const inline = (
+            <InlineBlank
+              text={lineText}
+              value={selected[thisBlankIdx]}
+              wordBank={q.wordBank}
+              disabled={locked}
+              onChange={(val) => setBlankAnswer(thisBlankIdx, val)}
+              badgeNumber={startIndex + thisBlankIdx + 1}
+            />
+          );
+          if (bulletMatch) {
+            const depth = Math.floor(bulletMatch[1].length / 2);
+            return (
+              <p key={li} className="notes-outline-bullet" style={{ marginLeft: depth * 22 }}>
+                <span className="notes-outline-dot">{depth > 0 ? "–" : "•"}</span>
+                <span style={{ lineHeight: 1.8 }}>{inline}</span>
+              </p>
+            );
+          }
+          return (
+            <div key={li}>
+              <p style={{ lineHeight: 1.8, margin: 0 }}>{inline}</p>
+              {q.format === "flow" && li < q.lines.length - 1 && (
+                <p className="muted" style={{ margin: "2px 0 2px 4px" }}>↓</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
+// How many numbered slots a question occupies on screen / in "Câu N"
+// numbering. Most types are exactly 1 slot; matching/text_completion
+// bundle several IELTS-numbered blanks into one question object, so
+// they must count as (items.length / lines.length) slots instead —
+// otherwise every question after one of these would be numbered wrong.
+function countTextCompletionBlanks(q) {
+  if (q.format === "table") {
+    return (q.rows || []).reduce((n, row) => n + row.reduce((rn, cell) => rn + (cell.match(/___/g) || []).length, 0), 0);
+  }
+  // "notes" headings ("# ...") take up a line but have no blank and no
+  // question number — only lines with an actual "___" count.
+  return (q.lines || []).filter((l) => !l.text.startsWith("# ")).length;
+}
+
+function questionWeight(q) {
+  if (q.type === "matching") return Array.isArray(q.items) ? q.items.length : 1;
+  if (q.type === "text_completion") return countTextCompletionBlanks(q) || 1;
+  return 1;
+}
+
 // Groups consecutive gap questions that share the same imageUrl AND
 // have pin coordinates into DiagramOverlay blocks. All other questions
 // render as individual QuestionCards as before.
@@ -449,10 +736,14 @@ const QuestionListBlock = memo(function QuestionListBlock({ questions, answers, 
     setAnswers((prev) => ({ ...prev, [qId]: val }));
   }, [setAnswers]);
 
-  // Build render groups: each group is either a single QuestionCard or
-  // a DiagramOverlay (consecutive gap questions with same imageUrl+pin).
+  // Build render groups: each group is a QuestionCard, a DiagramOverlay
+  // (consecutive gap questions with same imageUrl+pin), a MatchingQuestion,
+  // or a TextCompletionQuestion. "runningIndex" (not a plain +1 per loop
+  // step) tracks the on-screen question number, since matching/
+  // text_completion each occupy several numbered slots — see questionWeight.
   const groups = [];
   let i = 0;
+  let runningIndex = startIndex;
   while (i < questions.length) {
     const q = questions[i];
     const hasDiagram = q.type === "gap" && q.imageUrl && q.pin && q.pin.x != null;
@@ -465,27 +756,65 @@ const QuestionListBlock = memo(function QuestionListBlock({ questions, answers, 
         questions[j].type === "gap" &&
         questions[j].imageUrl === imgUrl
       ) j++;
-      groups.push({ type: "diagram", questions: questions.slice(i, j), startIndex: startIndex + i });
+      const count = j - i;
+      groups.push({ type: "diagram", questions: questions.slice(i, j), startIndex: runningIndex });
+      runningIndex += count;
       i = j;
+    } else if (q.type === "matching") {
+      groups.push({ type: "matching", q, startIndex: runningIndex });
+      runningIndex += questionWeight(q);
+      i++;
+    } else if (q.type === "text_completion") {
+      groups.push({ type: "text_completion", q, startIndex: runningIndex });
+      runningIndex += questionWeight(q);
+      i++;
     } else {
-      groups.push({ type: "card", q, index: startIndex + i });
+      groups.push({ type: "card", q, index: runningIndex });
+      runningIndex += 1;
       i++;
     }
   }
 
   return (
     <div className="stack">
-      {groups.map((g, gi) =>
-        g.type === "diagram" ? (
-          <DiagramOverlay
-            key={`diagram-${gi}`}
-            questions={g.questions}
-            answers={answers}
-            onChange={handleChange}
-            locked={locked}
-            startIndex={g.startIndex}
-          />
-        ) : (
+      {groups.map((g, gi) => {
+        if (g.type === "diagram") {
+          return (
+            <DiagramOverlay
+              key={`diagram-${gi}`}
+              questions={g.questions}
+              answers={answers}
+              onChange={handleChange}
+              locked={locked}
+              startIndex={g.startIndex}
+            />
+          );
+        }
+        if (g.type === "matching") {
+          return (
+            <MatchingQuestion
+              key={g.q.id}
+              q={g.q}
+              startIndex={g.startIndex}
+              answers={answers}
+              onChange={handleChange}
+              locked={locked}
+            />
+          );
+        }
+        if (g.type === "text_completion") {
+          return (
+            <TextCompletionQuestion
+              key={g.q.id}
+              q={g.q}
+              startIndex={g.startIndex}
+              answers={answers}
+              onChange={handleChange}
+              locked={locked}
+            />
+          );
+        }
+        return (
           <QuestionCard
             key={g.q.id}
             q={g.q}
@@ -495,8 +824,8 @@ const QuestionListBlock = memo(function QuestionListBlock({ questions, answers, 
             locked={locked}
             onChange={handleChange}
           />
-        )
-      )}
+        );
+      })}
     </div>
   );
 });
@@ -842,7 +1171,7 @@ export default function TestRunner({ config }) {
           {expired.reading && <p className="accent" style={{ marginBottom: 12 }}>⚠ Đã hết giờ — phần này đã bị khoá.</p>}
           <div ref={splitRef}>
           {content.reading.sections.map((sec, si) => {
-            const priorCount = content.reading.sections.slice(0, si).reduce((n, s) => n + s.questions.length, 0);
+            const priorCount = content.reading.sections.slice(0, si).reduce((n, s) => n + s.questions.reduce((m, q) => m + questionWeight(q), 0), 0);
             return (
               <div key={si} style={{ marginTop: si > 0 ? 40 : 0 }}>
                 {sec.title && <p className="mono muted" style={{ fontSize: 12, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{sec.title}</p>}
@@ -888,7 +1217,7 @@ export default function TestRunner({ config }) {
         <div>
           <div className="row"><p className="serif" style={{ fontSize: 22, marginBottom: 16 }}>Listening</p><BrandBar size="small" /></div>
           {content.listening.sections.map((sec, si) => {
-            const priorCount = content.listening.sections.slice(0, si).reduce((n, s) => n + s.questions.length, 0);
+            const priorCount = content.listening.sections.slice(0, si).reduce((n, s) => n + s.questions.reduce((m, q) => m + questionWeight(q), 0), 0);
             const count = playCounts[si] || 0;
             return (
               <div key={si}>

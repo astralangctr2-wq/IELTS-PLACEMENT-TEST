@@ -253,6 +253,7 @@ input[type="text"]:focus, input[type="number"]:focus, textarea:focus, input[type
 }
 input[type="number"] { width: auto; }
 input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); }
+input[type="radio"] { width: 18px; height: 18px; accent-color: var(--primary); }
 textarea { font-family: var(--font-body); line-height: 1.6; }
 select option { background: var(--surface); color: var(--ink); }
 
@@ -260,6 +261,24 @@ table { width: 100%; border-collapse: collapse; font-size: 15px; }
 th, td { text-align: left; padding: 13px 10px; border-bottom: 1px solid var(--border); }
 th { font-family: var(--font-body); font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
 tr:hover td { background: rgba(79, 99, 255, 0.06); }
+
+/* Table-format text_completion (booking forms, multi-column comparison
+   tables) — bordered on every side (not just bottom) so it reads as a
+   real form/table the way it's printed in the exam, and cells align top
+   since a cell's content can wrap onto more than one line. */
+.text-completion-table { font-size: 14px; }
+.text-completion-table th, .text-completion-table td {
+  border: 1px solid var(--border); vertical-align: top; padding: 10px 12px;
+}
+.text-completion-table th { background: var(--surface-2); text-transform: none; letter-spacing: 0; font-size: 13.5px; }
+.text-completion-table tr:hover td { background: transparent; }
+
+/* Structured notes (format "notes"): "# " headings and "- " bullets,
+   e.g. IELTS Listening Section 4's headed, indented note outlines. */
+.notes-outline-h1 { font-weight: 700; font-size: 14.5px; margin: 16px 0 8px; }
+.notes-outline-h1:first-child { margin-top: 0; }
+.notes-outline-bullet { display: flex; gap: 8px; margin: 6px 0; line-height: 1.8; }
+.notes-outline-dot { flex-shrink: 0; color: var(--muted); }
 
 .row { display: flex; align-items: center; justify-content: space-between; }
 .stack > * + * { margin-top: 14px; }
