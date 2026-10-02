@@ -760,6 +760,11 @@ const QuestionListBlock = memo(function QuestionListBlock({ questions, answers, 
       groups.push({ type: "diagram", questions: questions.slice(i, j), startIndex: runningIndex });
       runningIndex += count;
       i = j;
+    } else if (q.type === "note") {
+      // A group heading/instruction — shown between questions, never
+      // numbered and never answerable, so it does not advance runningIndex.
+      groups.push({ type: "note", q });
+      i++;
     } else if (q.type === "matching") {
       groups.push({ type: "matching", q, startIndex: runningIndex });
       runningIndex += questionWeight(q);
@@ -788,6 +793,13 @@ const QuestionListBlock = memo(function QuestionListBlock({ questions, answers, 
               locked={locked}
               startIndex={g.startIndex}
             />
+          );
+        }
+        if (g.type === "note") {
+          return (
+            <div key={g.q.id} className="section-note">
+              {g.q.q.split("\n").map((line, li) => <p key={li}>{line}</p>)}
+            </div>
           );
         }
         if (g.type === "matching") {

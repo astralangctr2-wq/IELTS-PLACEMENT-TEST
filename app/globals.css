@@ -425,3 +425,17 @@ tr:hover td { background: rgba(79, 99, 255, 0.06); }
     width: min(280px, calc(100vw - 44px));
   }
 }
+
+/* Group heading/instruction between two sets of questions that share a
+   section but use different formats — e.g. "Questions 1-7 / Choose ONE
+   WORD..." then later "Questions 8-12 / YES if... NO if...". Styled
+   distinctly from .card so it reads as instructional text, not a
+   question the student needs to answer. */
+.section-note {
+  background: transparent;
+  border-left: 3px solid var(--primary);
+  padding: 4px 16px;
+  margin: 4px 0;
+}
+.section-note p { margin: 2px 0; font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+.section-note p:first-child { font-weight: 700; color: var(--ink); font-size: 14px; }
