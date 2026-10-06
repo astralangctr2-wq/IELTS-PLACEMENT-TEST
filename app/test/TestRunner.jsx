@@ -372,7 +372,11 @@ const QuestionCard = memo(function QuestionCard({ q, qId, index, answer, onChang
   const type = q.type || "mc";
   return (
     <div className="card">
-      <p className="mono muted" style={{ fontSize: 12, marginBottom: 8 }}>Câu {index + 1}</p>
+      <p className="mono muted" style={{ fontSize: 12, marginBottom: 8 }}>
+        {type === "multi_select" && q.selectCount > 1
+          ? `Câu ${index + 1}-${index + q.selectCount}`
+          : `Câu ${index + 1}`}
+      </p>
       {/* Per-question image (non-overlay): shown when imageUrl is set but no pin coords */}
       {q.imageUrl && (!q.pin || q.pin.x == null) && (
         <ZoomableImage src={q.imageUrl} alt="" className="mb-12" />
@@ -674,8 +678,9 @@ const TextCompletionQuestion = memo(function TextCompletionQuestion({ q, startIn
           }
           const bulletMatch = q.format === "notes" ? line.text.match(/^(\s*)-\s?(.*)$/) : null;
           const lineText = bulletMatch ? bulletMatch[2] : line.text;
-          const thisBlankIdx = blankIdx++;
-          const inline = (
+          const hasBlank = lineText.includes("___");
+          const thisBlankIdx = hasBlank ? blankIdx++ : null;
+          const inline = hasBlank ? (
             <InlineBlank
               text={lineText}
               value={selected[thisBlankIdx]}
@@ -684,6 +689,8 @@ const TextCompletionQuestion = memo(function TextCompletionQuestion({ q, startIn
               onChange={(val) => setBlankAnswer(thisBlankIdx, val)}
               badgeNumber={startIndex + thisBlankIdx + 1}
             />
+          ) : (
+            <>{lineText}</>
           );
           if (bulletMatch) {
             const depth = Math.floor(bulletMatch[1].length / 2);
@@ -717,14 +724,27 @@ function countTextCompletionBlanks(q) {
   if (q.format === "table") {
     return (q.rows || []).reduce((n, row) => n + row.reduce((rn, cell) => rn + (cell.match(/___/g) || []).length, 0), 0);
   }
-  // "notes" headings ("# ...") take up a line but have no blank and no
-  // question number — only lines with an actual "___" count.
-  return (q.lines || []).filter((l) => !l.text.startsWith("# ")).length;
+  // "notes" headings ("# ...") and plain bullets with no "___" (e.g. a
+  // descriptive sub-point sitting among blanked ones) take up a line but
+  // have no blank and no question number — only lines with an actual
+  // "___" (checked after stripping a leading bullet marker, if any) count.
+  return (q.lines || []).filter((l) => {
+    if (l.text.startsWith("# ")) return false;
+    const bulletMatch = l.text.match(/^\s*-\s?(.*)$/);
+    const ownText = bulletMatch ? bulletMatch[1] : l.text;
+    return ownText.includes("___");
+  }).length;
 }
 
 function questionWeight(q) {
   if (q.type === "matching") return Array.isArray(q.items) ? q.items.length : 1;
   if (q.type === "text_completion") return countTextCompletionBlanks(q) || 1;
+  // A "choose N" multi_select (e.g. IELTS "Questions 19 and 20 — choose
+  // TWO letters") occupies N numbered slots on the real answer sheet, not
+  // just 1 — otherwise every question after it would be numbered one (or
+  // more) too low. selectCount (not q.a, which is stripped before this
+  // content reaches the browser) is how many correct answers it expects.
+  if (q.type === "multi_select") return q.selectCount || 1;
   return 1;
 }
 
@@ -775,7 +795,7 @@ const QuestionListBlock = memo(function QuestionListBlock({ questions, answers, 
       i++;
     } else {
       groups.push({ type: "card", q, index: runningIndex });
-      runningIndex += 1;
+      runningIndex += questionWeight(q);
       i++;
     }
   }

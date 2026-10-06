@@ -432,10 +432,12 @@ tr:hover td { background: rgba(79, 99, 255, 0.06); }
    distinctly from .card so it reads as instructional text, not a
    question the student needs to answer. */
 .section-note {
-  background: transparent;
-  border-left: 3px solid var(--primary);
-  padding: 4px 16px;
-  margin: 4px 0;
+  background: rgba(79, 99, 255, 0.10);
+  border-left: 4px solid var(--primary);
+  border-radius: 0 10px 10px 0;
+  padding: 12px 18px;
+  margin: 10px 0 6px;
 }
-.section-note p { margin: 2px 0; font-size: 13.5px; color: var(--muted); line-height: 1.6; }
-.section-note p:first-child { font-weight: 700; color: var(--ink); font-size: 14px; }
+[data-theme="light"] .section-note { background: rgba(63, 82, 232, 0.08); }
+.section-note p { margin: 3px 0; font-size: 15px; color: var(--ink); line-height: 1.65; font-weight: 600; }
+.section-note p:first-child { font-weight: 800; color: var(--primary); font-size: 17px; letter-spacing: 0.01em; margin-bottom: 6px; }
