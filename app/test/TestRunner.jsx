@@ -737,6 +737,11 @@ function countTextCompletionBlanks(q) {
 }
 
 function questionWeight(q) {
+  // A "note" is a group heading/instruction, not a question: it takes no
+  // numbered slot. Every count of "how many questions" (section start
+  // numbers, the answered counter, the intro screen) goes through this
+  // function, so they all stay consistent with the on-screen numbering.
+  if (q.type === "note") return 0;
   if (q.type === "matching") return Array.isArray(q.items) ? q.items.length : 1;
   if (q.type === "text_completion") return countTextCompletionBlanks(q) || 1;
   // A "choose N" multi_select (e.g. IELTS "Questions 19 and 20 — choose
@@ -1056,7 +1061,19 @@ export default function TestRunner({ config }) {
   const wordsOf = (text) => (text || "").trim().length === 0 ? 0 : text.trim().split(/\s+/).length;
   const writingTasks = content?.writing?.tasks || [];
   const writingWordCount = writingTasks.reduce((n, _, ti) => n + wordsOf(writingAnswers[ti]), 0);
-  const answeredCount = (answers, qs) => qs.filter((q) => isAnswered(answers[q.id])).length;
+  // Counts answered numbered slots (a 5-item matching group = 5 questions,
+  // a "choose TWO" = 2, a note = 0), so "x/y đã trả lời" uses the same
+  // numbering the student sees, instead of counting question objects.
+  const answeredSlots = (q, val) => {
+    if (q.type === "note") return 0;
+    if (q.type === "matching" || q.type === "text_completion") {
+      return Array.isArray(val) ? val.filter((v) => v !== null && v !== undefined && String(v).trim() !== "").length : 0;
+    }
+    if (q.type === "multi_select") return Array.isArray(val) ? Math.min(val.length, q.selectCount || 1) : 0;
+    return isAnswered(val) ? 1 : 0;
+  };
+  const answeredCount = (answers, qs) => qs.reduce((n, q) => n + answeredSlots(q, answers[q.id]), 0);
+  const totalSlots = (qs) => qs.reduce((n, q) => n + questionWeight(q), 0);
 
   // Combine every task's answer into the single writing_text column the
   // backend stores. A lone task is sent as-is (matches older single-task
@@ -1176,8 +1193,8 @@ export default function TestRunner({ config }) {
             <p className="mono muted" style={{ fontSize: 12, marginBottom: 10 }}>CẤU TRÚC BÀI TEST</p>
             <ul style={{ paddingLeft: 18, margin: 0, lineHeight: 1.9 }}>
               {activeSteps.includes("grammar") && <li>Ngữ pháp & Từ vựng: {content.grammar.length} câu trắc nghiệm{config.timeLimits.grammar ? ` — ${config.timeLimits.grammar} phút` : ""}</li>}
-              {activeSteps.includes("reading") && <li>Reading: {content.reading.sections.length} đoạn văn, {readingFlat.length} câu hỏi{config.timeLimits.reading ? ` — ${config.timeLimits.reading} phút` : ""}</li>}
-              {activeSteps.includes("listening") && <li>Listening: nghe audio (tối đa {config.listeningPlays} lần/đoạn), {listeningFlat.length} câu hỏi</li>}
+              {activeSteps.includes("reading") && <li>Reading: {content.reading.sections.length} đoạn văn, {totalSlots(readingFlat)} câu hỏi{config.timeLimits.reading ? ` — ${config.timeLimits.reading} phút` : ""}</li>}
+              {activeSteps.includes("listening") && <li>Listening: nghe audio (tối đa {config.listeningPlays} lần/đoạn), {totalSlots(listeningFlat)} câu hỏi</li>}
               {activeSteps.includes("writing") && <li>Writing: {content.writing.tasks.length > 1 ? `${content.writing.tasks.length} bài (Task 1, Task 2)` : "1 bài luận"}{config.timeLimits.writing ? ` — ${config.timeLimits.writing} phút` : ""}, sẽ được giáo viên chấm điểm</li>}
             </ul>
           </div>
@@ -1239,7 +1256,7 @@ export default function TestRunner({ config }) {
           })}
           </div>
           <div className="row" style={{ marginTop: 20 }}>
-            <p className="mono muted" style={{ fontSize: 12 }}>{answeredCount(rAns, readingFlat)}/{readingFlat.length} đã trả lời</p>
+            <p className="mono muted" style={{ fontSize: 12 }}>{answeredCount(rAns, readingFlat)}/{totalSlots(readingFlat)} đã trả lời</p>
             <button className="btn" onClick={() => goStage(nextAfter("reading"))}>Tiếp theo →</button>
           </div>
         </div>
@@ -1271,7 +1288,7 @@ export default function TestRunner({ config }) {
             );
           })}
           <div className="row" style={{ marginTop: 20 }}>
-            <p className="mono muted" style={{ fontSize: 12 }}>{answeredCount(lAns, listeningFlat)}/{listeningFlat.length} đã trả lời</p>
+            <p className="mono muted" style={{ fontSize: 12 }}>{answeredCount(lAns, listeningFlat)}/{totalSlots(listeningFlat)} đã trả lời</p>
             <button className="btn" onClick={() => { stopSpeaking(); goStage(nextAfter("listening")); }}>Tiếp theo →</button>
           </div>
         </div>
