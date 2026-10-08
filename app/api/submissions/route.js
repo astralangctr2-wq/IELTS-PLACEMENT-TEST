@@ -4,6 +4,8 @@ import { sql, ensureSchema } from "@/lib/db";
 import { getActiveContentWithAnswers } from "@/lib/activeContent";
 import { flattenSectionQuestions } from "@/lib/content";
 import { bandFromScore, scoreQuestions } from "@/lib/scoring";
+import { getSession, sessionMode } from "@/lib/testSessions";
+import { buildReview } from "@/lib/review";
 
 const ALL_SKILLS = ["grammar", "reading", "listening", "writing"];
 
@@ -62,11 +64,28 @@ export async function POST(req) {
     )
   `;
 
+  // Practice sessions get the full answer review back (correct answers +
+  // explanations). The mode is looked up from the session in the database —
+  // never taken from the request — so an exam link can't be made to reveal
+  // the answer key.
+  let review;
+  if (sessionId) {
+    const session = await getSession(sessionId);
+    if (session && sessionMode(session) === "practice") {
+      review = buildReview(
+        content,
+        { grammar: body.grammarAnswers || {}, reading: body.readingAnswers || {}, listening: body.listeningAnswers || {} },
+        skillsIncluded,
+      );
+    }
+  }
+
   return NextResponse.json({
     id,
     gScore: g.earned, gTotal: g.total,
     rScore: r.earned, rTotal: r.total,
     lScore: l.earned, lTotal: l.total,
     objectiveBand,
+    ...(review ? { review } : {}),
   });
 }

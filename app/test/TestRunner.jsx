@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { useFontSize } from "@/app/contexts/ThemeContext";
 import { flattenSectionQuestions, renderMarkedText, parsePassageBlocks } from "@/lib/content";
 import BrandBar from "../components/BrandBar";
+import PracticeAudioPlayer from "./PracticeAudioPlayer";
+import PracticeReview from "./PracticeReview";
 
 const ALL_SKILLS = ["grammar", "reading", "listening", "writing"];
 const SKILL_TITLES = { grammar: "Ngữ pháp", reading: "Reading", listening: "Listening", writing: "Writing" };
@@ -900,6 +902,11 @@ export default function TestRunner({ config }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submittedId, setSubmittedId] = useState("");
+  // Practice mode (set per session by the teacher): no timers, listening
+  // with pause/seek and unlimited replays, answer review after submitting.
+  // Everything else — and all of exam mode — runs the same code as before.
+  const practice = config.mode === "practice";
+  const [review, setReview] = useState(null);
 
   // deadline timestamps (ms epoch) for timed stages, set the first time
   // the student enters that stage. null = not started / not timed.
@@ -1106,6 +1113,7 @@ export default function TestRunner({ config }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Không thể nộp bài.");
       setSubmittedId(data.id);
+      if (practice && data.review) setReview(data.review);
       setStage("done");
     } catch (err) {
       setSubmitError(err.message);
@@ -1194,7 +1202,7 @@ export default function TestRunner({ config }) {
             <ul style={{ paddingLeft: 18, margin: 0, lineHeight: 1.9 }}>
               {activeSteps.includes("grammar") && <li>Ngữ pháp & Từ vựng: {content.grammar.length} câu trắc nghiệm{config.timeLimits.grammar ? ` — ${config.timeLimits.grammar} phút` : ""}</li>}
               {activeSteps.includes("reading") && <li>Reading: {content.reading.sections.length} đoạn văn, {totalSlots(readingFlat)} câu hỏi{config.timeLimits.reading ? ` — ${config.timeLimits.reading} phút` : ""}</li>}
-              {activeSteps.includes("listening") && <li>Listening: nghe audio (tối đa {config.listeningPlays} lần/đoạn), {totalSlots(listeningFlat)} câu hỏi</li>}
+              {activeSteps.includes("listening") && <li>Listening: {practice ? "nghe không giới hạn, có thể tạm dừng" : `nghe audio (tối đa ${config.listeningPlays} lần/đoạn)`}, {totalSlots(listeningFlat)} câu hỏi</li>}
               {activeSteps.includes("writing") && <li>Writing: {content.writing.tasks.length > 1 ? `${content.writing.tasks.length} bài (Task 1, Task 2)` : "1 bài luận"}{config.timeLimits.writing ? ` — ${config.timeLimits.writing} phút` : ""}, sẽ được giáo viên chấm điểm</li>}
             </ul>
           </div>
@@ -1272,15 +1280,20 @@ export default function TestRunner({ config }) {
               <div key={si}>
                 {sec.title && <p className="mono muted" style={{ fontSize: 12, marginTop: si > 0 ? 28 : 0, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{sec.title}</p>}
                 {sec.instructions && <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>{sec.instructions}</p>}
-                <div className="card row">
-                  <div className="row" style={{ gap: 10, justifyContent: "flex-start" }}>
-                    <button className="btn-ghost" disabled={count >= config.listeningPlays || speakingIdx === si} onClick={() => playListening(si, sec)}>
-                      {speakingIdx === si ? "▶ Đang phát…" : "▶ Phát audio"}
-                    </button>
-                    <button className="btn-ghost" onClick={stopSpeaking}>⏹ Dừng phát</button>
+                {practice ? (
+                  <div className="card"><PracticeAudioPlayer src={sec.audioUrl} script={sec.script} /></div>
+                ) : (
+                  // Exam mode: once started, a recording plays through — there is
+                  // deliberately no stop button, as in the real test.
+                  <div className="card row">
+                    <div className="row" style={{ gap: 10, justifyContent: "flex-start" }}>
+                      <button className="btn-ghost" disabled={count >= config.listeningPlays || speakingIdx === si} onClick={() => playListening(si, sec)}>
+                        {speakingIdx === si ? "▶ Đang phát…" : "▶ Phát audio"}
+                      </button>
+                    </div>
+                    <p className="mono muted" style={{ fontSize: 12 }}>Đã phát: {count}/{config.listeningPlays} lần</p>
                   </div>
-                  <p className="mono muted" style={{ fontSize: 12 }}>Đã phát: {count}/{config.listeningPlays} lần</p>
-                </div>
+                )}
                 <HighlightZone>
                   <QuestionListBlock questions={sec.questions} answers={lAns} setAnswers={setLAns} startIndex={priorCount} />
                 </HighlightZone>
@@ -1351,7 +1364,11 @@ export default function TestRunner({ config }) {
         </div>
       )}
 
-      {stage === "done" && (
+      {stage === "done" && practice && review && (
+        <PracticeReview review={review} studentName={name} hasWriting={activeSteps.includes("writing")} order={activeSteps} />
+      )}
+
+      {stage === "done" && !(practice && review) && (
         <div className="card card-strong" style={{ textAlign: "center", padding: 40 }}>
           <BrandBar size="large" style={{ justifyContent: "center", marginBottom: 20 }} />
           <p className="serif" style={{ fontSize: 22, margin: "8px 0" }}>Cảm ơn {name || "bạn"} đã hoàn thành bài test!</p>

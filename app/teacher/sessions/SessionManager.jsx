@@ -18,6 +18,7 @@ export default function SessionManager({ initialSessions, banks, initialCategory
   const [skills, setSkills] = useState({ grammar: true, reading: true, listening: true, writing: true });
   const [times, setTimes] = useState({ grammar: 40, reading: 40, writing: 30 });
   const [listeningPlays, setListeningPlays] = useState(1);
+  const [mode, setMode] = useState("exam"); // "exam" | "practice"
   const filteredBanks = initialCategory ? banks.filter((b) => b.category === initialCategory) : banks;
   const bankChoices = filteredBanks.length > 0 ? filteredBanks : banks;
   const [contentBankId, setContentBankId] = useState(bankChoices[0] ? bankChoices[0].id : "");
@@ -48,6 +49,7 @@ export default function SessionManager({ initialSessions, banks, initialCategory
           skills: chosenSkills,
           timeLimits: times,
           listeningPlays,
+          mode,
           contentBankId: contentBankId || null,
         }),
       });
@@ -115,6 +117,25 @@ export default function SessionManager({ initialSessions, banks, initialCategory
           ))}
         </div>
 
+        <p style={{ margin: "16px 0 8px" }}>Chế độ:</p>
+        <div className="mode-choice">
+          <label className={`mode-option ${mode === "exam" ? "selected" : ""}`}>
+            <input type="radio" name="session-mode" checked={mode === "exam"} onChange={() => setMode("exam")} />
+            <span>
+              <strong>Thi thử</strong>
+              <span className="muted">Có đếm giờ, giới hạn lượt nghe, không dừng audio. Học viên chỉ thấy lời cảm ơn sau khi nộp.</span>
+            </span>
+          </label>
+          <label className={`mode-option ${mode === "practice" ? "selected" : ""}`}>
+            <input type="radio" name="session-mode" checked={mode === "practice"} onChange={() => setMode("practice")} />
+            <span>
+              <strong>Luyện tập</strong>
+              <span className="muted">Không giới hạn thời gian, nghe tạm dừng/tua thoải mái. Nộp xong hiện số câu đúng, đáp án và giải thích từng câu.</span>
+            </span>
+          </label>
+        </div>
+
+        {mode === "exam" && <>
         <p style={{ margin: "16px 0 8px" }}>Thời gian giới hạn (phút):</p>
         <div className="row" style={{ gap: 16, justifyContent: "flex-start", flexWrap: "wrap" }}>
           {TIMED_SKILLS.map((s) => (
@@ -143,6 +164,7 @@ export default function SessionManager({ initialSessions, banks, initialCategory
             />
           </div>
         </div>
+        </>}
 
         <button className="btn" style={{ marginTop: 20 }} disabled={creating || bankChoices.length === 0} onClick={create}>
           {creating ? "Đang tạo…" : "Tạo phiên thi →"}
@@ -170,6 +192,7 @@ export default function SessionManager({ initialSessions, banks, initialCategory
                 <th>Tên</th>
                 <th>Bộ đề</th>
                 <th>Kỹ năng</th>
+                <th>Chế độ</th>
                 <th>Link</th>
                 <th>Trạng thái</th>
                 <th></th>
@@ -183,6 +206,7 @@ export default function SessionManager({ initialSessions, banks, initialCategory
                     <td>{s.name}</td>
                     <td className="mono muted" style={{ fontSize: 12 }}>{bankName(s.content_bank_id)}</td>
                     <td className="mono muted" style={{ fontSize: 12 }}>{(s.skills || []).map((sk) => SKILL_LABELS[sk] || sk).join(", ")}</td>
+                    <td>{s.time_limits?.mode === "practice" ? <span className="mode-pill practice">Luyện tập</span> : <span className="mode-pill">Thi thử</span>}</td>
                     <td>
                       <button className="btn-ghost btn-sm" onClick={() => copy(link)}>Copy link</button>
                     </td>

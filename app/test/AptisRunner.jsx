@@ -19,6 +19,8 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useFontSize } from "@/app/contexts/ThemeContext";
+import PracticeAudioPlayer from "./PracticeAudioPlayer";
+import PracticeReview from "./PracticeReview";
 
 const FONT_ZOOM = { small: 0.9, medium: 1, large: 1.15 };
 const SKILL_ORDER = ["listening", "reading", "writing"];
@@ -440,6 +442,10 @@ export default function AptisRunner({ config }) {
   const [submitError, setSubmitError] = useState("");
   const [result, setResult] = useState(null);
   const submittedRef = useRef(false);
+  // Practice mode (set per session by the teacher): no timers (the session
+  // config carries no time limits), listening with pause/seek and unlimited
+  // replays, and an answer review after submitting. Exam mode is unchanged.
+  const practice = config.mode === "practice";
 
   useEffect(() => {
     let cancelled = false;
@@ -606,7 +612,7 @@ export default function AptisRunner({ config }) {
         <p className="muted" style={{ marginBottom: 18 }}>{config.name || "Bài thi thử"}</p>
         <div className="card stack" style={{ maxWidth: 560 }}>
           <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8 }}>
-            {activeSkills.includes("listening") && <li>Listening: {count("listening")} câu — mỗi đoạn ghi âm nghe tối đa {maxPlays} lần.</li>}
+            {activeSkills.includes("listening") && <li>Listening: {count("listening")} câu — {practice ? "nghe không giới hạn, có thể tạm dừng." : `mỗi đoạn ghi âm nghe tối đa ${maxPlays} lần.`}</li>}
             {activeSkills.includes("reading") && <li>Reading: {count("reading")} câu{config.timeLimits?.reading ? ` — ${config.timeLimits.reading} phút` : ""}.</li>}
             {activeSkills.includes("writing") && <li>Writing: {content.writing.tasks.length} phần{config.timeLimits?.writing ? ` — ${config.timeLimits.writing} phút` : ""}.</li>}
           </ul>
@@ -625,6 +631,14 @@ export default function AptisRunner({ config }) {
             Bắt đầu làm bài
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (stage === "done" && practice && result?.review) {
+    return (
+      <div className="wrap" style={{ zoom, maxWidth: 980 }}>
+        <PracticeReview review={result.review} studentName={studentName} hasWriting={activeSkills.includes("writing")} order={activeSkills} />
       </div>
     );
   }
@@ -680,7 +694,10 @@ export default function AptisRunner({ config }) {
           <span className="mono muted" style={{ fontSize: 12 }}>Trang {pageIdx - firstOfSkill + 1}/{skillPages.length}</span>
         </div>
         {sec?.instructions && <p className="aptis-instructions">{sec.instructions}</p>}
-        {page.skill === "listening" && sec && (sec.audioUrl || sec.script) && (
+        {page.skill === "listening" && sec && (sec.audioUrl || sec.script) && practice && (
+          <PracticeAudioPlayer key={page.key} src={sec.audioUrl} script={sec.script} />
+        )}
+        {page.skill === "listening" && sec && (sec.audioUrl || sec.script) && !practice && (
           <AudioPlayer
             key={page.key}
             src={sec.audioUrl}
