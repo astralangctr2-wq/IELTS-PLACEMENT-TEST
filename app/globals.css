@@ -441,3 +441,99 @@ tr:hover td { background: rgba(79, 99, 255, 0.06); }
 [data-theme="light"] .section-note { background: rgba(63, 82, 232, 0.08); }
 .section-note p { margin: 3px 0; font-size: 15px; color: var(--ink); line-height: 1.65; font-weight: 600; }
 .section-note p:first-child { font-weight: 800; color: var(--primary); font-size: 17px; letter-spacing: 0.01em; margin-bottom: 6px; }
+
+/* ================= Aptis ESOL runner (app/test/AptisRunner.jsx) ================= */
+.aptis-shell { max-width: 1180px; margin: 0 auto; padding: 18px 22px 0; min-height: 100vh; display: flex; flex-direction: column; }
+.aptis-topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 10px 16px; padding-right: 180px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface); box-shadow: var(--shadow); margin-bottom: 16px;
+}
+.aptis-topbar-left { display: flex; align-items: center; gap: 10px; }
+.aptis-skill-pill { background: var(--primary); color: #fff; border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 700; }
+.aptis-skill-steps { display: flex; gap: 6px; }
+.aptis-step { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+.aptis-step.current { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+.aptis-step.done { text-decoration: line-through; opacity: .6; }
+.aptis-timer { font-family: var(--font-mono); font-weight: 700; font-size: 16px; min-width: 70px; text-align: right; }
+.aptis-timer.warn { color: var(--danger); }
+@media (max-width: 760px) { .aptis-topbar { padding-right: 16px; margin-top: 56px; } .aptis-skill-steps { display: none; } }
+
+.aptis-page { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow); }
+.aptis-page-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+.aptis-part-title { font-size: 18px; margin: 0; }
+.aptis-instructions { color: var(--ink); font-weight: 600; font-size: 15px; line-height: 1.6; margin: 0 0 14px; padding: 10px 14px; border-left: 4px solid var(--primary); background: rgba(79, 99, 255, 0.08); border-radius: 0 8px 8px 0; }
+.aptis-topic { font-size: 17px; margin: 4px 0 14px; letter-spacing: .02em; }
+.aptis-audio { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 16px; padding: 12px 14px; border: 1px dashed var(--border); border-radius: 10px; }
+
+.aptis-two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+@media (max-width: 860px) { .aptis-two-col { grid-template-columns: 1fr; } }
+.aptis-passage-panel { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; max-height: 70vh; overflow-y: auto; }
+.aptis-passage h3 { margin: 0 0 12px; font-size: 17px; }
+.aptis-passage p { margin: 0 0 12px; line-height: 1.75; }
+.aptis-passage-label { font-weight: 800; margin-bottom: 4px !important; }
+
+.aptis-questions { display: flex; flex-direction: column; gap: 16px; }
+.aptis-q-text { margin: 0 0 10px; line-height: 1.6; font-weight: 600; }
+.aptis-options { display: flex; flex-direction: column; gap: 8px; }
+.aptis-option { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; background: var(--surface); }
+.aptis-option:hover { border-color: var(--primary); }
+.aptis-option.selected { border-color: var(--primary); background: rgba(79, 99, 255, 0.12); }
+.aptis-option input { accent-color: var(--primary); }
+.aptis-option-letter { font-family: var(--font-mono); font-weight: 700; color: var(--muted); min-width: 14px; }
+
+.aptis-select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font-size: 14.5px; max-width: 100%; }
+.aptis-select:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+.aptis-inline-sentence { font-size: 16px; line-height: 2.1; margin: 0; }
+.aptis-inline-select { margin: 0 6px; min-width: 130px; width: auto; display: inline-block; }
+
+.aptis-match-list { display: flex; flex-direction: column; gap: 10px; }
+.aptis-match-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.aptis-match-item { line-height: 1.5; }
+@media (max-width: 640px) { .aptis-match-row { grid-template-columns: 1fr; } }
+
+.aptis-para { margin-bottom: 18px; }
+.aptis-para-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.aptis-para-num { width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+.aptis-para-head .aptis-select { flex: 1; }
+.aptis-para-text { margin: 0; line-height: 1.75; }
+
+/* drag & drop sentence ordering */
+.aptis-reorder { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 860px) { .aptis-reorder { grid-template-columns: 1fr; } }
+.aptis-reorder-label { margin: 0 0 8px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.aptis-pool { border: 2px dashed var(--border); border-radius: 12px; padding: 12px; min-height: 120px; display: flex; flex-direction: column; gap: 8px; }
+.aptis-pool.over { border-color: var(--primary); background: rgba(79, 99, 255, 0.06); }
+.aptis-card {
+  display: block; width: 100%; text-align: left; font: inherit; line-height: 1.5; color: var(--ink);
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+  cursor: grab; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.aptis-card:hover { border-color: var(--primary); }
+.aptis-card:active { cursor: grabbing; }
+.aptis-card.picked { border-color: var(--primary); outline: 2px solid var(--primary); background: rgba(79, 99, 255, 0.10); }
+.aptis-card.in-slot { box-shadow: none; flex: 1; }
+.aptis-slots { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.aptis-slot { display: flex; align-items: stretch; gap: 10px; min-height: 52px; padding: 6px; border: 2px dashed var(--border); border-radius: 12px; cursor: pointer; }
+.aptis-slot.filled { border-style: solid; }
+.aptis-slot.over, .aptis-slot.awaiting:hover { border-color: var(--primary); background: rgba(79, 99, 255, 0.06); }
+.aptis-slot-num { width: 30px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--primary); }
+.aptis-slot-empty { display: flex; align-items: center; color: var(--muted); font-size: 13px; }
+
+/* writing */
+.aptis-writing-prompt { margin-bottom: 14px; }
+.aptis-writing-prompt p { margin: 0 0 4px; line-height: 1.6; }
+.aptis-writing-item { margin-bottom: 18px; }
+.aptis-writing-num { display: inline-flex; width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 13px; align-items: center; justify-content: center; margin-right: 8px; }
+.aptis-textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; line-height: 1.6; resize: vertical; }
+.aptis-textarea.over { border-color: var(--danger); }
+.aptis-over { color: var(--danger); }
+
+/* footer navigation */
+.aptis-footer { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 0 16px; margin-top: 14px; background: var(--bg); }
+.aptis-nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.aptis-nav-dot { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font-weight: 700; font-size: 13px; cursor: pointer; }
+.aptis-nav-dot.partial { border-color: var(--gold); }
+.aptis-nav-dot.done { background: rgba(79, 99, 255, 0.15); border-color: var(--primary); }
+.aptis-nav-dot.current { outline: 2px solid var(--primary); outline-offset: 1px; }
+.aptis-footer-btns { display: flex; gap: 10px; }
