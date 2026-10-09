@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isValidSessionValue } from "@/lib/auth";
-import { setSessionActive, deleteSession } from "@/lib/testSessions";
+import { setSessionActive, setSessionClass, deleteSession } from "@/lib/testSessions";
 
 function requireTeacher() {
   const value = cookies().get("teacher_session")?.value;
@@ -11,6 +11,10 @@ function requireTeacher() {
 export async function PATCH(req, { params }) {
   if (!requireTeacher()) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   const body = await req.json();
+  if ("className" in body) {
+    await setSessionClass(params.id, body.className);
+    return NextResponse.json({ ok: true });
+  }
   await setSessionActive(params.id, Boolean(body.active));
   return NextResponse.json({ ok: true });
 }

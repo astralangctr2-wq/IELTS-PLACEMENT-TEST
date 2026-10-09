@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { formatVN } from "@/lib/formatDate";
 import { requireTeacherOrRedirect } from "@/lib/auth";
 import { sql, ensureSchema } from "@/lib/db";
-import GradeForm from "./GradeForm";
+import WritingGrader from "./WritingGrader";
+import { aptisScaleFromRaw, aptisCefr } from "@/lib/grading";
 import AnswerReview from "./AnswerReview";
 import DeleteButton from "../DeleteButton";
 
@@ -12,11 +13,22 @@ export default async function SubmissionDetail({ params }) {
   requireTeacherOrRedirect();
   await ensureSchema();
 
-  const { rows } = await sql`SELECT * FROM submissions WHERE id = ${params.id} LIMIT 1`;
+  const { rows } = await sql`
+    SELECT s.*, cb.category AS bank_category, cb.name AS bank_name, ts.name AS session_name,
+           CASE WHEN s.class_name IS NULL THEN ts.class_name ELSE NULLIF(s.class_name, '') END AS effective_class
+    FROM submissions s
+    LEFT JOIN content_banks cb ON cb.id = s.content_bank_id
+    LEFT JOIN test_sessions ts ON ts.id = s.session_id
+    WHERE s.id = ${params.id} LIMIT 1`;
   if (rows.length === 0) notFound();
   const s = rows[0];
   const snapshot = s.content_snapshot || null;
   const skills = Array.isArray(s.skills_included) ? s.skills_included : ["grammar", "reading", "listening", "writing"];
+  const aptis = s.bank_category === "aptis";
+  const aptisSkill = (skill, earned, total) => {
+    const scale = aptisScaleFromRaw(earned, total);
+    return <>{earned}/{total} câu — <b>{scale ?? "—"}/50</b> · CEFR <b>{scale !== null ? aptisCefr(skill, scale) : "—"}</b></>;
+  };
 
   return (
     <div className="wrap">
@@ -26,14 +38,25 @@ export default async function SubmissionDetail({ params }) {
           <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>
             {formatVN(s.created_at)}
             {s.target_band ? ` · Mục tiêu: ${s.target_band}` : ""}
+            {s.bank_name ? ` · ${s.bank_name}` : ""}
+            {` · Lớp: ${s.effective_class || "chưa phân lớp"}`}
           </p>
         </div>
         <div className="row" style={{ gap: 10 }}>
           <a href="/teacher"><button className="btn-ghost btn-sm">← Danh sách</button></a>
+          <a href={`/teacher/${s.id}/phieu`} target="_blank" rel="noreferrer"><button className="btn-ghost btn-sm">Phiếu kết quả ↗</button></a>
           <DeleteButton id={s.id} studentName={s.student_name} redirectAfter="/teacher" />
         </div>
       </div>
 
+      {aptis ? (
+      <div className="card stack">
+        <p className="mono muted" style={{ fontSize: 12 }}>ĐIỂM TỰ ĐỘNG — THANG APTIS (ƯỚC TÍNH)</p>
+        {skills.includes("listening") && <p>Listening: {aptisSkill("listening", s.listening_score, s.listening_total)}</p>}
+        {skills.includes("reading") && <p>Reading: {aptisSkill("reading", s.reading_score, s.reading_total)}</p>}
+        <p className="muted" style={{ fontSize: 12 }}>Điểm 0–50 quy đổi theo tỷ lệ câu đúng; mốc CEFR theo Aptis General (British Council).</p>
+      </div>
+      ) : (
       <div className="card stack">
         <p className="mono muted" style={{ fontSize: 12 }}>ĐIỂM TỰ ĐỘNG</p>
         {skills.includes("grammar") && <p>Ngữ pháp: <b>{s.grammar_score}/{s.grammar_total}</b></p>}
@@ -41,6 +64,7 @@ export default async function SubmissionDetail({ params }) {
         {skills.includes("listening") && <p>Listening: <b>{s.listening_score}/{s.listening_total}</b></p>}
         <p>Band ước tính (chưa gồm Writing): <b>{s.objective_band !== null ? Number(s.objective_band).toFixed(1) : "— (HV không làm phần trắc nghiệm nào)"}</b></p>
       </div>
+      )}
 
       {snapshot && Array.isArray(snapshot.grammar) && Array.isArray(snapshot.reading) && Array.isArray(snapshot.listening) ? (
         <>
@@ -54,19 +78,20 @@ export default async function SubmissionDetail({ params }) {
         </div>
       )}
 
-      <div className="card">
-        <p className="mono muted" style={{ fontSize: 12, marginBottom: 10 }}>BÀI VIẾT ({s.writing_word_count} từ)</p>
-        <p className="serif" style={{ lineHeight: 1.7, whiteSpace: "pre-line" }}>{s.writing_text}</p>
-      </div>
-
-      <GradeForm
-        submissionId={s.id}
-        objectiveBand={s.objective_band !== null ? Number(s.objective_band) : null}
-        initialBand={s.writing_band !== null ? Number(s.writing_band) : 6}
-        initialFeedback={s.writing_feedback || ""}
-        graded={s.graded}
-        finalBand={s.final_band !== null ? Number(s.final_band) : null}
-      />
+      {skills.includes("writing") && (
+        <WritingGrader
+          submissionId={s.id}
+          type={aptis ? "aptis" : "ielts"}
+          text={s.writing_text || ""}
+          wordCount={s.writing_word_count}
+          objectiveBand={s.objective_band !== null ? Number(s.objective_band) : null}
+          initialGrading={s.grading || null}
+          graded={s.graded}
+        />
+      )}
+      {!skills.includes("writing") && (
+        <div className="card"><p className="muted" style={{ fontSize: 13 }}>Bài này không có phần Writing — không cần chấm tay.</p></div>
+      )}
     </div>
   );
 }

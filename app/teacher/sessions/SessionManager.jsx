@@ -12,13 +12,14 @@ const TIMED_SKILLS = ["grammar", "reading", "writing"];
 
 const CATEGORY_LABELS = { placement: "Placement Test", midterm: "Mid-term Test", mock: "Mock Test", final: "Final Test", other: "Khác" };
 
-export default function SessionManager({ initialSessions, banks, initialCategory }) {
+export default function SessionManager({ initialSessions, banks, initialCategory, classNames = [] }) {
   const [sessions, setSessions] = useState(initialSessions);
   const [name, setName] = useState("");
   const [skills, setSkills] = useState({ grammar: true, reading: true, listening: true, writing: true });
   const [times, setTimes] = useState({ grammar: 40, reading: 40, writing: 30 });
   const [listeningPlays, setListeningPlays] = useState(1);
   const [mode, setMode] = useState("exam"); // "exam" | "practice"
+  const [className, setClassName] = useState("");
   const filteredBanks = initialCategory ? banks.filter((b) => b.category === initialCategory) : banks;
   const bankChoices = filteredBanks.length > 0 ? filteredBanks : banks;
   const [contentBankId, setContentBankId] = useState(bankChoices[0] ? bankChoices[0].id : "");
@@ -50,6 +51,7 @@ export default function SessionManager({ initialSessions, banks, initialCategory
           timeLimits: times,
           listeningPlays,
           mode,
+          className: className.trim() || null,
           contentBankId: contentBankId || null,
         }),
       });
@@ -65,6 +67,19 @@ export default function SessionManager({ initialSessions, banks, initialCategory
       setError(err.message);
     }
     setCreating(false);
+  };
+
+  const knownClasses = [...new Set([...classNames, ...sessions.map((s) => s.class_name).filter(Boolean)])].sort();
+
+  const editClass = async (s) => {
+    const v = window.prompt(`Lớp của link "${s.name}" (để trống = không gán lớp).\nBài nộp qua link này sẽ tự vào lớp đó, trừ bài bạn đã tự chuyển lớp.`, s.class_name || "");
+    if (v === null) return;
+    await fetch(`/api/teacher/sessions/${s.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ className: v }),
+    });
+    setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, class_name: v.trim() || null } : x)));
   };
 
   const toggleActive = async (id, active) => {
@@ -92,6 +107,10 @@ export default function SessionManager({ initialSessions, banks, initialCategory
         <p className="mono muted" style={{ fontSize: 12, marginBottom: 12 }}>TẠO PHIÊN THI MỚI</p>
         <p style={{ marginBottom: 6 }}>Tên phiên thi (chỉ để bạn nhận biết, học viên không thấy):</p>
         <input type="text" placeholder="VD: Lớp A2 — chỉ Grammar + Reading" value={name} onChange={(e) => setName(e.target.value)} />
+
+        <p style={{ margin: "16px 0 6px" }}>Lớp <span className="muted" style={{ fontSize: 13 }}>(bài nộp qua link này sẽ tự vào lớp — dùng để lọc và xuất Excel)</span>:</p>
+        <input type="text" list="session-class-list" placeholder="VD: FL4" value={className} onChange={(e) => setClassName(e.target.value)} />
+        <datalist id="session-class-list">{knownClasses.map((c) => <option key={c} value={c} />)}</datalist>
 
         <p style={{ margin: "16px 0 8px" }}>Bộ đề sử dụng:</p>
         {bankChoices.length === 0 ? (
@@ -190,6 +209,7 @@ export default function SessionManager({ initialSessions, banks, initialCategory
             <thead>
               <tr>
                 <th>Tên</th>
+                <th>Lớp</th>
                 <th>Bộ đề</th>
                 <th>Kỹ năng</th>
                 <th>Chế độ</th>
@@ -204,6 +224,9 @@ export default function SessionManager({ initialSessions, banks, initialCategory
                 return (
                   <tr key={s.id}>
                     <td>{s.name}</td>
+                    <td>
+                      <button className="btn-ghost btn-sm" onClick={() => editClass(s)} title="Đổi lớp">{s.class_name || "—"} ✎</button>
+                    </td>
                     <td className="mono muted" style={{ fontSize: 12 }}>{bankName(s.content_bank_id)}</td>
                     <td className="mono muted" style={{ fontSize: 12 }}>{(s.skills || []).map((sk) => SKILL_LABELS[sk] || sk).join(", ")}</td>
                     <td>{s.time_limits?.mode === "practice" ? <span className="mode-pill practice">Luyện tập</span> : <span className="mode-pill">Thi thử</span>}</td>

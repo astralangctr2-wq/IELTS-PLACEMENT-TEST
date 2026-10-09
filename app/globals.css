@@ -589,3 +589,138 @@ tr:hover td { background: rgba(79, 99, 255, 0.06); }
 .mode-option strong { font-size: 15px; }
 .mode-pill { display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
 .mode-pill.practice { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+
+/* ================= Teacher: Writing grading ================= */
+.annot-legend { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 12px; }
+.annot-hint { font-size: 11.5px; margin-left: auto; }
+.annot-chip {
+  display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+  color: var(--tag); background: color-mix(in srgb, var(--tag) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tag) 35%, transparent);
+}
+.annot-pick { cursor: pointer; font-family: inherit; }
+.annot-pick.on { background: var(--tag); color: #fff; border-color: var(--tag); }
+.annot-text {
+  white-space: pre-wrap; line-height: 1.8; font-size: 15.5px; padding: 14px 16px; max-height: 520px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--subtle);
+}
+.annot-mark {
+  color: inherit; cursor: pointer; padding: 1px 0; border-radius: 3px;
+  background: color-mix(in srgb, var(--tag) 22%, transparent);
+  border-bottom: 2px solid var(--tag);
+}
+.annot-mark::after {
+  content: attr(data-n); font-family: var(--font-mono); font-size: 10px; font-weight: 700; vertical-align: super;
+  color: var(--tag); margin-left: 1px; user-select: none;
+}
+.annot-mark.active { outline: 2px solid var(--tag); outline-offset: 1px; }
+.annot-panel {
+  margin-top: 12px; padding: 14px; border-radius: 10px; border: 1px solid var(--primary);
+  background: var(--surface); display: flex; flex-direction: column; gap: 10px;
+}
+.annot-quote { margin: 0; font-style: italic; font-size: 14px; color: var(--muted); }
+.annot-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.annot-list { margin: 14px 0 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+.annot-list li { cursor: pointer; }
+.annot-list li > * { margin-right: 8px; }
+.annot-list-quote { font-style: italic; }
+.annot-list-note { color: var(--muted); }
+
+.grade-criteria { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .grade-criteria { grid-template-columns: 1fr; } }
+.grade-criterion { border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.grade-criterion-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.grade-criterion-head label { font-weight: 700; font-size: 13.5px; }
+.grade-criterion-head select { width: 110px; flex-shrink: 0; }
+.grade-criterion textarea { min-height: 84px; }
+.grade-parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.grade-part { display: flex; flex-direction: column; gap: 6px; }
+.grade-part label { font-weight: 700; font-size: 13.5px; }
+.grade-total {
+  display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; padding: 14px 18px; border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 10%, transparent); border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.grade-total > div { display: flex; flex-direction: column; gap: 2px; }
+.grade-total > div span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.grade-total > div strong { font-size: 30px; font-family: var(--font-heading); line-height: 1.1; }
+.grade-total > div input { width: 96px; font-size: 22px; font-weight: 700; }
+.grade-total p { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--muted); }
+.linklike { background: none; border: 0; padding: 0; color: var(--primary); text-decoration: underline; cursor: pointer; font: inherit; }
+
+/* ================= Teacher: class tools on the dashboard ================= */
+.class-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+.class-toolbar select { width: auto; min-width: 200px; }
+.bulk-bar {
+  position: sticky; top: 8px; z-index: 30; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  padding: 10px 14px; margin-bottom: 14px; border-radius: 12px; background: var(--surface);
+  border: 1px solid var(--primary); box-shadow: var(--shadow);
+}
+.bulk-bar input[type="text"] { width: 200px; }
+.class-pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--subtle); border: 1px solid var(--border); white-space: nowrap; }
+.type-pill { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--subtle); }
+.type-pill.aptis { color: var(--gold); }
+.export-panel { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.export-panel label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.export-panel select { width: auto; min-width: 180px; }
+
+/* ================= Teacher: printable result sheet (phiếu kết quả) ================= */
+/* Always printed on white paper, whatever theme the teacher uses. */
+.sheet-page { padding: 24px 16px 60px; }
+.sheet-actions { max-width: 210mm; margin: 0 auto 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.sheet {
+  --s-ink: #1b2033; --s-muted: #5f667f; --s-line: #d9dcea; --s-head: #1f3a8a; --s-soft: #f3f5fc;
+  max-width: 210mm; margin: 0 auto; background: #fff; color: var(--s-ink); padding: 16mm 15mm;
+  box-shadow: 0 6px 30px rgba(0,0,0,.25); border-radius: 4px; font-family: var(--font-body); font-size: 13px; line-height: 1.5;
+}
+.sheet h2 { font-family: var(--font-heading); font-size: 15px; color: var(--s-head); margin: 22px 0 10px; padding-bottom: 4px; border-bottom: 2px solid var(--s-head); text-transform: uppercase; letter-spacing: .04em; }
+.sheet h3 { font-size: 13.5px; margin: 16px 0 6px; color: var(--s-ink); }
+.sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--s-line); }
+.sheet-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 13px; color: var(--s-muted); }
+.sheet-brand img { height: 46px; width: auto; }
+.sheet-title { text-align: right; }
+.sheet-title h1 { margin: 0; font-family: var(--font-heading); font-size: 24px; letter-spacing: .06em; color: var(--s-head); }
+.sheet-title p { margin: 2px 0 0; font-weight: 700; color: var(--s-muted); letter-spacing: .08em; font-size: 12px; }
+.sheet-info { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; margin-top: 14px; }
+.sheet-info div { display: flex; gap: 8px; border-bottom: 1px dotted var(--s-line); padding: 4px 0; }
+.sheet-info span { color: var(--s-muted); min-width: 92px; }
+.sheet-scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sheet-scores div { border: 1px solid var(--s-line); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; }
+.sheet-scores span { font-size: 11px; color: var(--s-muted); text-transform: uppercase; letter-spacing: .04em; }
+.sheet-scores b { font-size: 18px; }
+.sheet-scores .sheet-final { background: var(--s-head); border-color: var(--s-head); color: #fff; }
+.sheet-scores .sheet-final span { color: #cfd8ff; }
+.sheet-scores .sheet-final b { font-size: 24px; }
+.sheet-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 0; }
+.sheet-table th, .sheet-table td { border: 1px solid var(--s-line); padding: 6px 8px; text-align: left; vertical-align: top; color: var(--s-ink); background: #fff; }
+.sheet-table thead th { background: var(--s-soft); font-weight: 700; font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; }
+.sheet-table tfoot td { background: var(--s-soft); font-weight: 700; }
+.sheet-table .num { text-align: center; white-space: nowrap; }
+.sheet-prose { white-space: pre-wrap; margin: 0; }
+.sheet-empty { color: var(--s-muted); font-style: italic; margin: 0; }
+.sheet-footnote { font-size: 11px; color: var(--s-muted); margin: 6px 0 0; }
+.sheet-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.sheet-essay { white-space: pre-wrap; font-family: Georgia, "Times New Roman", serif; font-size: 13px; line-height: 1.75; border: 1px solid var(--s-line); border-radius: 6px; padding: 10px 12px; }
+.sheet-mark { color: inherit; background: color-mix(in srgb, var(--tag) 20%, #fff); border-bottom: 2px solid var(--tag); padding: 0 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.sheet-mark::after { content: attr(data-n); font-family: var(--font-mono); font-size: 9px; font-weight: 700; vertical-align: super; color: var(--tag); }
+.sheet-tag { font-size: 11px; font-weight: 700; color: var(--tag); }
+.sheet-annots { margin-top: 10px; }
+.sheet-foot { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 28px; font-size: 12px; color: var(--s-muted); }
+.sheet-sign { text-align: center; }
+@media (max-width: 640px) {
+  .sheet { padding: 18px 14px; }
+  .sheet-info, .sheet-two { grid-template-columns: 1fr; }
+  .sheet-scores { grid-template-columns: 1fr 1fr; }
+}
+@page { size: A4; margin: 12mm; }
+@media print {
+  html, body { background: #fff !important; }
+  .top-controls, .sheet-actions { display: none !important; }
+  .sheet-page { padding: 0; }
+  .sheet { box-shadow: none; padding: 0; max-width: none; border-radius: 0; }
+  .sheet h2, .sheet-table tr, .sheet-scores div, .sheet-foot { break-inside: avoid; }
+  .sheet h2, .sheet h3 { break-after: avoid; }
+  .sheet-scores .sheet-final, .sheet-table thead th, .sheet-table tfoot td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+tr.row-checked td { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.subs-table th, .subs-table td { white-space: nowrap; padding-left: 10px; padding-right: 10px; }
+.subs-table td.subs-name { white-space: normal; min-width: 140px; font-weight: 600; }

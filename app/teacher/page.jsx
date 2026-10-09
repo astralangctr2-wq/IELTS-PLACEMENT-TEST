@@ -1,6 +1,6 @@
 import { requireTeacherOrRedirect } from "@/lib/auth";
-import { sql, ensureSchema } from "@/lib/db";
 import { listSessions } from "@/lib/testSessions";
+import { listSubmissionsWithClass, listClassNames } from "@/lib/classes";
 import LogoutButton from "./LogoutButton";
 import SubmissionsBoard from "./SubmissionsBoard";
 
@@ -8,35 +8,34 @@ export const dynamic = "force-dynamic";
 
 export default async function TeacherDashboard() {
   requireTeacherOrRedirect();
-  await ensureSchema();
 
-  const { rows } = await sql`
-    SELECT s.id, s.student_name, s.created_at, s.objective_band, s.writing_word_count,
-           s.final_band, s.graded, s.target_band, s.skills_included, s.session_id,
-           ts.name AS session_name
-    FROM submissions s
-    LEFT JOIN test_sessions ts ON ts.id = s.session_id
-    ORDER BY s.created_at DESC
-  `;
-
+  const rows = await listSubmissionsWithClass();
   const sessions = await listSessions();
-  const allSessions = sessions.map((s) => ({ id: s.id, name: s.name }));
+  const allSessions = sessions.map((s) => ({ id: s.id, name: s.name, className: s.class_name || null }));
+  const classNames = await listClassNames();
 
-  // Group by session — submissions whose session was deleted (or that
-  // never had one) fall into "Chưa phân loại".
-  const groupsMap = new Map();
-  for (const r of rows) {
-    const key = r.session_id && r.session_name ? r.session_id : "__unassigned__";
-    const label = r.session_id && r.session_name ? r.session_name : "Chưa phân loại";
-    if (!groupsMap.has(key)) groupsMap.set(key, { sessionId: r.session_id && r.session_name ? r.session_id : null, name: label, rows: [] });
-    groupsMap.get(key).rows.push(r);
-  }
-  // Sort groups by most recent submission in each, unassigned last.
-  const groups = [...groupsMap.values()].sort((a, b) => {
-    if (a.sessionId === null) return 1;
-    if (b.sessionId === null) return -1;
-    return new Date(b.rows[0].created_at) - new Date(a.rows[0].created_at);
-  });
+  // Only what the board needs (grading JSON can be large — keep the
+  // summary fields for the Aptis result column).
+  const lite = rows.map((r) => ({
+    id: r.id,
+    student_name: r.student_name,
+    created_at: new Date(r.created_at).toISOString(),
+    objective_band: r.objective_band !== null ? Number(r.objective_band) : null,
+    writing_word_count: r.writing_word_count,
+    final_band: r.final_band !== null ? Number(r.final_band) : null,
+    graded: r.graded,
+    target_band: r.target_band,
+    skills_included: r.skills_included,
+    session_id: r.session_id,
+    session_name: r.session_name,
+    class_name: r.class_name || null,
+    bank_id: r.content_bank_id,
+    bank_name: r.bank_name,
+    aptis: r.bank_category === "aptis",
+    reading: [r.reading_score, r.reading_total],
+    listening: [r.listening_score, r.listening_total],
+    aptis_writing: r.grading?.type === "aptis" ? r.grading.writingScore : null,
+  }));
 
   const pendingCount = rows.filter((r) => !r.graded).length;
 
@@ -57,7 +56,7 @@ export default async function TeacherDashboard() {
       {rows.length === 0 ? (
         <div className="card"><p className="muted">Chưa có bài nộp nào.</p></div>
       ) : (
-        <SubmissionsBoard initialGroups={groups} allSessions={allSessions} />
+        <SubmissionsBoard rows={lite} allSessions={allSessions} classNames={classNames} />
       )}
     </div>
   );
