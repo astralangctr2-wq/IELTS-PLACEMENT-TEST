@@ -3,7 +3,7 @@ import ExcelJS from "exceljs";
 import { isValidSessionValue } from "@/lib/auth";
 import { listSubmissionsWithClass, NO_CLASS } from "@/lib/classes";
 import {
-  IELTS_CRITERIA, APTIS_WRITING_PARTS, aptisScaleFromRaw, aptisCefr,
+  IELTS_CRITERIA, APTIS_WRITING_PARTS, aptisScaleFromRaw, aptisCefr, detectExamType,
 } from "@/lib/grading";
 
 export const dynamic = "force-dynamic";
@@ -106,7 +106,7 @@ export async function GET(req) {
   const all = await listSubmissionsWithClass();
   const rows = all
     .filter((r) => (cls === NO_CLASS ? !r.class_name : r.class_name === cls))
-    .filter((r) => (type === "aptis") === (r.bank_category === "aptis"))
+    .filter((r) => detectExamType(r).type === type)
     .filter((r) => !bank || r.content_bank_id === bank);
   if (rows.length === 0) return new Response("Không có bài nộp nào phù hợp.", { status: 404 });
 

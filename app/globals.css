@@ -724,3 +724,5 @@ tr:hover td { background: rgba(79, 99, 255, 0.06); }
 tr.row-checked td { background: color-mix(in srgb, var(--primary) 8%, transparent); }
 .subs-table th, .subs-table td { white-space: nowrap; padding-left: 10px; padding-right: 10px; }
 .subs-table td.subs-name { white-space: normal; min-width: 140px; font-weight: 600; }
+.exam-switch { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.exam-switch .linklike { font-size: 12px; }

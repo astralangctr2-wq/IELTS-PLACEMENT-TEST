@@ -3,7 +3,8 @@ import { formatVN } from "@/lib/formatDate";
 import { requireTeacherOrRedirect } from "@/lib/auth";
 import { sql, ensureSchema } from "@/lib/db";
 import WritingGrader from "./WritingGrader";
-import { aptisScaleFromRaw, aptisCefr } from "@/lib/grading";
+import { aptisScaleFromRaw, aptisCefr, detectExamType } from "@/lib/grading";
+import ExamTypeSwitch from "./ExamTypeSwitch";
 import AnswerReview from "./AnswerReview";
 import DeleteButton from "../DeleteButton";
 
@@ -14,17 +15,22 @@ export default async function SubmissionDetail({ params }) {
   await ensureSchema();
 
   const { rows } = await sql`
-    SELECT s.*, cb.category AS bank_category, cb.name AS bank_name, ts.name AS session_name,
+    SELECT s.*, cb.name AS bank_name,
+           s.exam_type, cb.category AS bank_category, cb2.category AS session_bank_category,
+           left(s.writing_text, 20) AS writing_head,
+           jsonb_path_exists(COALESCE(s.content_snapshot, '{}'::jsonb), '$.reading[*] ? (@.type == "reorder" || @.type == "heading_match")') AS has_aptis_types, ts.name AS session_name,
            CASE WHEN s.class_name IS NULL THEN ts.class_name ELSE NULLIF(s.class_name, '') END AS effective_class
     FROM submissions s
     LEFT JOIN content_banks cb ON cb.id = s.content_bank_id
     LEFT JOIN test_sessions ts ON ts.id = s.session_id
+    LEFT JOIN content_banks cb2 ON cb2.id = ts.content_bank_id
     WHERE s.id = ${params.id} LIMIT 1`;
   if (rows.length === 0) notFound();
   const s = rows[0];
   const snapshot = s.content_snapshot || null;
   const skills = Array.isArray(s.skills_included) ? s.skills_included : ["grammar", "reading", "listening", "writing"];
-  const aptis = s.bank_category === "aptis";
+  const examType = detectExamType(s);
+  const aptis = examType.type === "aptis";
   const aptisSkill = (skill, earned, total) => {
     const scale = aptisScaleFromRaw(earned, total);
     return <>{earned}/{total} câu — <b>{scale ?? "—"}/50</b> · CEFR <b>{scale !== null ? aptisCefr(skill, scale) : "—"}</b></>;
@@ -38,8 +44,11 @@ export default async function SubmissionDetail({ params }) {
           <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>
             {formatVN(s.created_at)}
             {s.target_band ? ` · Mục tiêu: ${s.target_band}` : ""}
-            {s.bank_name ? ` · ${s.bank_name}` : ""}
+            {` · ${s.bank_name || (s.content_bank_id ? "bộ đề đã xoá" : "không rõ bộ đề")}`}
             {` · Lớp: ${s.effective_class || "chưa phân lớp"}`}
+          </p>
+          <p className="mono" style={{ fontSize: 12, margin: "4px 0 0" }}>
+            <ExamTypeSwitch submissionId={s.id} type={examType.type} source={examType.source} />
           </p>
         </div>
         <div className="row" style={{ gap: 10 }}>

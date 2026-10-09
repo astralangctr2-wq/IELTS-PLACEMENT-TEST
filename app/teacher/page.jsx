@@ -3,6 +3,7 @@ import { listSessions } from "@/lib/testSessions";
 import { listSubmissionsWithClass, listClassNames } from "@/lib/classes";
 import LogoutButton from "./LogoutButton";
 import SubmissionsBoard from "./SubmissionsBoard";
+import { detectExamType } from "@/lib/grading";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export default async function TeacherDashboard() {
     class_name: r.class_name || null,
     bank_id: r.content_bank_id,
     bank_name: r.bank_name,
-    aptis: r.bank_category === "aptis",
+    aptis: detectExamType(r).type === "aptis",
     reading: [r.reading_score, r.reading_total],
     listening: [r.listening_score, r.listening_total],
     aptis_writing: r.grading?.type === "aptis" ? r.grading.writingScore : null,

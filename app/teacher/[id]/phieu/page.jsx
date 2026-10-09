@@ -3,7 +3,7 @@ import { requireTeacherOrRedirect } from "@/lib/auth";
 import { sql, ensureSchema } from "@/lib/db";
 import { CENTER_NAME, LOGO_URL } from "@/lib/branding";
 import {
-  IELTS_CRITERIA, APTIS_WRITING_PARTS, TAG_BY_KEY, aptisScaleFromRaw, aptisCefr, segmentText, cleanAnnotations,
+  IELTS_CRITERIA, APTIS_WRITING_PARTS, TAG_BY_KEY, aptisScaleFromRaw, aptisCefr, segmentText, cleanAnnotations, detectExamType,
 } from "@/lib/grading";
 import PrintButton from "./PrintButton";
 
@@ -54,16 +54,21 @@ export default async function ResultSheet({ params }) {
   requireTeacherOrRedirect();
   await ensureSchema();
   const { rows } = await sql`
-    SELECT s.*, cb.category AS bank_category, cb.name AS bank_name,
+    SELECT s.*, cb.name AS bank_name,
+           s.exam_type, cb.category AS bank_category, cb2.category AS session_bank_category,
+           left(s.writing_text, 20) AS writing_head,
+           jsonb_path_exists(COALESCE(s.content_snapshot, '{}'::jsonb), '$.reading[*] ? (@.type == "reorder" || @.type == "heading_match")') AS has_aptis_types,
            CASE WHEN s.class_name IS NULL THEN ts.class_name ELSE NULLIF(s.class_name, '') END AS effective_class
     FROM submissions s
     LEFT JOIN content_banks cb ON cb.id = s.content_bank_id
     LEFT JOIN test_sessions ts ON ts.id = s.session_id
+    LEFT JOIN content_banks cb2 ON cb2.id = ts.content_bank_id
     WHERE s.id = ${params.id} LIMIT 1`;
   if (rows.length === 0) notFound();
   const s = rows[0];
   const skills = Array.isArray(s.skills_included) ? s.skills_included : ["grammar", "reading", "listening", "writing"];
-  const aptis = s.bank_category === "aptis";
+  const examType = detectExamType(s);
+  const aptis = examType.type === "aptis";
   const g = s.grading && s.grading.type === (aptis ? "aptis" : "ielts") ? s.grading : null;
   const hasWriting = skills.includes("writing");
 
