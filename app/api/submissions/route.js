@@ -6,6 +6,8 @@ import { flattenSectionQuestions } from "@/lib/content";
 import { bandFromScore, scoreQuestions } from "@/lib/scoring";
 import { getSession, sessionMode } from "@/lib/testSessions";
 import { buildReview } from "@/lib/review";
+import { normalizeClassName } from "@/lib/classNames";
+import { sanitizeIntegrity } from "@/lib/integrity";
 
 const ALL_SKILLS = ["grammar", "reading", "listening", "writing"];
 
@@ -16,6 +18,10 @@ export async function POST(req) {
   const targetBand = (body.targetBand || "").toString().trim().slice(0, 20) || null;
   const sessionId = (body.sessionId || "").toString().trim().slice(0, 20) || null;
   const contentBankId = (body.contentBankId || "").toString().trim().slice(0, 20) || null;
+  // Class typed on the start screen (or fixed by the link) — normalized so
+  // "fl-1" and "FL1" file together. Exam-mode integrity log, if any.
+  const studentClass = normalizeClassName(body.studentClass) || null;
+  const integrity = sanitizeIntegrity(body.integrity);
   const skillsIncluded = ALL_SKILLS.filter((s) => Array.isArray(body.skills) ? body.skills.includes(s) : true);
 
   const writingText = (body.writingText || "").toString();
@@ -49,7 +55,8 @@ export async function POST(req) {
       reading_score, reading_total,
       listening_score, listening_total,
       objective_band, writing_text, writing_word_count, content_snapshot,
-      target_band, session_id, skills_included, content_bank_id
+      target_band, session_id, skills_included, content_bank_id,
+      student_class, integrity
     ) VALUES (
       ${id}, ${studentName}, ${JSON.stringify({
         grammar: body.grammarAnswers || {},
@@ -60,7 +67,8 @@ export async function POST(req) {
       ${r.earned}, ${r.total},
       ${l.earned}, ${l.total},
       ${objectiveBand}, ${writingText}, ${wordCount}, ${JSON.stringify(contentSnapshot)}::jsonb,
-      ${targetBand}, ${sessionId}, ${JSON.stringify(skillsIncluded)}::jsonb, ${contentBankId}
+      ${targetBand}, ${sessionId}, ${JSON.stringify(skillsIncluded)}::jsonb, ${contentBankId},
+      ${studentClass}, ${integrity ? JSON.stringify(integrity) : null}::jsonb
     )
   `;
 

@@ -2,6 +2,8 @@ import { getSession, toRunnerConfig } from "@/lib/testSessions";
 import { getContentBank, getDefaultContentBank } from "@/lib/contentBanks";
 import TestRunner from "../../TestRunner";
 import AptisRunner from "../../AptisRunner";
+import OpensCountdown from "./OpensCountdown";
+import { scheduleState, formatVnShort } from "@/lib/vnTime";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,25 @@ export default async function SessionTestPage({ params }) {
         <div className="card card-strong">
           <p className="accent" style={{ fontSize: 16 }}>Phiên thi này hiện đã đóng.</p>
           <p className="muted" style={{ fontSize: 14, marginTop: 8 }}>Vui lòng liên hệ giáo viên nếu bạn cần làm bài.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Optional opening window set by the teacher. It only gates OPENING the
+  // link: a student who already has the test open keeps working (their
+  // submission is accepted after closing time), and their own timers
+  // still force the submission when the test time runs out.
+  const when = scheduleState(session.opens_at, session.closes_at);
+  if (when === "not_yet") {
+    return <OpensCountdown opensAt={new Date(session.opens_at).toISOString()} label={formatVnShort(session.opens_at)} />;
+  }
+  if (when === "closed") {
+    return (
+      <div className="wrap">
+        <div className="card card-strong">
+          <p className="accent" style={{ fontSize: 16 }}>Bài thi đã đóng lúc {formatVnShort(session.closes_at)}.</p>
+          <p className="muted" style={{ fontSize: 14, marginTop: 8 }}>Link này không còn nhận người vào làm mới. Vui lòng liên hệ giáo viên nếu bạn cần làm bài.</p>
         </div>
       </div>
     );

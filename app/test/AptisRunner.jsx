@@ -21,6 +21,8 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useFontSize } from "@/app/contexts/ThemeContext";
 import PracticeAudioPlayer from "./PracticeAudioPlayer";
 import PracticeReview from "./PracticeReview";
+import { useExamIntegrity } from "./ExamIntegrity";
+import { normalizeClassName } from "@/lib/classNames";
 
 const FONT_ZOOM = { small: 0.9, medium: 1, large: 1.15 };
 const SKILL_ORDER = ["listening", "reading", "writing"];
@@ -377,7 +379,7 @@ function QuestionView({ q, skill, value, onChange }) {
 }
 
 // ---------- writing (one part per screen, one box per prompt) ----------
-function WritingPage({ task, ti, answers, setAnswer }) {
+function WritingPage({ task, ti, answers, setAnswer, onPaste }) {
   const part = ti + 1;
   const qs = Array.isArray(task.questions) && task.questions.length ? task.questions : null;
   const box = (id, limit, hint, minHeight) => {
@@ -388,6 +390,8 @@ function WritingPage({ task, ti, answers, setAnswer }) {
         <textarea
           value={answers[id] || ""}
           onChange={(e) => setAnswer(id, e.target.value)}
+          onPaste={onPaste}
+          onDrop={onPaste}
           placeholder={hint || (limit ? `Tối đa ${limit} từ` : "Viết câu trả lời…")}
           className={`aptis-textarea ${over ? "over" : ""}`}
           style={{ minHeight }}
@@ -484,6 +488,12 @@ export default function AptisRunner({ config }) {
 
   const page = pages[pageIdx];
   const skill = page?.skill;
+  // Exam mode only: fullscreen + leave/paste log (see ExamIntegrity.jsx).
+  const integrity = useExamIntegrity({ enabled: !practice, active: stage === "test", section: skill });
+  // Class: fixed by the link when the teacher set one, else typed.
+  const [studentClass, setStudentClass] = useState(config.className || "");
+  const classKey = normalizeClassName(config.className || studentClass);
+  const [confirmBox, setConfirmBox] = useState(null);
   const skillPages = useMemo(() => pages.map((p, i) => ({ p, i })).filter((x) => x.p.skill === skill), [pages, skill]);
   const firstOfSkill = skillPages.length ? skillPages[0].i : 0;
   const lastOfSkill = skillPages.length ? skillPages[skillPages.length - 1].i : 0;
@@ -549,6 +559,8 @@ export default function AptisRunner({ config }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentName,
+          studentClass: classKey,
+          integrity: integrity.report(),
           targetBand,
           sessionId: config.sessionId || null,
           contentBankId: config.contentBankId || null,
@@ -573,14 +585,17 @@ export default function AptisRunner({ config }) {
   const unansweredInSkill = () =>
     skillPages.reduce((n, { p }) => { const s = pageStats(p); return n + (s.total - s.done); }, 0);
 
-  const finishSkill = (auto = false) => {
+  // In-page confirmation instead of window.confirm(): a browser dialog
+  // drops fullscreen, which exam monitoring would count against the student.
+  const finishSkill = (auto = false, confirmed = false) => {
     if (!auto) {
       const left = unansweredInSkill();
       const isLast = lastOfSkill >= pages.length - 1;
       const msg = (left > 0 ? `Bạn còn ${left} câu chưa trả lời trong phần ${SKILL_LABEL[skill]}.\n` : "") +
         (isLast ? "Nộp bài ngay bây giờ?" : `Sang phần ${SKILL_LABEL[nextSkill]}? Bạn sẽ không quay lại phần ${SKILL_LABEL[skill]} được nữa.`);
-      if (!window.confirm(msg)) return;
+      if (!confirmed) { setConfirmBox(msg); return; }
     }
+    setConfirmBox(null);
     if (lastOfSkill >= pages.length - 1) submit();
     else setPageIdx(lastOfSkill + 1);
   };
@@ -624,10 +639,28 @@ export default function AptisRunner({ config }) {
             <input type="text" placeholder="Nhập họ tên của bạn…" value={studentName} onChange={(e) => setStudentName(e.target.value)} />
           </div>
           <div>
+            <label className="mono muted" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>Lớp đang học *</label>
+            {config.className ? (
+              <input type="text" value={config.className} disabled title="Lớp do giáo viên gán cho link thi này" />
+            ) : (
+              <>
+                <input type="text" placeholder="VD: FL1" value={studentClass} onChange={(e) => setStudentClass(e.target.value)} />
+                {studentClass.trim() && classKey !== studentClass.trim() && (
+                  <p className="mono muted" style={{ fontSize: 12, margin: "6px 0 0" }}>Sẽ ghi nhận là lớp: <b>{classKey}</b></p>
+                )}
+              </>
+            )}
+          </div>
+          <div>
             <label className="mono muted" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>Mục tiêu (tuỳ chọn)</label>
             <input type="text" placeholder="Vd: B1, B2…" value={targetBand} onChange={(e) => setTargetBand(e.target.value)} />
           </div>
-          <button className="btn" disabled={!studentName.trim() || pages.length === 0} onClick={() => { setPageIdx(0); setStage("test"); }}>
+          {!practice && (
+            <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+              Bài thi sẽ chuyển sang chế độ toàn màn hình. Việc thoát toàn màn hình hoặc chuyển sang trang/ứng dụng khác trong lúc làm bài sẽ được ghi lại cho giáo viên.
+            </p>
+          )}
+          <button className="btn" disabled={!studentName.trim() || !classKey || pages.length === 0} onClick={() => { integrity.start(); setPageIdx(0); setStage("test"); }}>
             Bắt đầu làm bài
           </button>
         </div>
@@ -672,6 +705,18 @@ export default function AptisRunner({ config }) {
 
   return (
     <div className="aptis-shell" style={{ zoom }}>
+      {integrity.overlay}
+      {confirmBox && (
+        <div className="integrity-modal" role="dialog" aria-modal="true">
+          <div className="integrity-modal-card neutral">
+            {confirmBox.split("\n").map((l, i) => <p key={i}>{l}</p>)}
+            <div className="row" style={{ gap: 10, justifyContent: "flex-end" }}>
+              <button type="button" className="btn-ghost" onClick={() => setConfirmBox(null)}>Huỷ</button>
+              <button type="button" className="btn" onClick={() => finishSkill(false, true)}>Đồng ý</button>
+            </div>
+          </div>
+        </div>
+      )}
       <header className="aptis-topbar">
         <div className="aptis-topbar-left">
           <strong>Aptis ESOL</strong>
@@ -709,7 +754,7 @@ export default function AptisRunner({ config }) {
         )}
 
         {page.kind === "writing" ? (
-          <WritingPage task={page.task} ti={page.ti} answers={answers.writing} setAnswer={(id, v) => setAnswer("writing", id, v)} />
+          <WritingPage task={page.task} ti={page.ti} answers={answers.writing} setAnswer={(id, v) => setAnswer("writing", id, v)} onPaste={practice ? undefined : integrity.blockPaste} />
         ) : (
           <div className={twoCol ? "aptis-two-col" : ""}>
             {showPassagePanel ? (

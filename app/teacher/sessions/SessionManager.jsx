@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { vnInputToIso, isoToVnInput, formatVnShort, scheduleState } from "@/lib/vnTime";
+import { normalizeClassName } from "@/lib/classNames";
 
 const SKILL_LABELS = {
   grammar: "Ngữ pháp & Từ vựng",
@@ -20,6 +22,9 @@ export default function SessionManager({ initialSessions, banks, initialCategory
   const [listeningPlays, setListeningPlays] = useState(1);
   const [mode, setMode] = useState("exam"); // "exam" | "practice"
   const [className, setClassName] = useState("");
+  const [opensAt, setOpensAt] = useState(""); // VN wall clock, datetime-local
+  const [closesAt, setClosesAt] = useState("");
+  const [editing, setEditing] = useState(null); // { id, opensAt, closesAt }
   const filteredBanks = initialCategory ? banks.filter((b) => b.category === initialCategory) : banks;
   const bankChoices = filteredBanks.length > 0 ? filteredBanks : banks;
   const [contentBankId, setContentBankId] = useState(bankChoices[0] ? bankChoices[0].id : "");
@@ -52,6 +57,8 @@ export default function SessionManager({ initialSessions, banks, initialCategory
           listeningPlays,
           mode,
           className: className.trim() || null,
+          opensAt: vnInputToIso(opensAt),
+          closesAt: vnInputToIso(closesAt),
           contentBankId: contentBankId || null,
         }),
       });
@@ -63,6 +70,8 @@ export default function SessionManager({ initialSessions, banks, initialCategory
       const listData = await listRes.json();
       setSessions(listData.sessions || []);
       setName("");
+      setOpensAt("");
+      setClosesAt("");
     } catch (err) {
       setError(err.message);
     }
@@ -79,7 +88,23 @@ export default function SessionManager({ initialSessions, banks, initialCategory
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ className: v }),
     });
-    setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, class_name: v.trim() || null } : x)));
+    setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, class_name: normalizeClassName(v) || null } : x)));
+  };
+
+  // Opening window: only limits who can OPEN the link. Students already
+  // inside keep going until their own time limit forces the submission.
+  const saveSchedule = async (id, opensIso, closesIso) => {
+    await fetch(`/api/teacher/sessions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ opensAt: opensIso, closesAt: closesIso }),
+    });
+    setSessions((prev) => prev.map((x) => (x.id === id ? { ...x, opens_at: opensIso, closes_at: closesIso } : x)));
+    setEditing(null);
+  };
+  const extend = (s, minutes) => {
+    const base = Math.max(Date.now(), s.closes_at ? new Date(s.closes_at).getTime() : Date.now());
+    saveSchedule(s.id, s.opens_at || null, new Date(base + minutes * 60000).toISOString());
   };
 
   const toggleActive = async (id, active) => {
@@ -111,6 +136,13 @@ export default function SessionManager({ initialSessions, banks, initialCategory
         <p style={{ margin: "16px 0 6px" }}>Lớp <span className="muted" style={{ fontSize: 13 }}>(bài nộp qua link này sẽ tự vào lớp — dùng để lọc và xuất Excel)</span>:</p>
         <input type="text" list="session-class-list" placeholder="VD: FL4" value={className} onChange={(e) => setClassName(e.target.value)} />
         <datalist id="session-class-list">{knownClasses.map((c) => <option key={c} value={c} />)}</datalist>
+
+        <p style={{ margin: "16px 0 6px" }}>Thời gian cho phép vào làm bài <span className="muted" style={{ fontSize: 13 }}>(giờ Việt Nam — bỏ trống nếu không giới hạn)</span>:</p>
+        <div className="row" style={{ gap: 16, justifyContent: "flex-start", flexWrap: "wrap" }}>
+          <label className="sched-field">Mở lúc<input type="datetime-local" value={opensAt} onChange={(e) => setOpensAt(e.target.value)} /></label>
+          <label className="sched-field">Đóng lúc<input type="datetime-local" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} /></label>
+        </div>
+        <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>Sau giờ đóng, link không nhận người vào mới. Học viên đã vào trước đó vẫn làm tiếp đến hết thời gian làm bài.</p>
 
         <p style={{ margin: "16px 0 8px" }}>Bộ đề sử dụng:</p>
         {bankChoices.length === 0 ? (
@@ -210,6 +242,7 @@ export default function SessionManager({ initialSessions, banks, initialCategory
               <tr>
                 <th>Tên</th>
                 <th>Lớp</th>
+                <th>Lịch mở</th>
                 <th>Bộ đề</th>
                 <th>Kỹ năng</th>
                 <th>Chế độ</th>
@@ -225,7 +258,37 @@ export default function SessionManager({ initialSessions, banks, initialCategory
                   <tr key={s.id}>
                     <td>{s.name}</td>
                     <td>
-                      <button className="btn-ghost btn-sm" onClick={() => editClass(s)} title="Đổi lớp">{s.class_name || "—"} ✎</button>
+                      <button className="btn-ghost btn-sm" onClick={() => editClass(s)} title="Đổi lớp">{normalizeClassName(s.class_name) || "—"} ✎</button>
+                    </td>
+                    <td style={{ minWidth: 200 }}>
+                      {editing?.id === s.id ? (
+                        <div className="stack" style={{ gap: 6 }}>
+                          <label className="sched-field">Mở lúc<input type="datetime-local" value={editing.opensAt} onChange={(e) => setEditing((x) => ({ ...x, opensAt: e.target.value }))} /></label>
+                          <label className="sched-field">Đóng lúc<input type="datetime-local" value={editing.closesAt} onChange={(e) => setEditing((x) => ({ ...x, closesAt: e.target.value }))} /></label>
+                          <div className="row" style={{ gap: 6, justifyContent: "flex-start" }}>
+                            <button className="btn btn-sm" onClick={() => saveSchedule(s.id, vnInputToIso(editing.opensAt), vnInputToIso(editing.closesAt))}>Lưu</button>
+                            <button className="btn-ghost btn-sm" onClick={() => setEditing(null)}>Huỷ</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="sched-cell">
+                          <span className={`sched-state ${scheduleState(s.opens_at, s.closes_at)}`}>
+                            {{ open: "Đang cho vào", not_yet: "Chưa mở", closed: "Đã đóng" }[scheduleState(s.opens_at, s.closes_at)]}
+                          </span>
+                          <span className="mono muted" style={{ fontSize: 11.5 }}>
+                            {s.opens_at ? `Mở ${formatVnShort(s.opens_at)}` : "Mở ngay"}<br />
+                            {s.closes_at ? `Đóng ${formatVnShort(s.closes_at)}` : "Không tự đóng"}
+                          </span>
+                          <div className="row" style={{ gap: 4, justifyContent: "flex-start", flexWrap: "wrap" }}>
+                            <button className="btn-ghost btn-xs" onClick={() => setEditing({ id: s.id, opensAt: isoToVnInput(s.opens_at), closesAt: isoToVnInput(s.closes_at) })}>Sửa lịch</button>
+                            {s.closes_at && <>
+                              <button className="btn-ghost btn-xs" onClick={() => extend(s, 15)} title="Gia hạn giờ đóng">+15p</button>
+                              <button className="btn-ghost btn-xs" onClick={() => extend(s, 30)}>+30p</button>
+                              <button className="btn-ghost btn-xs" onClick={() => extend(s, 60)}>+1h</button>
+                            </>}
+                          </div>
+                        </div>
+                      )}
                     </td>
                     <td className="mono muted" style={{ fontSize: 12 }}>{bankName(s.content_bank_id)}</td>
                     <td className="mono muted" style={{ fontSize: 12 }}>{(s.skills || []).map((sk) => SKILL_LABELS[sk] || sk).join(", ")}</td>

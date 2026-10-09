@@ -3,8 +3,9 @@ import { cookies } from "next/headers";
 import { sql, ensureSchema } from "@/lib/db";
 import { isValidSessionValue } from "@/lib/auth";
 import { roundHalf } from "@/lib/scoring";
+import { getSubmissionFull } from "@/lib/classes";
 import {
-  IELTS_CRITERIA, ieltsWritingBand, APTIS_WRITING_PARTS, aptisCefr, cleanAnnotations, detectExamType,
+  IELTS_CRITERIA, ieltsWritingBand, APTIS_WRITING_PARTS, aptisCefr, cleanAnnotations,
 } from "@/lib/grading";
 
 const txt = (v, max = 4000) => (v ?? "").toString().slice(0, max);
@@ -18,22 +19,12 @@ const txt = (v, max = 4000) => (v ?? "").toString().slice(0, max);
 // writing_feedback, final_band, graded) are filled too, so that page keeps
 // working unchanged.
 async function saveDetailedGrade(id, body) {
-  const { rows } = await sql`
-    SELECT s.objective_band, s.writing_text,
-           s.exam_type, cb.category AS bank_category, cb2.category AS session_bank_category,
-           left(s.writing_text, 20) AS writing_head,
-           jsonb_path_exists(COALESCE(s.content_snapshot, '{}'::jsonb), '$.reading[*] ? (@.type == "reorder" || @.type == "heading_match")') AS has_aptis_types
-    FROM submissions s
-    LEFT JOIN content_banks cb ON cb.id = s.content_bank_id
-    LEFT JOIN test_sessions ts ON ts.id = s.session_id
-    LEFT JOIN content_banks cb2 ON cb2.id = ts.content_bank_id
-    WHERE s.id = ${id} LIMIT 1`;
-  if (rows.length === 0) return NextResponse.json({ error: "Không tìm thấy bài làm." }, { status: 404 });
-  const row = rows[0];
+  const row = await getSubmissionFull(id);
+  if (!row) return NextResponse.json({ error: "Không tìm thấy bài làm." }, { status: 404 });
   const annotations = cleanAnnotations(body.annotations, (row.writing_text || "").length);
   let grading, writingBand, writingFeedback, finalBand;
 
-  if (detectExamType(row).type === "aptis") {
+  if (row.exam_kind === "aptis") {
     const parts = {};
     for (const p of APTIS_WRITING_PARTS) {
       const v = Number(body.parts?.[p.key]);

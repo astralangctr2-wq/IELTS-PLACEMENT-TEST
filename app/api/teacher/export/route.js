@@ -1,9 +1,11 @@
 import { cookies } from "next/headers";
 import ExcelJS from "exceljs";
 import { isValidSessionValue } from "@/lib/auth";
-import { listSubmissionsWithClass, NO_CLASS } from "@/lib/classes";
+import { listForClass, NO_CLASS } from "@/lib/classes";
+import { normalizeClassName } from "@/lib/classNames";
+import { INTEGRITY_LABEL, integrityText } from "@/lib/integrity";
 import {
-  IELTS_CRITERIA, APTIS_WRITING_PARTS, aptisScaleFromRaw, aptisCefr, detectExamType,
+  IELTS_CRITERIA, APTIS_WRITING_PARTS, aptisScaleFromRaw, aptisCefr,
 } from "@/lib/grading";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +20,14 @@ const dateVN = (v) => {
   return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`;
 };
 const num = (v) => (v === null || v === undefined || v === "" ? "" : Number(v));
+
+const INTEGRITY_COL = {
+  header: "Giám sát", width: 34, wrap: true,
+  get: (r) => {
+    const sm = r.integrity?.summary;
+    return sm ? `${INTEGRITY_LABEL[sm.level]}${sm.level === "normal" ? "" : ` — ${integrityText(sm)}`}` : "";
+  },
+};
 
 function ieltsColumns(rows) {
   const has = (s) => rows.some((r) => skillsOf(r).includes(s));
@@ -38,6 +48,7 @@ function ieltsColumns(rows) {
   }
   cols.push({ header: "Band cuối", width: 10, get: (r) => (r.graded ? num(r.final_band) : skillsOf(r).includes("writing") ? "" : num(r.objective_band)), fmt: "0.0", strong: true });
   cols.push({ header: "Trạng thái", width: 11, get: (r) => (!skillsOf(r).includes("writing") ? "Không có Writing" : r.graded ? "Đã chấm" : "Chưa chấm") });
+  cols.push(INTEGRITY_COL);
   if (has("writing")) {
     for (const c of IELTS_CRITERIA) cols.push({ header: `Nhận xét ${c.short}`, width: 40, wrap: true, get: (r) => (r.grading?.type === "ielts" ? r.grading.criteria?.[c.key]?.feedback || "" : "") });
     cols.push({ header: "Ghi chú", width: 36, wrap: true, get: (r) => (r.grading?.type === "ielts" ? r.grading.note || "" : r.writing_feedback || "") });
@@ -77,6 +88,7 @@ function aptisColumns(rows) {
     },
   });
   cols.push({ header: "Trạng thái", width: 11, get: (r) => (!skillsOf(r).includes("writing") ? "Không có Writing" : r.graded ? "Đã chấm" : "Chưa chấm") });
+  cols.push(INTEGRITY_COL);
   if (has("writing")) {
     cols.push({ header: "Điểm mạnh", width: 40, wrap: true, get: (r) => (g(r) ? g(r).strengths || "" : "") });
     cols.push({ header: "Cần cải thiện", width: 40, wrap: true, get: (r) => (g(r) ? g(r).improvements || "" : "") });
@@ -103,11 +115,7 @@ export async function GET(req) {
   const type = url.searchParams.get("type") === "aptis" ? "aptis" : "ielts";
   const bank = url.searchParams.get("bank") || "";
 
-  const all = await listSubmissionsWithClass();
-  const rows = all
-    .filter((r) => (cls === NO_CLASS ? !r.class_name : r.class_name === cls))
-    .filter((r) => detectExamType(r).type === type)
-    .filter((r) => !bank || r.content_bank_id === bank);
+  const rows = await listForClass(cls, type, bank);
   if (rows.length === 0) return new Response("Không có bài nộp nào phù hợp.", { status: 404 });
 
   const byBank = new Map();
@@ -121,7 +129,7 @@ export async function GET(req) {
   wb.creator = "Astra Language & IT Center";
   wb.created = new Date();
   const used = new Set();
-  const classLabel = cls === NO_CLASS ? "Chưa phân lớp" : cls;
+  const classLabel = cls === NO_CLASS ? "Chưa phân lớp" : normalizeClassName(cls);
 
   for (const { name, rows: list } of [...byBank.values()].sort((a, b) => a.name.localeCompare(b.name, "vi"))) {
     list.sort((a, b) => a.student_name.localeCompare(b.student_name, "vi") || new Date(a.created_at) - new Date(b.created_at));

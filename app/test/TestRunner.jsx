@@ -7,6 +7,8 @@ import { flattenSectionQuestions, renderMarkedText, parsePassageBlocks } from "@
 import BrandBar from "../components/BrandBar";
 import PracticeAudioPlayer from "./PracticeAudioPlayer";
 import PracticeReview from "./PracticeReview";
+import { useExamIntegrity } from "./ExamIntegrity";
+import { normalizeClassName } from "@/lib/classNames";
 
 const ALL_SKILLS = ["grammar", "reading", "listening", "writing"];
 const SKILL_TITLES = { grammar: "Ngữ pháp", reading: "Reading", listening: "Listening", writing: "Writing" };
@@ -907,6 +909,12 @@ export default function TestRunner({ config }) {
   // Everything else — and all of exam mode — runs the same code as before.
   const practice = config.mode === "practice";
   const [review, setReview] = useState(null);
+  // Class the student studies in — fixed by the link when the teacher set
+  // one, otherwise typed by the student ("fl-1" and "FL1" are the same).
+  const [studentClass, setStudentClass] = useState(config.className || "");
+  const classKey = normalizeClassName(config.className || studentClass);
+  // Exam mode only: fullscreen + leave/paste log (see ExamIntegrity.jsx).
+  const integrity = useExamIntegrity({ enabled: !practice, active: SECTION_STEPS.includes(stage), section: stage });
 
   // deadline timestamps (ms epoch) for timed stages, set the first time
   // the student enters that stage. null = not started / not timed.
@@ -1100,6 +1108,8 @@ export default function TestRunner({ config }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentName: name,
+          studentClass: classKey,
+          integrity: integrity.report(),
           targetBand,
           sessionId: config.sessionId || null,
           contentBankId: config.contentBankId || null,
@@ -1144,6 +1154,7 @@ export default function TestRunner({ config }) {
 
   return (
     <div className={["reading", "writing"].includes(stage) ? "wrap-reading" : "wrap"} style={{ zoom: FONT_SIZES[fontSize] }}>
+      {integrity.overlay}
       <div className="topbar">
         <div>
           <p className="serif" style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{config.name || "Bài kiểm tra IELTS"}</p>
@@ -1187,6 +1198,17 @@ export default function TestRunner({ config }) {
           <div className="card card-strong">
             <p style={{ marginBottom: 8 }}>Nhập tên của bạn:</p>
             <input type="text" placeholder="Nguyễn Văn A" value={name} onChange={(e) => setName(e.target.value)} />
+            <p style={{ margin: "16px 0 8px" }}>Lớp đang học:</p>
+            {config.className ? (
+              <input type="text" value={config.className} disabled title="Lớp do giáo viên gán cho link thi này" />
+            ) : (
+              <>
+                <input type="text" placeholder="VD: FL1" value={studentClass} onChange={(e) => setStudentClass(e.target.value)} />
+                {studentClass.trim() && classKey !== studentClass.trim() && (
+                  <p className="mono muted" style={{ fontSize: 12, margin: "6px 0 0" }}>Sẽ ghi nhận là lớp: <b>{classKey}</b></p>
+                )}
+              </>
+            )}
             {config.category === "placement" && (
               <>
                 <p style={{ margin: "16px 0 8px" }}>Mục tiêu band điểm hiện tại của bạn:</p>
@@ -1206,7 +1228,12 @@ export default function TestRunner({ config }) {
               {activeSteps.includes("writing") && <li>Writing: {content.writing.tasks.length > 1 ? `${content.writing.tasks.length} bài (Task 1, Task 2)` : "1 bài luận"}{config.timeLimits.writing ? ` — ${config.timeLimits.writing} phút` : ""}, sẽ được giáo viên chấm điểm</li>}
             </ul>
           </div>
-          <button className="btn" disabled={!name.trim() || activeSteps.length === 0} onClick={() => goStage(activeSteps[0])}>Bắt đầu làm bài →</button>
+          {!practice && (
+            <p className="muted" style={{ fontSize: 13, margin: "0 0 12px" }}>
+              Bài thi sẽ chuyển sang chế độ toàn màn hình. Việc thoát toàn màn hình hoặc chuyển sang trang/ứng dụng khác trong lúc làm bài sẽ được ghi lại cho giáo viên.
+            </p>
+          )}
+          <button className="btn" disabled={!name.trim() || !classKey || activeSteps.length === 0} onClick={() => { integrity.start(); goStage(activeSteps[0]); }}>Bắt đầu làm bài →</button>
         </div>
       )}
 
@@ -1343,6 +1370,8 @@ export default function TestRunner({ config }) {
                       placeholder="Viết bài làm của bạn tại đây…"
                       value={writingAnswers[ti] || ""}
                       onChange={(e) => setWritingAnswers((prev) => ({ ...prev, [ti]: e.target.value }))}
+                      onPaste={practice ? undefined : integrity.blockPaste}
+                      onDrop={practice ? undefined : integrity.blockPaste}
                       disabled={expired.writing}
                     />
                     <p className={`mono ${tWordCount >= 150 ? "success" : "accent"}`} style={{ fontSize: 12, marginTop: 8 }}>

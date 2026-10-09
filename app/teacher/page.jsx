@@ -1,63 +1,57 @@
 import { requireTeacherOrRedirect } from "@/lib/auth";
 import { listSessions } from "@/lib/testSessions";
-import { listSubmissionsWithClass, listClassNames } from "@/lib/classes";
+import { listSubmissionsPage, classSummary, listClassNames, ALL_CLASSES, PAGE_SIZE } from "@/lib/classes";
 import LogoutButton from "./LogoutButton";
 import SubmissionsBoard from "./SubmissionsBoard";
-import { detectExamType } from "@/lib/grading";
 
 export const dynamic = "force-dynamic";
 
-export default async function TeacherDashboard() {
+// Loads only what is on screen: one page of the newest submissions (or all
+// of one class), plus per-class counts for the filter / export / stats.
+export default async function TeacherDashboard({ searchParams }) {
   requireTeacherOrRedirect();
+  const cls = (searchParams?.class || ALL_CLASSES).toString();
+  const q = (searchParams?.q || "").toString().slice(0, 80);
+  const limit = Math.min(1000, Math.max(PAGE_SIZE, Number(searchParams?.n) || PAGE_SIZE));
 
-  const rows = await listSubmissionsWithClass();
-  const sessions = await listSessions();
-  const allSessions = sessions.map((s) => ({ id: s.id, name: s.name, className: s.class_name || null }));
-  const classNames = await listClassNames();
-
-  // Only what the board needs (grading JSON can be large — keep the
-  // summary fields for the Aptis result column).
-  const lite = rows.map((r) => ({
-    id: r.id,
-    student_name: r.student_name,
-    created_at: new Date(r.created_at).toISOString(),
-    objective_band: r.objective_band !== null ? Number(r.objective_band) : null,
-    writing_word_count: r.writing_word_count,
-    final_band: r.final_band !== null ? Number(r.final_band) : null,
-    graded: r.graded,
-    target_band: r.target_band,
-    skills_included: r.skills_included,
-    session_id: r.session_id,
-    session_name: r.session_name,
-    class_name: r.class_name || null,
-    bank_id: r.content_bank_id,
-    bank_name: r.bank_name,
-    aptis: detectExamType(r).type === "aptis",
-    reading: [r.reading_score, r.reading_total],
-    listening: [r.listening_score, r.listening_total],
-    aptis_writing: r.grading?.type === "aptis" ? r.grading.writingScore : null,
-  }));
-
-  const pendingCount = rows.filter((r) => !r.graded).length;
+  const [{ rows, total }, summary, sessions, classNames] = await Promise.all([
+    listSubmissionsPage({ cls, q, limit }),
+    classSummary(),
+    listSessions(),
+    listClassNames(),
+  ]);
+  const allSessions = sessions.map((s) => ({ id: s.id, name: s.name }));
+  const totalAll = summary.reduce((a, r) => a + r.n, 0);
+  const pendingAll = summary.reduce((a, r) => a + r.ungraded, 0);
 
   return (
     <div className="wrap-wide">
       <div className="topbar">
         <div>
           <p className="serif" style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Bảng điều khiển Giáo viên</p>
-          <p className="mono muted" style={{ fontSize: 13, margin: "4px 0 0" }}>{rows.length} bài nộp — {pendingCount} chưa chấm Writing</p>
+          <p className="mono muted" style={{ fontSize: 13, margin: "4px 0 0" }}>{totalAll} bài nộp — {pendingAll} chưa chấm Writing</p>
         </div>
-        <div className="row" style={{ gap: 10, width: "auto" }}>
+        <div className="row" style={{ gap: 10, width: "auto", flexWrap: "wrap" }}>
+          <a href="/teacher/stats"><button className="btn-ghost btn-sm">📊 Thống kê</button></a>
           <a href="/teacher/sessions"><button className="btn-ghost btn-sm">Tạo link phiên thi</button></a>
           <a href="/teacher/content"><button className="btn-ghost btn-sm">Quản lý đề thi</button></a>
           <LogoutButton />
         </div>
       </div>
 
-      {rows.length === 0 ? (
+      {totalAll === 0 ? (
         <div className="card"><p className="muted">Chưa có bài nộp nào.</p></div>
       ) : (
-        <SubmissionsBoard rows={lite} allSessions={allSessions} classNames={classNames} />
+        <SubmissionsBoard
+          rows={rows}
+          total={total}
+          cls={cls}
+          q={q}
+          limit={limit}
+          summary={summary.map((r) => ({ ...r, class_name: r.class_name || null }))}
+          allSessions={allSessions}
+          classNames={classNames}
+        />
       )}
     </div>
   );

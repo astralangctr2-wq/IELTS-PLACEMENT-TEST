@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import { requireTeacherOrRedirect } from "@/lib/auth";
-import { sql, ensureSchema } from "@/lib/db";
+import { getSubmissionFull } from "@/lib/classes";
+import { scoreMeaning } from "@/lib/scoreMeanings";
 import { CENTER_NAME, LOGO_URL } from "@/lib/branding";
 import {
-  IELTS_CRITERIA, APTIS_WRITING_PARTS, TAG_BY_KEY, aptisScaleFromRaw, aptisCefr, segmentText, cleanAnnotations, detectExamType,
+  IELTS_CRITERIA, APTIS_WRITING_PARTS, aptisScaleFromRaw, aptisCefr,
 } from "@/lib/grading";
 import PrintButton from "./PrintButton";
 
@@ -17,57 +18,30 @@ function Paragraphs({ text }) {
   return <p className="sheet-prose">{text}</p>;
 }
 
-function Essay({ text, annotations }) {
-  if (!text || !text.trim()) return <p className="sheet-empty">Học viên không viết bài.</p>;
-  const anns = cleanAnnotations(annotations, text.length);
+// "Ý nghĩa điểm số" — texts live in lib/scoreMeanings.js (empty until the
+// centre provides them); the box only appears for scores that have a text.
+function Meanings({ items }) {
+  const shown = items.filter((m) => m.text);
+  if (!shown.length) return null;
   return (
-    <>
-      <div className="sheet-essay">
-        {segmentText(text, anns).map((s, i) =>
-          s.ann ? (
-            <mark key={i} className="sheet-mark" style={{ "--tag": TAG_BY_KEY[s.ann.tag].color }} data-n={s.index + 1}>{s.text}</mark>
-          ) : (
-            <span key={i}>{s.text}</span>
-          )
-        )}
-      </div>
-      {anns.length > 0 && (
-        <table className="sheet-table sheet-annots">
-          <thead><tr><th style={{ width: 30 }}>#</th><th style={{ width: 90 }}>Loại</th><th>Đoạn trong bài</th><th>Ghi chú của giáo viên</th></tr></thead>
-          <tbody>
-            {anns.map((a, i) => (
-              <tr key={i}>
-                <td>{i + 1}</td>
-                <td><span className="sheet-tag" style={{ "--tag": TAG_BY_KEY[a.tag].color }}>{TAG_BY_KEY[a.tag].label}</span></td>
-                <td><i>“{text.slice(a.start, a.end)}”</i></td>
-                <td>{a.note || "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </>
+    <section>
+      <h2>Ý nghĩa điểm số</h2>
+      {shown.map((m) => (
+        <div key={m.label} className="sheet-meaning">
+          <div className="sheet-meaning-head"><span>{m.label}</span><b>{m.score}</b></div>
+          <p>{m.text}</p>
+        </div>
+      ))}
+    </section>
   );
 }
 
 export default async function ResultSheet({ params }) {
   requireTeacherOrRedirect();
-  await ensureSchema();
-  const { rows } = await sql`
-    SELECT s.*, cb.name AS bank_name,
-           s.exam_type, cb.category AS bank_category, cb2.category AS session_bank_category,
-           left(s.writing_text, 20) AS writing_head,
-           jsonb_path_exists(COALESCE(s.content_snapshot, '{}'::jsonb), '$.reading[*] ? (@.type == "reorder" || @.type == "heading_match")') AS has_aptis_types,
-           CASE WHEN s.class_name IS NULL THEN ts.class_name ELSE NULLIF(s.class_name, '') END AS effective_class
-    FROM submissions s
-    LEFT JOIN content_banks cb ON cb.id = s.content_bank_id
-    LEFT JOIN test_sessions ts ON ts.id = s.session_id
-    LEFT JOIN content_banks cb2 ON cb2.id = ts.content_bank_id
-    WHERE s.id = ${params.id} LIMIT 1`;
-  if (rows.length === 0) notFound();
-  const s = rows[0];
+  const s = await getSubmissionFull(params.id);
+  if (!s) notFound();
   const skills = Array.isArray(s.skills_included) ? s.skills_included : ["grammar", "reading", "listening", "writing"];
-  const examType = detectExamType(s);
+  const examType = { type: s.exam_kind };
   const aptis = examType.type === "aptis";
   const g = s.grading && s.grading.type === (aptis ? "aptis" : "ielts") ? s.grading : null;
   const hasWriting = skills.includes("writing");
@@ -78,10 +52,11 @@ export default async function ResultSheet({ params }) {
     for (const [key, label, e, t] of [["listening", "Listening", s.listening_score, s.listening_total], ["reading", "Reading", s.reading_score, s.reading_total]]) {
       if (!skills.includes(key)) continue;
       const scale = aptisScaleFromRaw(e, t);
-      apRows.push({ label, detail: `${e}/${t} câu đúng`, scale, cefr: scale !== null ? aptisCefr(key, scale) : "—" });
+      apRows.push({ key, label, detail: `${e}/${t} câu đúng`, scale, cefr: scale !== null ? aptisCefr(key, scale) : "—" });
     }
     if (hasWriting) {
       apRows.push({
+        key: "writing",
         label: "Writing",
         detail: g ? APTIS_WRITING_PARTS.map((p, i) => `P${i + 1}: ${g.parts[p.key]}/${p.max}`).join(" · ") : "Chưa chấm",
         scale: g ? g.writingScore : null,
@@ -89,6 +64,12 @@ export default async function ResultSheet({ params }) {
       });
     }
   }
+  const meanings = aptis
+    ? apRows.map((r) => ({ label: r.label, score: r.scale === null ? "—" : `${r.scale}/50 · ${r.cefr}`, text: r.scale === null ? "" : scoreMeaning("aptis", r.key, r.cefr) }))
+    : [
+        ...(hasWriting && g ? [{ label: "Writing", score: fmtBand(g.writingBand), text: scoreMeaning("ielts", "writing", g.writingBand) }] : []),
+        ...(s.graded || !hasWriting ? [{ label: "Band tổng", score: fmtBand(s.graded ? s.final_band : s.objective_band), text: scoreMeaning("ielts", "overall", s.graded ? s.final_band : s.objective_band) }] : []),
+      ];
   const apTotal = apRows.every((r) => r.scale !== null) ? apRows.reduce((a, r) => a + r.scale, 0) : null;
 
   return (
@@ -183,10 +164,10 @@ export default async function ResultSheet({ params }) {
               </>
             )}
 
-            <h3>Bài viết của học viên{g?.annotations?.length ? " (có chú thích)" : ""}</h3>
-            <Essay text={s.writing_text} annotations={g?.annotations} />
           </section>
         )}
+
+        <Meanings items={meanings} />
 
         <footer className="sheet-foot">
           <div>Ngày lập phiếu: {dateVN(new Date())}</div>

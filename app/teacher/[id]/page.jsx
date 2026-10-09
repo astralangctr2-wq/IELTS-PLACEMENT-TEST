@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import { formatVN } from "@/lib/formatDate";
 import { requireTeacherOrRedirect } from "@/lib/auth";
-import { sql, ensureSchema } from "@/lib/db";
+import { getSubmissionFull } from "@/lib/classes";
 import WritingGrader from "./WritingGrader";
-import { aptisScaleFromRaw, aptisCefr, detectExamType } from "@/lib/grading";
+import { aptisScaleFromRaw, aptisCefr } from "@/lib/grading";
 import ExamTypeSwitch from "./ExamTypeSwitch";
+import IntegrityCard from "./IntegrityCard";
 import AnswerReview from "./AnswerReview";
 import DeleteButton from "../DeleteButton";
 
@@ -12,24 +13,11 @@ export const dynamic = "force-dynamic";
 
 export default async function SubmissionDetail({ params }) {
   requireTeacherOrRedirect();
-  await ensureSchema();
-
-  const { rows } = await sql`
-    SELECT s.*, cb.name AS bank_name,
-           s.exam_type, cb.category AS bank_category, cb2.category AS session_bank_category,
-           left(s.writing_text, 20) AS writing_head,
-           jsonb_path_exists(COALESCE(s.content_snapshot, '{}'::jsonb), '$.reading[*] ? (@.type == "reorder" || @.type == "heading_match")') AS has_aptis_types, ts.name AS session_name,
-           CASE WHEN s.class_name IS NULL THEN ts.class_name ELSE NULLIF(s.class_name, '') END AS effective_class
-    FROM submissions s
-    LEFT JOIN content_banks cb ON cb.id = s.content_bank_id
-    LEFT JOIN test_sessions ts ON ts.id = s.session_id
-    LEFT JOIN content_banks cb2 ON cb2.id = ts.content_bank_id
-    WHERE s.id = ${params.id} LIMIT 1`;
-  if (rows.length === 0) notFound();
-  const s = rows[0];
+  const s = await getSubmissionFull(params.id);
+  if (!s) notFound();
   const snapshot = s.content_snapshot || null;
   const skills = Array.isArray(s.skills_included) ? s.skills_included : ["grammar", "reading", "listening", "writing"];
-  const examType = detectExamType(s);
+  const examType = { type: s.exam_kind, source: s.exam_type_source };
   const aptis = examType.type === "aptis";
   const aptisSkill = (skill, earned, total) => {
     const scale = aptisScaleFromRaw(earned, total);
@@ -46,6 +34,7 @@ export default async function SubmissionDetail({ params }) {
             {s.target_band ? ` · Mục tiêu: ${s.target_band}` : ""}
             {` · ${s.bank_name || (s.content_bank_id ? "bộ đề đã xoá" : "không rõ bộ đề")}`}
             {` · Lớp: ${s.effective_class || "chưa phân lớp"}`}
+            {s.student_class && s.student_class !== s.effective_class ? ` (HV nhập: ${s.student_class})` : ""}
           </p>
           <p className="mono" style={{ fontSize: 12, margin: "4px 0 0" }}>
             <ExamTypeSwitch submissionId={s.id} type={examType.type} source={examType.source} />
@@ -57,6 +46,8 @@ export default async function SubmissionDetail({ params }) {
           <DeleteButton id={s.id} studentName={s.student_name} redirectAfter="/teacher" />
         </div>
       </div>
+
+      <IntegrityCard integrity={s.integrity} />
 
       {aptis ? (
       <div className="card stack">
