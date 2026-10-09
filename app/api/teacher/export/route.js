@@ -5,7 +5,7 @@ import { listForClass, NO_CLASS } from "@/lib/classes";
 import { normalizeClassName } from "@/lib/classNames";
 import { INTEGRITY_LABEL, integrityText } from "@/lib/integrity";
 import {
-  IELTS_CRITERIA, APTIS_WRITING_PARTS, aptisScaleFromRaw, aptisCefr,
+  IELTS_CRITERIA, ieltsTasksOf, ieltsTaskCount, APTIS_WRITING_PARTS, aptisScaleFromRaw, aptisCefr,
 } from "@/lib/grading";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +31,11 @@ const INTEGRITY_COL = {
 
 function ieltsColumns(rows) {
   const has = (s) => rows.some((r) => skillsOf(r).includes(s));
+  // Writing columns per task (Task 1 / Task 2) — as many tasks as the
+  // longest essay in this sheet.
+  const nTasks = Math.max(1, ...rows.map((r) => Math.max(ieltsTaskCount(r.writing_text), ieltsTasksOf(r.grading).length)));
+  const T = (r, ti) => ieltsTasksOf(r.grading)[ti] || null;
+  const tl = (ti) => (nTasks > 1 ? `T${ti + 1} ` : "");
   const cols = [
     { header: "STT", width: 5, get: (_, i) => i + 1 },
     { header: "Học viên", width: 24, get: (r) => r.student_name },
@@ -43,14 +48,19 @@ function ieltsColumns(rows) {
   if (has("listening")) cols.push({ header: "Listening", width: 10, get: (r) => (skillsOf(r).includes("listening") ? `${r.listening_score}/${r.listening_total}` : "") });
   cols.push({ header: "Band trắc nghiệm", width: 10, get: (r) => num(r.objective_band), fmt: "0.0" });
   if (has("writing")) {
-    for (const c of IELTS_CRITERIA) cols.push({ header: c.short, width: 7, get: (r) => (r.grading?.type === "ielts" ? num(r.grading.criteria?.[c.key]?.score) : ""), fmt: "0.0" });
+    for (let ti = 0; ti < nTasks; ti++) {
+      for (const c of IELTS_CRITERIA) cols.push({ header: `${tl(ti)}${c.short}`, width: 7, get: (r) => num(T(r, ti)?.criteria?.[c.key]?.score), fmt: "0.0" });
+      if (nTasks > 1) cols.push({ header: `Band Task ${ti + 1}`, width: 9, get: (r) => num(T(r, ti)?.band), fmt: "0.0" });
+    }
     cols.push({ header: "Band Writing", width: 10, get: (r) => (r.grading?.type === "ielts" ? num(r.grading.writingBand) : r.graded ? num(r.writing_band) : ""), fmt: "0.0" });
   }
   cols.push({ header: "Band cuối", width: 10, get: (r) => (r.graded ? num(r.final_band) : skillsOf(r).includes("writing") ? "" : num(r.objective_band)), fmt: "0.0", strong: true });
   cols.push({ header: "Trạng thái", width: 11, get: (r) => (!skillsOf(r).includes("writing") ? "Không có Writing" : r.graded ? "Đã chấm" : "Chưa chấm") });
   cols.push(INTEGRITY_COL);
   if (has("writing")) {
-    for (const c of IELTS_CRITERIA) cols.push({ header: `Nhận xét ${c.short}`, width: 40, wrap: true, get: (r) => (r.grading?.type === "ielts" ? r.grading.criteria?.[c.key]?.feedback || "" : "") });
+    for (let ti = 0; ti < nTasks; ti++) {
+      for (const c of IELTS_CRITERIA) cols.push({ header: `Nhận xét ${tl(ti)}${c.short}`, width: 40, wrap: true, get: (r) => T(r, ti)?.criteria?.[c.key]?.feedback || "" });
+    }
     cols.push({ header: "Ghi chú", width: 36, wrap: true, get: (r) => (r.grading?.type === "ielts" ? r.grading.note || "" : r.writing_feedback || "") });
   }
   return cols;

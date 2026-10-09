@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AnnotationEditor from "./AnnotationEditor";
 import {
-  IELTS_CRITERIA, ieltsWritingBand, APTIS_WRITING_PARTS, aptisSuggestedWriting, aptisCefr,
+  IELTS_CRITERIA, ieltsTaskCount, ieltsTaskBand, ieltsTaskWeights, ieltsWritingBandFromTasks, ieltsTasksOf, ieltsCriterionLabel,
+  APTIS_WRITING_PARTS, aptisSuggestedWriting, aptisCefr,
 } from "@/lib/grading";
 
 // The test runners store multi-part Writing as "TASK n" (IELTS runner) or
@@ -20,13 +21,20 @@ function writtenText(text) {
 const BANDS = Array.from({ length: 19 }, (_, i) => i / 2); // 0, 0.5 … 9
 const roundHalf = (n) => Math.round(n * 2) / 2;
 
-function initIelts(g) {
-  const criteria = {};
-  for (const c of IELTS_CRITERIA) {
-    const v = g?.type === "ielts" ? g.criteria?.[c.key] : null;
-    criteria[c.key] = { score: typeof v?.score === "number" ? v.score : null, feedback: v?.feedback || "" };
-  }
-  return { criteria, note: g?.type === "ielts" ? g.note || "" : "" };
+// One block of 4 criteria per Writing task. A grade saved for a different
+// number of tasks (e.g. before Task 1 / Task 2 were split) only pre-fills
+// the tasks it has.
+function initIelts(g, taskCount) {
+  const saved = ieltsTasksOf(g);
+  const tasks = Array.from({ length: taskCount }, (_, ti) => {
+    const criteria = {};
+    for (const c of IELTS_CRITERIA) {
+      const v = saved.length === taskCount ? saved[ti]?.criteria?.[c.key] : null;
+      criteria[c.key] = { score: typeof v?.score === "number" ? v.score : null, feedback: v?.feedback || "" };
+    }
+    return { criteria };
+  });
+  return { tasks, note: g?.type === "ielts" ? g.note || "" : "" };
 }
 
 function initAptis(g) {
@@ -45,7 +53,8 @@ export default function WritingGrader({ submissionId, type, text, wordCount, obj
   const router = useRouter();
   const aptis = type === "aptis";
   const [annotations, setAnnotations] = useState(Array.isArray(initialGrading?.annotations) ? initialGrading.annotations : []);
-  const [ielts, setIelts] = useState(() => initIelts(initialGrading));
+  const taskCount = ieltsTaskCount(text);
+  const [ielts, setIelts] = useState(() => initIelts(initialGrading, taskCount));
   const [ap, setAp] = useState(() => initAptis(initialGrading));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -58,8 +67,15 @@ export default function WritingGrader({ submissionId, type, text, wordCount, obj
   const touch = () => { setDirty(true); setSaved(false); };
 
   // ---- IELTS
-  const band = ieltsWritingBand(ielts.criteria);
-  const setCrit = (key, patch) => { touch(); setIelts((s) => ({ ...s, criteria: { ...s.criteria, [key]: { ...s.criteria[key], ...patch } } })); };
+  const band = ieltsWritingBandFromTasks(ielts.tasks);
+  const weights = ieltsTaskWeights(taskCount);
+  const setCrit = (ti, key, patch) => {
+    touch();
+    setIelts((s) => ({
+      ...s,
+      tasks: s.tasks.map((t, i) => (i !== ti ? t : { ...t, criteria: { ...t.criteria, [key]: { ...t.criteria[key], ...patch } } })),
+    }));
+  };
 
   // ---- Aptis
   const suggested = aptisSuggestedWriting(ap.parts);
@@ -75,7 +91,7 @@ export default function WritingGrader({ submissionId, type, text, wordCount, obj
     setError("");
     const body = aptis
       ? { action: "grade", parts: ap.parts, writingScore: apScore, strengths: ap.strengths, improvements: ap.improvements, annotations }
-      : { action: "grade", criteria: ielts.criteria, note: ielts.note, annotations };
+      : { action: "grade", tasks: ielts.tasks, note: ielts.note, annotations };
     try {
       const res = await fetch(`/api/submissions/${submissionId}`, {
         method: "PATCH",
@@ -116,28 +132,46 @@ export default function WritingGrader({ submissionId, type, text, wordCount, obj
 
         {!aptis && (
           <>
-            <div className="grade-criteria">
-              {IELTS_CRITERIA.map((c) => (
-                <div key={c.key} className="grade-criterion">
-                  <div className="grade-criterion-head">
-                    <label htmlFor={`crit-${c.key}`}>{c.label}</label>
-                    <select
-                      id={`crit-${c.key}`}
-                      value={ielts.criteria[c.key].score ?? ""}
-                      onChange={(e) => setCrit(c.key, { score: e.target.value === "" ? null : Number(e.target.value) })}
-                    >
-                      <option value="">— chọn —</option>
-                      {BANDS.map((b) => <option key={b} value={b}>{b.toFixed(1)}</option>)}
-                    </select>
+            {ielts.tasks.map((t, ti) => {
+              const tb = ieltsTaskBand(t.criteria);
+              return (
+                <div key={ti} className="grade-task">
+                  {taskCount > 1 && (
+                    <div className="grade-task-head">
+                      <b>Task {ti + 1}</b>
+                      {taskCount === 2 && <span className="mono muted">{weights[ti] === 2 ? "tính hệ số 2" : "tính hệ số 1"}</span>}
+                      <span className="grade-task-band">Band Task {ti + 1}: <b>{tb !== null ? tb.toFixed(1) : "—"}</b></span>
+                    </div>
+                  )}
+                  <div className="grade-criteria">
+                    {IELTS_CRITERIA.map((c) => {
+                      const label = ieltsCriterionLabel(c, ti, taskCount);
+                      const id = `crit-${ti}-${c.key}`;
+                      return (
+                        <div key={c.key} className="grade-criterion">
+                          <div className="grade-criterion-head">
+                            <label htmlFor={id}>{label}</label>
+                            <select
+                              id={id}
+                              value={t.criteria[c.key].score ?? ""}
+                              onChange={(e) => setCrit(ti, c.key, { score: e.target.value === "" ? null : Number(e.target.value) })}
+                            >
+                              <option value="">— chọn —</option>
+                              {BANDS.map((b) => <option key={b} value={b}>{b.toFixed(1)}</option>)}
+                            </select>
+                          </div>
+                          <textarea
+                            value={t.criteria[c.key].feedback}
+                            onChange={(e) => setCrit(ti, c.key, { feedback: e.target.value })}
+                            placeholder={`Nhận xét về ${label}${taskCount > 1 ? ` (Task ${ti + 1})` : ""}…`}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
-                  <textarea
-                    value={ielts.criteria[c.key].feedback}
-                    onChange={(e) => setCrit(c.key, { feedback: e.target.value })}
-                    placeholder={`Nhận xét về ${c.label}…`}
-                  />
                 </div>
-              ))}
-            </div>
+              );
+            })}
             <div className="grade-total">
               <div>
                 <span className="mono">Band Writing</span>
@@ -148,7 +182,9 @@ export default function WritingGrader({ submissionId, type, text, wordCount, obj
                 <strong>{band === null ? "—" : objectiveBand !== null ? roundHalf((objectiveBand + band) / 2).toFixed(1) : band.toFixed(1)}</strong>
               </div>
               <p className="mono">
-                Band Writing = trung bình 4 tiêu chí, làm tròn 0.5.{" "}
+                {taskCount === 2
+                  ? "Band mỗi Task = trung bình 4 tiêu chí, làm tròn 0.5. Band Writing = (Task 1 + 2 × Task 2) / 3, làm tròn 0.5."
+                  : "Band Writing = trung bình 4 tiêu chí, làm tròn 0.5."}{" "}
                 {objectiveBand !== null ? `Band cuối = TB band trắc nghiệm (${objectiveBand.toFixed(1)}) và band Writing.` : "HV không làm phần trắc nghiệm."}
               </p>
             </div>
@@ -215,7 +251,7 @@ export default function WritingGrader({ submissionId, type, text, wordCount, obj
 
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
           <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>
-            {!ready ? (aptis ? "Chọn điểm đủ 4 phần để lưu." : "Chọn điểm đủ 4 tiêu chí để lưu.") : dirty ? "Có thay đổi chưa lưu." : ""}
+            {!ready ? (aptis ? "Chọn điểm đủ 4 phần để lưu." : taskCount > 1 ? `Chọn điểm đủ 4 tiêu chí của cả ${taskCount} Task để lưu.` : "Chọn điểm đủ 4 tiêu chí để lưu.") : dirty ? "Có thay đổi chưa lưu." : ""}
           </p>
           <div className="row" style={{ gap: 8, width: "auto" }}>
             {saved && !dirty && <a href={`/teacher/${submissionId}/phieu`} target="_blank" rel="noreferrer"><button type="button" className="btn-ghost btn-sm">Phiếu kết quả ↗</button></a>}

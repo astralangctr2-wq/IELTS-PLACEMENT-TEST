@@ -140,8 +140,13 @@ export default async function StatsPage({ searchParams }) {
                   <p className="mono muted stat-h">PHÂN BỐ BAND (band tổng nếu đã chấm, nếu chưa thì band trắc nghiệm)</p>
                   {st.bandDist.length ? <Bars items={st.bandDist} fmt={(k) => Number(k).toFixed(1)} /> : <p className="muted" style={{ fontSize: 13 }}>Chưa có band nào.</p>}
                   <p className="mono muted stat-h" style={{ marginTop: 18 }}>WRITING — TRUNG BÌNH 4 TIÊU CHÍ</p>
-                  {st.criteria.length ? (
-                    <Bars items={st.criteria.map((c) => ({ key: c.label, n: c.avg, max: 9, text: c.avg.toFixed(1) }))} />
+                  {st.criteriaByTask.length ? (
+                    st.criteriaByTask.map((t) => (
+                      <div key={t.title || "w"} style={{ marginBottom: 10 }}>
+                        {t.title && <p style={{ margin: "6px 0 0", fontWeight: 700, fontSize: 13.5 }}>{t.title}</p>}
+                        <Bars items={t.items.map((c) => ({ key: c.label, n: c.avg, max: 9, text: c.avg.toFixed(1) }))} />
+                      </div>
+                    ))
                   ) : <p className="muted" style={{ fontSize: 13 }}>Chưa có bài Writing nào được chấm theo 4 tiêu chí.</p>}
                 </>
               )}

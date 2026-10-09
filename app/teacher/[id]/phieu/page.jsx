@@ -4,7 +4,7 @@ import { getSubmissionFull } from "@/lib/classes";
 import { scoreMeaning } from "@/lib/scoreMeanings";
 import { CENTER_NAME, LOGO_URL } from "@/lib/branding";
 import {
-  IELTS_CRITERIA, APTIS_WRITING_PARTS, aptisScaleFromRaw, aptisCefr,
+  IELTS_CRITERIA, ieltsTasksOf, ieltsCriterionLabel, APTIS_WRITING_PARTS, aptisScaleFromRaw, aptisCefr,
 } from "@/lib/grading";
 import PrintButton from "./PrintButton";
 
@@ -151,15 +151,25 @@ export default async function ResultSheet({ params }) {
               </>
             ) : (
               <>
-                <table className="sheet-table">
-                  <thead><tr><th style={{ width: 190 }}>Tiêu chí</th><th style={{ width: 60 }}>Band</th><th>Nhận xét</th></tr></thead>
-                  <tbody>
-                    {IELTS_CRITERIA.map((c) => (
-                      <tr key={c.key}><td><b>{c.label}</b></td><td className="num"><b>{fmtBand(g.criteria[c.key]?.score)}</b></td><td className="sheet-prose">{g.criteria[c.key]?.feedback || "—"}</td></tr>
-                    ))}
-                  </tbody>
-                  <tfoot><tr><td>Band Writing</td><td className="num">{fmtBand(g.writingBand)}</td><td></td></tr></tfoot>
-                </table>
+                {ieltsTasksOf(g).map((t, ti, all) => (
+                  <div key={ti} className="sheet-task">
+                    {all.length > 1 && <h3>Task {ti + 1}</h3>}
+                    <table className="sheet-table">
+                      <thead><tr><th style={{ width: 190 }}>Tiêu chí</th><th style={{ width: 60 }}>Band</th><th>Nhận xét</th></tr></thead>
+                      <tbody>
+                        {IELTS_CRITERIA.map((c) => (
+                          <tr key={c.key}><td><b>{ieltsCriterionLabel(c, ti, all.length)}</b></td><td className="num"><b>{fmtBand(t.criteria[c.key]?.score)}</b></td><td className="sheet-prose">{t.criteria[c.key]?.feedback || "—"}</td></tr>
+                        ))}
+                      </tbody>
+                      <tfoot><tr><td>{all.length > 1 ? `Band Task ${ti + 1}` : "Band Writing"}</td><td className="num">{fmtBand(all.length > 1 ? t.band : g.writingBand)}</td><td></td></tr></tfoot>
+                    </table>
+                  </div>
+                ))}
+                {ieltsTasksOf(g).length > 1 && (
+                  <table className="sheet-table" style={{ marginTop: 10 }}>
+                    <tfoot><tr><td>Band Writing <span style={{ fontWeight: 400 }}>= (Task 1 + 2 × Task 2) / 3, làm tròn 0.5</span></td><td className="num" style={{ width: 60 }}>{fmtBand(g.writingBand)}</td></tr></tfoot>
+                  </table>
+                )}
                 {g.note && g.note.trim() && <><h3>Ghi chú thêm</h3><Paragraphs text={g.note} /></>}
               </>
             )}

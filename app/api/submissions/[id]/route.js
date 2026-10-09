@@ -5,14 +5,15 @@ import { isValidSessionValue } from "@/lib/auth";
 import { roundHalf } from "@/lib/scoring";
 import { getSubmissionFull } from "@/lib/classes";
 import {
-  IELTS_CRITERIA, ieltsWritingBand, APTIS_WRITING_PARTS, aptisCefr, cleanAnnotations,
+  IELTS_CRITERIA, ieltsTaskCount, ieltsTaskBand, ieltsWritingBandFromTasks, ieltsCriterionLabel, APTIS_WRITING_PARTS, aptisCefr, cleanAnnotations,
 } from "@/lib/grading";
 
 const txt = (v, max = 4000) => (v ?? "").toString().slice(0, max);
 
 // Detailed Writing grade (teacher only). The test type comes from the
 // submission's content bank in the database — never from the browser.
-// IELTS: 4 criteria (0–9, with a comment each) + optional note.
+// IELTS: per Writing task, 4 criteria (0–9, with a comment each); Task 2
+// counts double. Plus an optional note.
 // Aptis: 4 part scores + Writing score on the 0–50 scale + strengths /
 // improvements. Both may carry highlights on the essay.
 // The legacy columns the student's result page reads (writing_band,
@@ -43,17 +44,27 @@ async function saveDetailedGrade(id, body) {
     finalBand = score;
     writingFeedback = [strengths && `Điểm mạnh: ${strengths}`, improvements && `Cần cải thiện: ${improvements}`].filter(Boolean).join("\n\n");
   } else {
-    const criteria = {};
-    for (const c of IELTS_CRITERIA) {
-      const v = Number(body.criteria?.[c.key]?.score);
-      if (body.criteria?.[c.key]?.score === null || body.criteria?.[c.key]?.score === "" || Number.isNaN(v) || v < 0 || v > 9 || roundHalf(v) !== v) {
-        return NextResponse.json({ error: `Chưa chấm tiêu chí ${c.label} (0–9).` }, { status: 400 });
+    // One set of 4 criteria per Writing task (Task 1 / Task 2), each with a
+    // comment. The number of tasks comes from the stored essay itself.
+    const taskCount = ieltsTaskCount(row.writing_text);
+    const bodyTasks = Array.isArray(body.tasks) ? body.tasks : body.criteria ? [{ criteria: body.criteria }] : [];
+    const tasks = [];
+    for (let ti = 0; ti < taskCount; ti++) {
+      const criteria = {};
+      for (const c of IELTS_CRITERIA) {
+        const raw = bodyTasks[ti]?.criteria?.[c.key];
+        const v = Number(raw?.score);
+        if (raw?.score === null || raw?.score === undefined || raw?.score === "" || Number.isNaN(v) || v < 0 || v > 9 || roundHalf(v) !== v) {
+          const label = ieltsCriterionLabel(c, ti, taskCount);
+          return NextResponse.json({ error: `Chưa chấm ${taskCount > 1 ? `Task ${ti + 1} — ` : ""}${label} (0–9).` }, { status: 400 });
+        }
+        criteria[c.key] = { score: v, feedback: txt(raw.feedback) };
       }
-      criteria[c.key] = { score: v, feedback: txt(body.criteria[c.key].feedback) };
+      tasks.push({ criteria, band: ieltsTaskBand(criteria) });
     }
     const note = txt(body.note);
-    writingBand = ieltsWritingBand(criteria);
-    grading = { type: "ielts", criteria, writingBand, note, annotations };
+    writingBand = ieltsWritingBandFromTasks(tasks);
+    grading = { type: "ielts", tasks, writingBand, note, annotations };
     writingFeedback = note;
     const objBand = row.objective_band;
     finalBand = objBand !== null ? roundHalf((Number(objBand) + writingBand) / 2) : writingBand;

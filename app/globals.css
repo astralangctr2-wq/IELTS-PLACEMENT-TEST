@@ -791,3 +791,11 @@ input[type="datetime-local"]:focus { outline: none; border-color: var(--primary)
 .stat-attempt { text-decoration: none; color: inherit; white-space: nowrap; }
 .date-input { font-family: var(--font-body); font-size: 14px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 9px 12px; color: var(--ink); color-scheme: light dark; }
 .danger { color: var(--danger); }
+.grade-task { display: flex; flex-direction: column; gap: 10px; }
+.grade-task + .grade-task { margin-top: 10px; padding-top: 16px; border-top: 1px dashed var(--border); }
+.grade-task-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+.grade-task-head > b { font-size: 16px; font-family: var(--font-heading); }
+.grade-task-head .mono { font-size: 11.5px; }
+.grade-task-band { margin-left: auto; font-size: 13.5px; }
+.grade-task-band b { font-size: 18px; }
+.sheet-task + .sheet-task { margin-top: 6px; }
