@@ -633,7 +633,7 @@ tr:hover td { background: rgba(79, 99, 255, 0.06); }
 .grade-criterion-head label { font-weight: 700; font-size: 13.5px; }
 .grade-criterion-head select { width: 110px; flex-shrink: 0; }
 .grade-criterion textarea { min-height: 84px; }
-.grade-parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.grade-parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 .grade-part { display: flex; flex-direction: column; gap: 6px; }
 .grade-part label { font-weight: 700; font-size: 13.5px; }
 .grade-total {
@@ -726,3 +726,4 @@ tr.row-checked td { background: color-mix(in srgb, var(--primary) 8%, transparen
 .subs-table td.subs-name { white-space: normal; min-width: 140px; font-weight: 600; }
 .exam-switch { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .exam-switch .linklike { font-size: 12px; }
+.empty-essay { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 10px; border: 1px dashed var(--border); background: var(--subtle); }

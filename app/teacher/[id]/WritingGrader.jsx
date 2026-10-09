@@ -7,6 +7,16 @@ import {
   IELTS_CRITERIA, ieltsWritingBand, APTIS_WRITING_PARTS, aptisSuggestedWriting, aptisCefr,
 } from "@/lib/grading";
 
+// The test runners store multi-part Writing as "TASK n" (IELTS runner) or
+// "PART n" (Aptis runner) headings + the student's text. Strip those
+// headings (and "(chưa trả lời)" placeholders) to know what was really written.
+function writtenText(text) {
+  return (text || "")
+    .replace(/^\s*(TASK|PART)\s+\d+\s*$/gim, "")
+    .replace(/\(chưa trả lời\)/g, "")
+    .trim();
+}
+
 const BANDS = Array.from({ length: 19 }, (_, i) => i / 2); // 0, 0.5 … 9
 const roundHalf = (n) => Math.round(n * 2) / 2;
 
@@ -41,6 +51,9 @@ export default function WritingGrader({ submissionId, type, text, wordCount, obj
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(Boolean(graded && initialGrading));
   const [dirty, setDirty] = useState(false);
+
+  const written = writtenText(text);
+  const realWords = written ? written.split(/\s+/).length : 0;
 
   const touch = () => { setDirty(true); setSaved(false); };
 
@@ -83,11 +96,18 @@ export default function WritingGrader({ submissionId, type, text, wordCount, obj
   return (
     <>
       <div className="card">
-        <p className="mono muted" style={{ fontSize: 12, marginBottom: 10 }}>BÀI VIẾT ({wordCount} từ) — CHÚ THÍCH TRỰC TIẾP</p>
-        {text && text.trim() ? (
+        <p className="mono muted" style={{ fontSize: 12, marginBottom: 10 }}>BÀI VIẾT ({realWords} từ) — CHÚ THÍCH TRỰC TIẾP</p>
+        {written ? (
           <AnnotationEditor text={text} annotations={annotations} onChange={(a) => { touch(); setAnnotations(a); }} />
         ) : (
-          <p className="muted">Học viên không viết bài.</p>
+          <div className="empty-essay">
+            <p style={{ margin: 0 }}><b>Học viên không viết bài</b>{text && text.trim() ? " — bài nộp chỉ có tiêu đề các phần, không có nội dung." : "."}</p>
+            {aptis && (
+              <button type="button" className="btn-ghost btn-sm" onClick={() => { touch(); setAp((s) => ({ ...s, parts: { p1: 0, p2: 0, p3: 0, p4: 0 }, scoreTouched: false })); }}>
+                Chấm 0 cho cả 4 phần
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -165,6 +185,7 @@ export default function WritingGrader({ submissionId, type, text, wordCount, obj
                   max={50}
                   value={apScore ?? ""}
                   onChange={(e) => { touch(); setAp((s) => ({ ...s, scoreTouched: true, writingScore: e.target.value === "" ? null : Math.round(Number(e.target.value)) })); }}
+                  placeholder="—"
                   aria-label="Điểm Writing 0–50"
                 />
               </div>
@@ -173,7 +194,9 @@ export default function WritingGrader({ submissionId, type, text, wordCount, obj
                 <strong>{Number.isInteger(apScore) ? aptisCefr("writing", apScore) : "—"}</strong>
               </div>
               <p className="mono">
-                Gợi ý theo 4 phần: <b>{suggested ?? "—"}</b>/50 (ước tính — British Council không công bố công thức quy đổi).{" "}
+                {suggested === null
+                  ? <>Chọn điểm đủ 4 phần ở trên — web sẽ tự gợi ý điểm 0–50 và xếp CEFR (bạn vẫn sửa tay được).{" "}</>
+                  : <>Gợi ý theo 4 phần: <b>{suggested}</b>/50 (ước tính — British Council không công bố công thức quy đổi).{" "}</>}
                 {ap.scoreTouched && suggested !== null && apScore !== suggested && (
                   <button type="button" className="linklike" onClick={() => setAp((s) => ({ ...s, scoreTouched: false }))}>Dùng lại điểm gợi ý</button>
                 )}
