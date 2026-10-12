@@ -996,8 +996,9 @@ export default function TestRunner({ config }) {
           submit();
         } else if (stage === s) {
           const idx = SECTION_STEPS.indexOf(s);
-          const nextStage = SECTION_STEPS[idx + 1] || "writing";
-          goStage(nextStage);
+          const nextStage = SECTION_STEPS[idx + 1];
+          if (nextStage) goStage(nextStage);
+          else submit(); // last section ran out of time and there is no Writing
         }
       }
     }
@@ -1147,6 +1148,15 @@ export default function TestRunner({ config }) {
   const readingFlat = flattenSectionQuestions(content.reading?.sections);
   const listeningFlat = flattenSectionQuestions(content.listening?.sections);
 
+  // The last section gets the submit button (a test without Writing used
+  // to have no way to submit).
+  const isLastStep = (s) => activeSteps[activeSteps.length - 1] === s;
+  const submitBtn = (before) => (
+    <span style={{ textAlign: "right" }}>
+      <button className="btn" disabled={submitting} onClick={() => { before?.(); submit(); }}>{submitting ? "Đang nộp bài…" : "Nộp bài →"}</button>
+      {submitError && <span className="accent" style={{ display: "block", fontSize: 13, marginTop: 6 }}>⚠ {submitError}</span>}
+    </span>
+  );
   const nextAfter = (s) => {
     const idx = activeSteps.indexOf(s);
     return activeSteps[idx + 1] || activeSteps[activeSteps.length - 1] || s;
@@ -1244,7 +1254,7 @@ export default function TestRunner({ config }) {
           <QuestionListBlock questions={content.grammar} answers={gAns} setAnswers={setGAns} locked={expired.grammar} />
           <div className="row" style={{ marginTop: 20 }}>
             <p className="mono muted" style={{ fontSize: 12 }}>{answeredCount(gAns, content.grammar)}/{content.grammar.length} đã trả lời</p>
-            <button className="btn" onClick={() => goStage(nextAfter("grammar"))}>Tiếp theo →</button>
+            {isLastStep("grammar") ? submitBtn() : <button className="btn" onClick={() => goStage(nextAfter("grammar"))}>Tiếp theo →</button>}
           </div>
         </div>
       )}
@@ -1292,7 +1302,7 @@ export default function TestRunner({ config }) {
           </div>
           <div className="row" style={{ marginTop: 20 }}>
             <p className="mono muted" style={{ fontSize: 12 }}>{answeredCount(rAns, readingFlat)}/{totalSlots(readingFlat)} đã trả lời</p>
-            <button className="btn" onClick={() => goStage(nextAfter("reading"))}>Tiếp theo →</button>
+            {isLastStep("reading") ? submitBtn() : <button className="btn" onClick={() => goStage(nextAfter("reading"))}>Tiếp theo →</button>}
           </div>
         </div>
       )}
@@ -1329,7 +1339,7 @@ export default function TestRunner({ config }) {
           })}
           <div className="row" style={{ marginTop: 20 }}>
             <p className="mono muted" style={{ fontSize: 12 }}>{answeredCount(lAns, listeningFlat)}/{totalSlots(listeningFlat)} đã trả lời</p>
-            <button className="btn" onClick={() => { stopSpeaking(); goStage(nextAfter("listening")); }}>Tiếp theo →</button>
+            {isLastStep("listening") ? submitBtn(stopSpeaking) : <button className="btn" onClick={() => { stopSpeaking(); goStage(nextAfter("listening")); }}>Tiếp theo →</button>}
           </div>
         </div>
       )}

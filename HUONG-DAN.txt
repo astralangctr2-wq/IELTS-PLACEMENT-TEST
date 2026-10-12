@@ -1,0 +1,8 @@
+SỬA LỖI: bài thi không có Writing (vd chỉ Reading + Listening) không nộp được
+=============================================================================
+Chép đè 2 file vào repo, giữ nguyên đường dẫn:
+  app/test/TestRunner.jsx
+  app/api/submissions/route.js
+Rồi GitHub Desktop -> Commit -> Push. Đợi Vercel deploy xong (~2 phút).
+Bản này làm từ code đang chạy trên web (chưa có LMS đợt 1), không thêm tính năng mới.
+Gói LMS đợt 1 đã có sẵn bản sửa này, push sau vẫn được.

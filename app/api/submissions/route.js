@@ -24,7 +24,9 @@ export async function POST(req) {
   const integrity = sanitizeIntegrity(body.integrity);
   const skillsIncluded = ALL_SKILLS.filter((s) => Array.isArray(body.skills) ? body.skills.includes(s) : true);
 
-  const writingText = (body.writingText || "").toString();
+  // Only keep an essay when Writing is part of this test (the runner may
+  // send empty "TASK 1 / TASK 2" headers otherwise).
+  const writingText = skillsIncluded.includes("writing") ? (body.writingText || "").toString() : "";
   const wordCount = writingText.trim().length === 0 ? 0 : writingText.trim().split(/\s+/).length;
 
   const content = await getActiveContentWithAnswers(contentBankId);
