@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import DeleteButton from "./DeleteButton";
 import { formatVN } from "@/lib/formatDate";
 import { aptisScaleFromRaw, aptisCefr } from "@/lib/grading";
 import { INTEGRITY_LABEL } from "@/lib/integrity";
@@ -12,45 +11,12 @@ import { INTEGRITY_LABEL } from "@/lib/integrity";
 // class / q / n) — the board only ever holds what is on screen.
 //   - "Tất cả lớp": newest submissions, 50 at a time.
 //   - one class: every submission of that class, grouped by student.
+// Each submission is one row that wraps on narrow screens — no sideways
+// scrolling. Rare actions (result sheet, move link, delete) live in "⋯".
 
 const SKILL_LABEL = { grammar: "NP", reading: "R", listening: "L", writing: "W" };
 const ALL = "__all__";
 const NONE = "__none__";
-
-function MoveMenu({ row, allSessions, onMoved }) {
-  const [open, setOpen] = useState(false);
-  const [moving, setMoving] = useState(false);
-  const move = async (sessionId) => {
-    setMoving(true);
-    setOpen(false);
-    try {
-      await fetch(`/api/submissions/${row.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "moveSession", sessionId: sessionId || null }),
-      });
-      onMoved();
-    } catch {
-      alert("Không chuyển được — thử lại.");
-    }
-    setMoving(false);
-  };
-  return (
-    <div style={{ position: "relative" }}>
-      <button className="btn-ghost btn-sm" disabled={moving} onClick={() => setOpen((v) => !v)} title="Gắn bài vào link thi khác">
-        {moving ? "…" : "Link"}
-      </button>
-      {open && (
-        <div className="card" style={{ position: "absolute", right: 0, top: "110%", zIndex: 20, minWidth: 220, padding: 8, margin: 0 }}>
-          <button className="btn-ghost btn-sm" style={{ width: "100%", textAlign: "left", marginBottom: 4 }} onClick={() => move(null)}>Không thuộc link nào</button>
-          {allSessions.map((s) => (
-            <button key={s.id} className="btn-ghost btn-sm" style={{ width: "100%", textAlign: "left", marginBottom: 4 }} onClick={() => move(s.id)}>{s.name}</button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function autoScore(r) {
   if (!r.aptis) return r.objective_band !== null ? r.objective_band.toFixed(1) : "—";
@@ -63,58 +29,118 @@ function autoScore(r) {
 
 function finalScore(r) {
   if (!r.graded) return "—";
-  if (r.aptis) return r.aptis_writing !== null ? `W ${r.aptis_writing}/50 · ${aptisCefr("writing", r.aptis_writing)}` : "—";
+  if (r.aptis) return r.aptis_writing !== null ? `W ${r.aptis_writing} · ${aptisCefr("writing", r.aptis_writing)}` : "—";
   return r.final_band !== null ? r.final_band.toFixed(1) : "—";
 }
 
-function IntegrityFlag({ summary }) {
-  if (!summary || summary.level === "normal") return null;
-  return <span className={`integrity-pill ${summary.level}`} title={`Giám sát: ${INTEGRITY_LABEL[summary.level]}`}>⚠</span>;
-}
+// "⋯" menu: result sheet, move to another exam link, delete.
+function RowMenu({ row, allSessions, onChanged }) {
+  const [open, setOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setMoveOpen(false); } };
+    const esc = (e) => { if (e.key === "Escape") { setOpen(false); setMoveOpen(false); } };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
+  }, [open]);
 
-function Row({ row, allSessions, onMoved, checked, onCheck, showName }) {
-  const skills = Array.isArray(row.skills_included) ? row.skills_included : ["grammar", "reading", "listening", "writing"];
+  const move = async (sessionId) => {
+    setBusy(true);
+    try {
+      await fetch(`/api/submissions/${row.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "moveSession", sessionId: sessionId || null }),
+      });
+      setOpen(false); setMoveOpen(false);
+      onChanged();
+    } catch {
+      alert("Không chuyển được — thử lại.");
+    }
+    setBusy(false);
+  };
+  const remove = async () => {
+    if (!confirm(`Xoá bài làm của "${row.student_name}"? Không thể hoàn tác.`)) return;
+    setBusy(true);
+    const res = await fetch(`/api/submissions/${row.id}`, { method: "DELETE" });
+    if (!res.ok) alert((await res.json().catch(() => ({}))).error || "Không xoá được.");
+    setBusy(false); setOpen(false);
+    onChanged();
+  };
+
   return (
-    <tr className={checked ? "row-checked" : ""}>
-      <td><input type="checkbox" checked={checked} onChange={(e) => onCheck(row.id, e.target.checked)} aria-label={`Chọn ${row.student_name}`} /></td>
-      {showName && <td className="subs-name">{row.student_name}</td>}
-      <td>{row.class_name ? <span className="class-pill">{row.class_name}</span> : <span className="muted">—</span>}</td>
-      <td><span className={`type-pill ${row.aptis ? "aptis" : ""}`}>{row.aptis ? "APTIS" : "IELTS"}</span></td>
-      <td className="muted" style={{ fontSize: 13 }}>{row.bank_name || "—"}</td>
-      <td className="mono muted">{skills.map((s) => SKILL_LABEL[s] || s).join(", ")}</td>
-      <td className="mono muted">{formatVN(row.created_at)}</td>
-      <td className="mono">{autoScore(row)}</td>
-      <td>{row.graded ? <span className="success">Đã chấm</span> : <span className="accent">Chưa chấm</span>}</td>
-      <td className="mono">{finalScore(row)}</td>
-      <td><IntegrityFlag summary={row.integrity} /></td>
-      <td><Link href={`/teacher/${row.id}`}><button className="btn-ghost btn-sm">Chấm →</button></Link></td>
-      <td><a href={`/teacher/${row.id}/phieu`} target="_blank" rel="noreferrer"><button className="btn-ghost btn-sm" title="Phiếu kết quả (in / PDF)">Phiếu</button></a></td>
-      <td><MoveMenu row={row} allSessions={allSessions} onMoved={onMoved} /></td>
-      <td><DeleteButton id={row.id} studentName={row.student_name} /></td>
-    </tr>
+    <div className="row-menu" ref={ref}>
+      <button className="btn-ghost btn-sm row-menu-btn" disabled={busy} onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} title="Thêm thao tác">⋯</button>
+      {open && (
+        <div className="row-menu-pop" role="menu">
+          <a role="menuitem" href={`/teacher/${row.id}/phieu`} target="_blank" rel="noreferrer">🧾 Phiếu kết quả</a>
+          <button role="menuitem" onClick={() => setMoveOpen((v) => !v)}>🔗 Chuyển sang link thi khác {moveOpen ? "▴" : "▾"}</button>
+          {moveOpen && (
+            <div className="row-menu-sub">
+              <button onClick={() => move(null)}>Không thuộc link nào</button>
+              {allSessions.map((s) => <button key={s.id} onClick={() => move(s.id)}>{s.name}</button>)}
+            </div>
+          )}
+          <button role="menuitem" className="danger" onClick={remove}>🗑 Xoá bài làm</button>
+        </div>
+      )}
+    </div>
   );
 }
 
-function Table({ rows, showName, selected, onCheck, onCheckMany, allSessions, onMoved }) {
+function SubRow({ row, showName, checked, onCheck, allSessions, onChanged }) {
+  const skills = Array.isArray(row.skills_included) ? row.skills_included : ["grammar", "reading", "listening", "writing"];
+  const flag = row.integrity && row.integrity.level !== "normal" ? row.integrity.level : null;
+  return (
+    <div className={`sub-row ${checked ? "checked" : ""}`}>
+      <input type="checkbox" className="sub-check" checked={checked} onChange={(e) => onCheck(row.id, e.target.checked)} aria-label={`Chọn ${row.student_name}`} />
+      <div className="sub-main">
+        <div className="sub-title">
+          <Link href={`/teacher/${row.id}`}>{showName ? row.student_name : row.bank_name || "Bài thi"}</Link>
+          {flag && <span className={`integrity-pill ${flag}`} title="Giám sát làm bài">⚠ {INTEGRITY_LABEL[flag]}</span>}
+        </div>
+        <div className="sub-meta">
+          {row.class_name ? <span className="class-pill">{row.class_name}</span> : <span className="class-pill none">Chưa phân lớp</span>}
+          <span className={`type-pill ${row.aptis ? "aptis" : ""}`}>{row.aptis ? "APTIS" : "IELTS"}</span>
+          {showName && row.bank_name && <span>{row.bank_name}</span>}
+          <span className="mono">{skills.map((s) => SKILL_LABEL[s] || s).join(" ")}</span>
+          <span className="mono">{formatVN(row.created_at)}</span>
+        </div>
+      </div>
+      <div className="sub-score s-auto"><span>Tự động</span><b className="mono">{autoScore(row)}</b></div>
+      <div className="sub-score s-final"><span>Kết quả</span><b className="mono">{finalScore(row)}</b></div>
+      <div className="sub-status">
+        {row.graded ? <span className="state-chip done">Đã chấm</span> : <span className="state-chip todo">Chưa chấm</span>}
+      </div>
+      <div className="sub-actions">
+        <Link href={`/teacher/${row.id}`}>
+          <button className={row.graded ? "btn-ghost btn-sm" : "btn btn-sm"}>{row.graded ? "Xem" : "Chấm →"}</button>
+        </Link>
+        <RowMenu row={row} allSessions={allSessions} onChanged={onChanged} />
+      </div>
+    </div>
+  );
+}
+
+function SubList({ rows, showName, selected, onCheck, onCheckMany, allSessions, onChanged }) {
   const allChecked = rows.length > 0 && rows.every((r) => selected.has(r.id));
   return (
-    <div className="card" style={{ padding: 0, overflowX: "auto", marginTop: 8 }}>
-      <table className="subs-table">
-        <thead>
-          <tr>
-            <th><input type="checkbox" checked={allChecked} onChange={(e) => onCheckMany(rows.map((r) => r.id), e.target.checked)} aria-label="Chọn tất cả" /></th>
-            {showName && <th>Học viên</th>}
-            <th>Lớp</th><th>Loại</th><th>Bài thi</th><th>Kỹ năng</th><th>Thời gian</th>
-            <th>Điểm tự động</th><th>Trạng thái</th><th>Kết quả</th><th title="Giám sát làm bài">GS</th>
-            <th></th><th></th><th></th><th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <Row key={r.id} row={r} showName={showName} allSessions={allSessions} onMoved={onMoved} checked={selected.has(r.id)} onCheck={onCheck} />
-          ))}
-        </tbody>
-      </table>
+    <div className="sub-list">
+      <div className="sub-head">
+        <input type="checkbox" className="sub-check" checked={allChecked} onChange={(e) => onCheckMany(rows.map((r) => r.id), e.target.checked)} aria-label="Chọn tất cả" />
+        <span>{showName ? "Học viên" : "Bài thi"}</span>
+        <span>Tự động</span>
+        <span>Kết quả</span>
+        <span>Trạng thái</span>
+        <span />
+      </div>
+      {rows.map((r) => (
+        <SubRow key={r.id} row={r} showName={showName} checked={selected.has(r.id)} onCheck={onCheck} allSessions={allSessions} onChanged={onChanged} />
+      ))}
     </div>
   );
 }
@@ -166,6 +192,15 @@ function ExportPanel({ summary, defaultClass, onClose }) {
   );
 }
 
+const STATUS_TABS = [
+  ["all", "Tất cả"],
+  ["todo", "Chưa chấm"],
+  ["done", "Đã chấm"],
+  ["flag", "⚠ Giám sát"],
+];
+const matchStatus = (r, st) =>
+  st === "all" ? true : st === "todo" ? !r.graded : st === "done" ? r.graded : Boolean(r.integrity && r.integrity.level !== "normal");
+
 export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, allSessions, classNames }) {
   const router = useRouter();
   const [search, setSearch] = useState(q);
@@ -174,6 +209,7 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
   const [busy, setBusy] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [open, setOpen] = useState(() => new Set());
+  const [status, setStatus] = useState("all");
 
   useEffect(() => { setSearch(q); }, [q]);
   useEffect(() => {
@@ -202,11 +238,14 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
   const classList = [...classCounts.keys()].filter((k) => k !== NONE).sort((a, b) => a.localeCompare(b, "vi"));
   const suggestions = [...new Set([...classNames, ...classList])].sort((a, b) => a.localeCompare(b, "vi"));
 
+  const shown = useMemo(() => rows.filter((r) => matchStatus(r, status)), [rows, status]);
+  const tabCount = (st) => rows.filter((r) => matchStatus(r, st)).length;
+
   // One class → group by student (same name ignoring case / extra spaces).
   const students = useMemo(() => {
     if (cls === ALL) return [];
     const m = new Map();
-    for (const r of rows) {
+    for (const r of shown) {
       if (!m.has(r.student_key)) m.set(r.student_key, { key: r.student_key, name: r.student_name, rows: [] });
       const g = m.get(r.student_key);
       g.rows.push(r);
@@ -215,11 +254,12 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
       if (caps(r.student_name.trim()) > caps(g.name.trim())) g.name = r.student_name.trim();
     }
     return [...m.values()].sort((a, b) => a.name.localeCompare(b.name, "vi"));
-  }, [rows, cls]);
+  }, [shown, cls]);
 
   const onCheck = (id, on) => setSelected((prev) => { const n = new Set(prev); on ? n.add(id) : n.delete(id); return n; });
   const onCheckMany = (ids, on) => setSelected((prev) => { const n = new Set(prev); ids.forEach((id) => (on ? n.add(id) : n.delete(id))); return n; });
   const toggle = (key) => setOpen((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const allOpen = students.length > 0 && students.every((s) => open.has(s.key));
 
   const fileClass = async (className) => {
     setBusy(true);
@@ -239,7 +279,7 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
     setBusy(false);
   };
 
-  const tableProps = { selected, onCheck, onCheckMany, allSessions, onMoved: () => router.refresh() };
+  const listProps = { selected, onCheck, onCheckMany, allSessions, onChanged: () => router.refresh() };
 
   return (
     <div>
@@ -260,6 +300,21 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
 
       {showExport && <ExportPanel summary={summary} defaultClass={cls} onClose={() => setShowExport(false)} />}
 
+      {rows.length > 0 && (
+        <div className="seg-tabs" role="tablist" aria-label="Lọc theo trạng thái">
+          {STATUS_TABS.map(([k, label]) => (
+            <button key={k} role="tab" aria-selected={status === k} className={status === k ? "on" : ""} onClick={() => setStatus(k)}>
+              {label} <span className="seg-n">{tabCount(k)}</span>
+            </button>
+          ))}
+          {cls !== ALL && students.length > 0 && (
+            <button className="seg-extra" onClick={() => setOpen(allOpen ? new Set() : new Set(students.map((s) => s.key)))}>
+              {allOpen ? "Thu gọn tất cả" : "Mở tất cả"}
+            </button>
+          )}
+        </div>
+      )}
+
       {selected.size > 0 && (
         <div className="bulk-bar">
           <b>Đã chọn {selected.size} bài</b>
@@ -273,17 +328,18 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
       )}
 
       {rows.length === 0 && <div className="card"><p className="muted">Không có bài nộp nào{q ? ` khớp "${q}"` : ""}.</p></div>}
+      {rows.length > 0 && shown.length === 0 && <div className="card"><p className="muted">Không có bài nào ở mục này.</p></div>}
 
-      {cls === ALL && rows.length > 0 && (
+      {cls === ALL && shown.length > 0 && (
         <>
-          <p className="mono muted" style={{ fontSize: 12, margin: "0 0 4px" }}>Mới nhất — đang hiện {rows.length}/{total} bài{q ? ` khớp "${q}"` : ""}. Chọn một lớp ở trên để xem theo từng học viên.</p>
-          <Table rows={rows} showName {...tableProps} />
-          {rows.length < total && (
-            <div style={{ textAlign: "center", margin: "14px 0" }}>
-              <button className="btn-ghost" onClick={() => go({ n: limit + 50 })}>Xem thêm 50 bài</button>
-            </div>
-          )}
+          <p className="mono muted" style={{ fontSize: 12, margin: "0 0 6px" }}>Mới nhất — đang hiện {rows.length}/{total} bài{q ? ` khớp "${q}"` : ""}. Chọn một lớp ở trên để xem theo từng học viên.</p>
+          <SubList rows={shown} showName {...listProps} />
         </>
+      )}
+      {cls === ALL && rows.length > 0 && rows.length < total && (
+        <div style={{ textAlign: "center", margin: "14px 0" }}>
+          <button className="btn-ghost" onClick={() => go({ n: limit + 50 })}>Xem thêm 50 bài</button>
+        </div>
       )}
 
       {cls !== ALL && students.map((st) => {
@@ -291,18 +347,19 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
         const flagged = st.rows.some((r) => r.integrity && r.integrity.level !== "normal");
         const isOpen = open.has(st.key) || students.length <= 3;
         return (
-          <div key={st.key} style={{ marginBottom: 12 }}>
-            <div className="folder-header" onClick={() => toggle(st.key)}>
-              <div className="row" style={{ gap: 10, width: "auto" }}>
-                <span className="folder-icon">{isOpen ? "▾" : "▸"} 👤</span>
-                <p style={{ margin: 0, fontWeight: 700 }}>{st.name}</p>
+          <div key={st.key} style={{ marginBottom: 10 }}>
+            <button type="button" className="folder-header student-head" onClick={() => toggle(st.key)} aria-expanded={isOpen}>
+              <span className="row" style={{ gap: 10, width: "auto" }}>
+                <span className="folder-icon">{isOpen ? "▾" : "▸"}</span>
+                <b>{st.name}</b>
                 {flagged && <span className="integrity-pill medium" title="Có bài cần lưu ý về giám sát">⚠</span>}
-              </div>
-              <p className="mono muted" style={{ fontSize: 13, margin: 0 }}>
-                {st.rows.length} bài — {pending > 0 ? <span className="accent">{pending} chưa chấm</span> : "đã chấm hết"}
-              </p>
-            </div>
-            {isOpen && <Table rows={st.rows} showName={false} {...tableProps} />}
+              </span>
+              <span className="row" style={{ gap: 8, width: "auto" }}>
+                <span className="mono muted" style={{ fontSize: 13 }}>{st.rows.length} bài</span>
+                {pending > 0 ? <span className="state-chip todo">{pending} chưa chấm</span> : <span className="state-chip done">Đã chấm hết</span>}
+              </span>
+            </button>
+            {isOpen && <SubList rows={st.rows} showName={false} {...listProps} />}
           </div>
         );
       })}

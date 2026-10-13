@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SessionList from "./SessionList";
 import { vnInputToIso, isoToVnInput, formatVnShort, scheduleState } from "@/lib/vnTime";
 import { normalizeClassName } from "@/lib/classNames";
 
@@ -12,10 +13,12 @@ const SKILL_LABELS = {
 };
 const TIMED_SKILLS = ["grammar", "reading", "writing"];
 
-const CATEGORY_LABELS = { placement: "Placement Test", midterm: "Mid-term Test", mock: "Mock Test", final: "Final Test", other: "Khác" };
+const CATEGORY_LABELS = { placement: "Placement Test", midterm: "Mid-term Test", mock: "Mock Test", final: "Final Test", aptis: "Aptis", other: "Khác" };
 
 export default function SessionManager({ initialSessions, banks, initialCategory, classNames = [] }) {
   const [sessions, setSessions] = useState(initialSessions);
+  // The create form folds away once links exist — the list is what is used daily.
+  const [showForm, setShowForm] = useState(initialSessions.length === 0);
   const [name, setName] = useState("");
   const [skills, setSkills] = useState({ grammar: true, reading: true, listening: true, writing: true });
   const [times, setTimes] = useState({ grammar: 40, reading: 40, writing: 30 });
@@ -128,7 +131,12 @@ export default function SessionManager({ initialSessions, banks, initialCategory
 
   return (
     <div>
-      <div className="card card-strong">
+      <div className="sess-create-bar">
+        <button className={showForm ? "btn-ghost btn-sm" : "btn"} onClick={() => setShowForm((v) => !v)}>
+          {showForm ? "▴ Thu gọn khung tạo link" : "＋ Tạo link thi mới"}
+        </button>
+      </div>
+      {showForm && <div className="card card-strong">
         <p className="mono muted" style={{ fontSize: 12, marginBottom: 12 }}>TẠO PHIÊN THI MỚI</p>
         <p style={{ marginBottom: 6 }}>Tên phiên thi (chỉ để bạn nhận biết, học viên không thấy):</p>
         <input type="text" placeholder="VD: Lớp A2 — chỉ Grammar + Reading" value={name} onChange={(e) => setName(e.target.value)} />
@@ -230,84 +238,9 @@ export default function SessionManager({ initialSessions, banks, initialCategory
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
-      <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-        <p className="mono muted" style={{ fontSize: 12, padding: "16px 16px 0" }}>CÁC PHIÊN THI ĐÃ TẠO</p>
-        {sessions.length === 0 ? (
-          <p className="muted" style={{ padding: 16 }}>Chưa có phiên thi nào.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Tên</th>
-                <th>Lớp</th>
-                <th>Lịch mở</th>
-                <th>Bộ đề</th>
-                <th>Kỹ năng</th>
-                <th>Chế độ</th>
-                <th>Link</th>
-                <th>Trạng thái</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.map((s) => {
-                const link = `${origin}/test/s/${s.id}`;
-                return (
-                  <tr key={s.id}>
-                    <td>{s.name}</td>
-                    <td>
-                      <button className="btn-ghost btn-sm" onClick={() => editClass(s)} title="Đổi lớp">{normalizeClassName(s.class_name) || "—"} ✎</button>
-                    </td>
-                    <td style={{ minWidth: 200 }}>
-                      {editing?.id === s.id ? (
-                        <div className="stack" style={{ gap: 6 }}>
-                          <label className="sched-field">Mở lúc<input type="datetime-local" value={editing.opensAt} onChange={(e) => setEditing((x) => ({ ...x, opensAt: e.target.value }))} /></label>
-                          <label className="sched-field">Đóng lúc<input type="datetime-local" value={editing.closesAt} onChange={(e) => setEditing((x) => ({ ...x, closesAt: e.target.value }))} /></label>
-                          <div className="row" style={{ gap: 6, justifyContent: "flex-start" }}>
-                            <button className="btn btn-sm" onClick={() => saveSchedule(s.id, vnInputToIso(editing.opensAt), vnInputToIso(editing.closesAt))}>Lưu</button>
-                            <button className="btn-ghost btn-sm" onClick={() => setEditing(null)}>Huỷ</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="sched-cell">
-                          <span className={`sched-state ${scheduleState(s.opens_at, s.closes_at)}`}>
-                            {{ open: "Đang cho vào", not_yet: "Chưa mở", closed: "Đã đóng" }[scheduleState(s.opens_at, s.closes_at)]}
-                          </span>
-                          <span className="mono muted" style={{ fontSize: 11.5 }}>
-                            {s.opens_at ? `Mở ${formatVnShort(s.opens_at)}` : "Mở ngay"}<br />
-                            {s.closes_at ? `Đóng ${formatVnShort(s.closes_at)}` : "Không tự đóng"}
-                          </span>
-                          <div className="row" style={{ gap: 4, justifyContent: "flex-start", flexWrap: "wrap" }}>
-                            <button className="btn-ghost btn-xs" onClick={() => setEditing({ id: s.id, opensAt: isoToVnInput(s.opens_at), closesAt: isoToVnInput(s.closes_at) })}>Sửa lịch</button>
-                            {s.closes_at && <>
-                              <button className="btn-ghost btn-xs" onClick={() => extend(s, 15)} title="Gia hạn giờ đóng">+15p</button>
-                              <button className="btn-ghost btn-xs" onClick={() => extend(s, 30)}>+30p</button>
-                              <button className="btn-ghost btn-xs" onClick={() => extend(s, 60)}>+1h</button>
-                            </>}
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                    <td className="mono muted" style={{ fontSize: 12 }}>{bankName(s.content_bank_id)}</td>
-                    <td className="mono muted" style={{ fontSize: 12 }}>{(s.skills || []).map((sk) => SKILL_LABELS[sk] || sk).join(", ")}</td>
-                    <td>{s.time_limits?.mode === "practice" ? <span className="mode-pill practice">Luyện tập</span> : <span className="mode-pill">Thi thử</span>}</td>
-                    <td>
-                      <button className="btn-ghost btn-sm" onClick={() => copy(link)}>Copy link</button>
-                    </td>
-                    <td>{s.active ? <span className="success">Đang mở</span> : <span className="muted">Đã tắt</span>}</td>
-                    <td className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
-                      <button className="btn-ghost btn-sm" onClick={() => toggleActive(s.id, !s.active)}>{s.active ? "Tắt" : "Bật lại"}</button>
-                      <button className="btn-ghost btn-sm" onClick={() => remove(s.id)}>Xoá</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <SessionList sessions={sessions} setSessions={setSessions} bankName={bankName} classOptions={knownClasses}  />
     </div>
   );
 }

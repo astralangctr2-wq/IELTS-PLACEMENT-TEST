@@ -14,7 +14,7 @@ export default async function SessionsPage({ searchParams }) {
   const classNames = await listClassNames();
   const bankSummaries = banks.map((b) => ({ id: b.id, name: b.name, category: b.category, className: b.class_name || "" }));
   return (
-    <div className="wrap">
+    <div className="wrap-wide" style={{ maxWidth: 900 }}>
       <div className="topbar">
         <div>
           <p className="serif" style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Tạo link phiên thi</p>

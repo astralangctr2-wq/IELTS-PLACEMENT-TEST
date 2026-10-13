@@ -1,16 +1,17 @@
-SỬA THEO GÓP Ý HỌC VIÊN (dùng cho code đang chạy trên web, chưa có LMS)
-=======================================================================
-Gói này ĐÃ GỒM bản "sua-loi-nop-bai" (nộp bài khi không có Writing).
-Chép đè 4 file vào repo, giữ nguyên đường dẫn:
-  app/test/TestRunner.jsx
-  app/test/AptisRunner.jsx
+CẬP NHẬT GỘP (dùng cho code đang chạy trên web, chưa có LMS)
+============================================================
+Gói này gồm TẤT CẢ các bản sửa chưa push:
+  - Sửa lỗi nộp bài khi không có Writing (thay cho sua-loi-nop-bai.zip)
+  - Góp ý học viên: kéo thả matching, tắt gạch chân chính tả, mốc 150/250 từ (thay cho gop-y-hoc-vien.zip)
+  - Giao diện mới: Bảng bài thi + Danh sách link thi (không còn thanh trượt ngang)
+
+Chép đè 8 file vào repo, giữ nguyên đường dẫn:
   app/globals.css
   app/api/submissions/route.js
+  app/test/TestRunner.jsx
+  app/test/AptisRunner.jsx
+  app/teacher/SubmissionsBoard.jsx
+  app/teacher/sessions/page.jsx
+  app/teacher/sessions/SessionManager.jsx
+  app/teacher/sessions/SessionList.jsx   (file mới)
 Rồi GitHub Desktop -> Commit -> Push. Đợi Vercel deploy xong (~2 phút).
-
-Thay đổi:
-  1. Writing (IELTS + Aptis) và mọi ô gõ đáp án: tắt gạch chân lỗi chính tả, tắt tự sửa chữ.
-  2. Đếm từ Writing: Task 1 mốc 150 từ, Task 2 mốc 250 từ (đủ mới hiện ✓ xanh).
-  3. Matching tên người (matching features), Matching headings, Nối câu: kéo thả như thi máy.
-     Matching information (đáp án là chữ A, B, C…) giữ dạng bảng tick.
-     Muốn ép kiểu cho 1 câu trong JSON: thêm "ui": "drag" | "grid" | "select".
