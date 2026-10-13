@@ -1,8 +1,16 @@
-SỬA LỖI: bài thi không có Writing (vd chỉ Reading + Listening) không nộp được
-=============================================================================
-Chép đè 2 file vào repo, giữ nguyên đường dẫn:
+SỬA THEO GÓP Ý HỌC VIÊN (dùng cho code đang chạy trên web, chưa có LMS)
+=======================================================================
+Gói này ĐÃ GỒM bản "sua-loi-nop-bai" (nộp bài khi không có Writing).
+Chép đè 4 file vào repo, giữ nguyên đường dẫn:
   app/test/TestRunner.jsx
+  app/test/AptisRunner.jsx
+  app/globals.css
   app/api/submissions/route.js
 Rồi GitHub Desktop -> Commit -> Push. Đợi Vercel deploy xong (~2 phút).
-Bản này làm từ code đang chạy trên web (chưa có LMS đợt 1), không thêm tính năng mới.
-Gói LMS đợt 1 đã có sẵn bản sửa này, push sau vẫn được.
+
+Thay đổi:
+  1. Writing (IELTS + Aptis) và mọi ô gõ đáp án: tắt gạch chân lỗi chính tả, tắt tự sửa chữ.
+  2. Đếm từ Writing: Task 1 mốc 150 từ, Task 2 mốc 250 từ (đủ mới hiện ✓ xanh).
+  3. Matching tên người (matching features), Matching headings, Nối câu: kéo thả như thi máy.
+     Matching information (đáp án là chữ A, B, C…) giữ dạng bảng tick.
+     Muốn ép kiểu cho 1 câu trong JSON: thêm "ui": "drag" | "grid" | "select".

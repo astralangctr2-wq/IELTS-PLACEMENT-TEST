@@ -394,6 +394,13 @@ function WritingPage({ task, ti, answers, setAnswer, onPaste }) {
           onDrop={onPaste}
           placeholder={hint || (limit ? `Tối đa ${limit} từ` : "Viết câu trả lời…")}
           className={`aptis-textarea ${over ? "over" : ""}`}
+          spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="off"
+          autoComplete="off"
+          data-gramm="false"
+          data-gramm_editor="false"
+          data-enable-grammarly="false"
           style={{ minHeight }}
         />
         <p className={`mono ${over ? "aptis-over" : "muted"}`} style={{ fontSize: 12, margin: "6px 0 0" }}>
@@ -704,7 +711,7 @@ export default function AptisRunner({ config }) {
   const isLastPage = pageIdx >= pages.length - 1;
 
   return (
-    <div className="aptis-shell" style={{ zoom }}>
+    <div className="aptis-shell" style={{ zoom }} spellCheck={false}>
       {integrity.overlay}
       {confirmBox && (
         <div className="integrity-modal" role="dialog" aria-modal="true">

@@ -510,6 +510,113 @@ function InlineBlank({ text, value, wordBank, disabled, onChange, badgeNumber })
 // labels — letters, names, section codes); "bank" draws one dropdown
 // per item against the full-text option bank (best for long options —
 // headings, sentence endings).
+// How a matching question is shown. Like the computer-delivered IELTS:
+//   "grid": tick table — Matching Information (options are just
+//           paragraph letters A, B, C…).
+//   "drag": drag-and-drop — Matching Headings, Matching Features (names),
+//           Matching Sentence Endings (options are words or sentences).
+// A bank can force one with "ui": "grid" | "drag" | "select".
+export function matchingMode(q) {
+  if (q.ui === "grid" || q.ui === "drag" || q.ui === "select") return q.ui;
+  const short = (q.options || []).every((o) => String(o).trim().length <= 3);
+  return short ? "grid" : "drag";
+}
+
+// Drag an option from the box onto a numbered slot (or tap an option, then
+// tap a slot — works on phones too). Tapping a filled slot sends its option
+// back. Options that may be used once (headings, sentence endings) leave
+// the box when placed; names that may repeat stay in the box.
+const MatchingDrag = memo(function MatchingDrag({ q, startIndex, selected, setAll, locked }) {
+  const [picked, setPicked] = useState(null); // { opt, from }
+  const [over, setOver] = useState(null);
+  const reuse = q.reuse ?? (q.options.length < q.items.length || /more than once/i.test(q.q || ""));
+  const used = new Set(selected.filter((v) => v !== null && v !== undefined));
+  const pool = q.options.map((_, i) => i).filter((i) => reuse || !used.has(i));
+
+  const write = (fn) => {
+    if (locked) return;
+    const next = [...selected];
+    while (next.length < q.items.length) next.push(null);
+    fn(next);
+    setAll(next);
+  };
+  const place = (slot, opt, from) => write((next) => {
+    if (from !== null && from !== undefined && from !== slot) next[from] = reuse ? next[from] : null;
+    if (!reuse) for (let k = 0; k < next.length; k++) if (k !== slot && next[k] === opt) next[k] = null;
+    next[slot] = opt;
+  });
+  const clear = (slot) => write((next) => { next[slot] = null; });
+
+  const dragProps = (opt, from = null) => locked ? {} : {
+    draggable: true,
+    onDragStart: (e) => { e.dataTransfer.setData("text/plain", JSON.stringify({ opt, from })); e.dataTransfer.effectAllowed = "move"; },
+  };
+  const readDrop = (e) => { try { return JSON.parse(e.dataTransfer.getData("text/plain")); } catch { return null; } };
+
+  return (
+    <div className="card stack dd">
+      {q.q && <p style={{ margin: 0, lineHeight: 1.5, whiteSpace: "pre-line" }}>{q.q}</p>}
+      <div
+        className={`dd-pool ${over === "pool" ? "over" : ""}`}
+        onDragOver={(e) => { e.preventDefault(); setOver("pool"); }}
+        onDragLeave={() => setOver(null)}
+        onDrop={(e) => { e.preventDefault(); setOver(null); const d = readDrop(e); if (d && d.from !== null) clear(d.from); }}
+        onClick={() => { if (picked && picked.from !== null) { clear(picked.from); setPicked(null); } }}
+      >
+        {pool.length === 0 && <span className="muted" style={{ fontSize: 13 }}>Đã dùng hết lựa chọn</span>}
+        {pool.map((oi) => (
+          <span
+            key={oi}
+            role="button"
+            tabIndex={locked ? -1 : 0}
+            aria-pressed={Boolean(picked && picked.opt === oi && picked.from === null)}
+            className={`dd-chip ${picked && picked.opt === oi && picked.from === null ? "picked" : ""} ${locked ? "locked" : ""}`}
+            onClick={(e) => { e.stopPropagation(); if (locked) return; setPicked(picked && picked.opt === oi && picked.from === null ? null : { opt: oi, from: null }); }}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
+            {...dragProps(oi)}
+          >
+            {q.options[oi]}
+          </span>
+        ))}
+      </div>
+      <p className="muted" style={{ fontSize: 12, margin: 0 }}>Kéo một lựa chọn vào ô trống (hoặc bấm chọn rồi bấm vào ô). Bấm vào ô đã điền để gỡ ra.</p>
+      <div className="stack" style={{ gap: 10 }}>
+        {q.items.map((item, ii) => {
+          const val = selected[ii];
+          const filled = val !== null && val !== undefined;
+          return (
+            <div key={ii} className="dd-item">
+              <span className="dd-num">{startIndex + ii + 1}</span>
+              <span className="dd-text">{item}</span>
+              <span
+                className={`dd-slot ${filled ? "filled" : ""} ${over === ii ? "over" : ""} ${picked ? "awaiting" : ""}`}
+                role="button"
+                tabIndex={locked ? -1 : 0}
+                aria-label={`Ô trả lời câu ${startIndex + ii + 1}`}
+                onDragOver={(e) => { e.preventDefault(); setOver(ii); }}
+                onDragLeave={() => setOver(null)}
+                onDrop={(e) => { e.preventDefault(); setOver(null); const d = readDrop(e); if (d) place(ii, d.opt, d.from); }}
+                onClick={() => {
+                  if (locked) return;
+                  if (picked) { place(ii, picked.opt, picked.from); setPicked(null); }
+                  else if (filled) clear(ii);
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
+              >
+                {filled ? (
+                  <span className="dd-chip in-slot" {...dragProps(val, ii)}>{q.options[val]}</span>
+                ) : (
+                  <span className="dd-placeholder">{picked ? "Bấm để đặt vào đây" : "Kéo thả vào đây"}</span>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
 const MatchingQuestion = memo(function MatchingQuestion({ q, startIndex, answers, onChange, locked }) {
   const selected = Array.isArray(answers[q.id]) ? answers[q.id] : [];
 
@@ -520,7 +627,12 @@ const MatchingQuestion = memo(function MatchingQuestion({ q, startIndex, answers
     onChange(q.id, next);
   };
 
-  if (q.display === "grid") {
+  const mode = matchingMode(q);
+  if (mode === "drag") {
+    return <MatchingDrag q={q} startIndex={startIndex} selected={selected} setAll={(next) => onChange(q.id, next)} locked={locked} />;
+  }
+
+  if (mode === "grid") {
     return (
       <div className="card" style={{ overflowX: "auto" }}>
         {q.q && <p style={{ marginBottom: 12, lineHeight: 1.5 }}>{q.q}</p>}
@@ -1163,7 +1275,7 @@ export default function TestRunner({ config }) {
   };
 
   return (
-    <div className={["reading", "writing"].includes(stage) ? "wrap-reading" : "wrap"} style={{ zoom: FONT_SIZES[fontSize] }}>
+    <div className={["reading", "writing"].includes(stage) ? "wrap-reading" : "wrap"} style={{ zoom: FONT_SIZES[fontSize] }} spellCheck={false}>
       {integrity.overlay}
       <div className="topbar">
         <div>
@@ -1351,6 +1463,10 @@ export default function TestRunner({ config }) {
           <div ref={splitRef}>
           {writingTasks.map((task, ti) => {
             const tWordCount = wordsOf(writingAnswers[ti]);
+            // "Write at least 250 words." in the prompt wins; otherwise
+            // Task 2 of a two-task paper is 250 and Task 1 is 150.
+            const atLeast = /at least\s+(\d+)\s+words/i.exec(task.prompt || "");
+            const minWords = Number(task.minWords) || (atLeast ? Number(atLeast[1]) : (writingTasks.length > 1 ? (ti === 1 ? 250 : 150) : (/task\s*2/i.test(task.prompt || "") ? 250 : 150)));
             return (
               <div key={ti} style={{ marginTop: ti > 0 ? 40 : 0 }}>
                 {writingTasks.length > 1 && (
@@ -1378,14 +1494,21 @@ export default function TestRunner({ config }) {
                     <textarea
                       style={{ minHeight: 420, height: "100%" }}
                       placeholder="Viết bài làm của bạn tại đây…"
+                      spellCheck={false}
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      autoComplete="off"
+                      data-gramm="false"
+                      data-gramm_editor="false"
+                      data-enable-grammarly="false"
                       value={writingAnswers[ti] || ""}
                       onChange={(e) => setWritingAnswers((prev) => ({ ...prev, [ti]: e.target.value }))}
                       onPaste={practice ? undefined : integrity.blockPaste}
                       onDrop={practice ? undefined : integrity.blockPaste}
                       disabled={expired.writing}
                     />
-                    <p className={`mono ${tWordCount >= 150 ? "success" : "accent"}`} style={{ fontSize: 12, marginTop: 8 }}>
-                      {tWordCount} từ {tWordCount < 150 ? "" : "✓"}
+                    <p className={`mono ${tWordCount >= minWords ? "success" : "accent"}`} style={{ fontSize: 12, marginTop: 8 }}>
+                      {tWordCount} / {minWords} từ {tWordCount >= minWords ? "✓" : ""}
                     </p>
                   </div>
                 </div>
