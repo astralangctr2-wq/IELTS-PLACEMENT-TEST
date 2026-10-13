@@ -1,17 +1,12 @@
 CẬP NHẬT GỘP (dùng cho code đang chạy trên web, chưa có LMS)
 ============================================================
 Gói này gồm TẤT CẢ các bản sửa chưa push:
-  - Sửa lỗi nộp bài khi không có Writing (thay cho sua-loi-nop-bai.zip)
-  - Góp ý học viên: kéo thả matching, tắt gạch chân chính tả, mốc 150/250 từ (thay cho gop-y-hoc-vien.zip)
-  - Giao diện mới: Bảng bài thi + Danh sách link thi (không còn thanh trượt ngang)
+  - Sửa lỗi nộp bài khi không có Writing
+  - Góp ý học viên: kéo thả matching, tắt gạch chân chính tả, mốc 150/250 từ
+  - Giao diện mới: Bảng bài thi + Danh sách link thi
+  - Khảo sát góp ý sau khi nộp bài (bật/tắt theo từng link) + trang "📝 Khảo sát" cho GV
 
-Chép đè 8 file vào repo, giữ nguyên đường dẫn:
-  app/globals.css
-  app/api/submissions/route.js
-  app/test/TestRunner.jsx
-  app/test/AptisRunner.jsx
-  app/teacher/SubmissionsBoard.jsx
-  app/teacher/sessions/page.jsx
-  app/teacher/sessions/SessionManager.jsx
-  app/teacher/sessions/SessionList.jsx   (file mới)
+Cách cập nhật: chép đè toàn bộ thư mục app/ và lib/ trong gói vào repo
+(giữ nguyên đường dẫn, có vài file mới). Không cần xoá file nào.
 Rồi GitHub Desktop -> Commit -> Push. Đợi Vercel deploy xong (~2 phút).
+Bảng dữ liệu khảo sát tự tạo ở lần dùng đầu tiên.

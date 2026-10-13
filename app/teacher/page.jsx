@@ -33,6 +33,7 @@ export default async function TeacherDashboard({ searchParams }) {
         </div>
         <div className="row" style={{ gap: 10, width: "auto", flexWrap: "wrap" }}>
           <a href="/teacher/stats"><button className="btn-ghost btn-sm">📊 Thống kê</button></a>
+          <a href="/teacher/khao-sat"><button className="btn-ghost btn-sm">📝 Khảo sát</button></a>
           <a href="/teacher/sessions"><button className="btn-ghost btn-sm">Tạo link phiên thi</button></a>
           <a href="/teacher/content"><button className="btn-ghost btn-sm">Quản lý đề thi</button></a>
           <LogoutButton />

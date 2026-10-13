@@ -64,6 +64,11 @@ export default function SessionList({ sessions, setSessions, bankName, classOpti
     setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, class_name: normalizeClassName(value) || null } : x)));
     setClassEdit(null);
   };
+  const toggleSurvey = async (s) => {
+    const on = !(s.time_limits?.survey === true);
+    await patch(s.id, { survey: on });
+    setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, time_limits: { ...(x.time_limits || {}), survey: on } } : x)));
+  };
   const toggleActive = async (s) => {
     await patch(s.id, { active: !s.active });
     setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, active: !s.active } : x)));
@@ -126,6 +131,9 @@ export default function SessionList({ sessions, setSessions, bankName, classOpti
                 )}
                 <span className="meta-chip">Đề <b>{bankName(s.content_bank_id)}</b></span>
                 <span className="meta-chip">{(s.skills || []).map((sk) => SKILL_SHORT[sk] || sk).join(" · ")}</span>
+                <button className={`meta-chip editable ${s.time_limits?.survey ? "on" : ""}`} title="Bật/tắt khảo sát góp ý hiện ra sau khi học viên nộp bài" onClick={() => toggleSurvey(s)}>
+                  📝 Khảo sát <b>{s.time_limits?.survey ? "Bật" : "Tắt"}</b>
+                </button>
                 {legacyPractice && <span className="meta-chip">Luyện tập (cũ)</span>}
               </div>
 

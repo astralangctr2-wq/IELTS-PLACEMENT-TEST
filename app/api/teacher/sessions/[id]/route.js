@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isValidSessionValue } from "@/lib/auth";
-import { setSessionActive, setSessionClass, setSessionSchedule, deleteSession } from "@/lib/testSessions";
+import { setSessionSurvey, setSessionActive, setSessionClass, setSessionSchedule, deleteSession } from "@/lib/testSessions";
 
 function requireTeacher() {
   const value = cookies().get("teacher_session")?.value;
@@ -13,6 +13,10 @@ export async function PATCH(req, { params }) {
   const body = await req.json();
   if ("opensAt" in body || "closesAt" in body) {
     await setSessionSchedule(params.id, body.opensAt || null, body.closesAt || null);
+    return NextResponse.json({ ok: true });
+  }
+  if ("survey" in body) {
+    await setSessionSurvey(params.id, body.survey);
     return NextResponse.json({ ok: true });
   }
   if ("className" in body) {

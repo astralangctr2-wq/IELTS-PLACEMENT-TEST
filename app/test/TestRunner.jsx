@@ -7,6 +7,7 @@ import { flattenSectionQuestions, renderMarkedText, parsePassageBlocks } from "@
 import BrandBar from "../components/BrandBar";
 import PracticeAudioPlayer from "./PracticeAudioPlayer";
 import PracticeReview from "./PracticeReview";
+import SurveyForm from "./SurveyForm";
 import { useExamIntegrity } from "./ExamIntegrity";
 import { normalizeClassName } from "@/lib/classNames";
 
@@ -1537,6 +1538,8 @@ export default function TestRunner({ config }) {
           <p className="muted" style={{ fontSize: 14 }}>Bài làm của bạn đã được ghi nhận.</p>
         </div>
       )}
+
+      {stage === "done" && config.survey && submittedId && <SurveyForm submissionId={submittedId} skills={activeSteps} />}
 
       <div style={{ marginTop: 40, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
         <BrandBar size="small" style={{ justifyContent: "center" }} />

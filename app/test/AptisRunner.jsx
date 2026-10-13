@@ -21,6 +21,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useFontSize } from "@/app/contexts/ThemeContext";
 import PracticeAudioPlayer from "./PracticeAudioPlayer";
 import PracticeReview from "./PracticeReview";
+import SurveyForm from "./SurveyForm";
 import { useExamIntegrity } from "./ExamIntegrity";
 import { normalizeClassName } from "@/lib/classNames";
 
@@ -693,6 +694,7 @@ export default function AptisRunner({ config }) {
           {result && activeSkills.includes("reading") && <p className="mono" style={{ margin: 0 }}>Reading: {result.rScore}/{result.rTotal}</p>}
           {activeSkills.includes("writing") && <p className="muted" style={{ fontSize: 13 }}>Phần Writing sẽ được giáo viên chấm và phản hồi riêng.</p>}
         </div>
+        {config.survey && result?.id && <div style={{ maxWidth: 720, marginTop: 16 }}><SurveyForm submissionId={result.id} skills={activeSkills} /></div>}
       </div>
     );
   }

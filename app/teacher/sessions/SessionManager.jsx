@@ -19,6 +19,7 @@ export default function SessionManager({ initialSessions, banks, initialCategory
   const [sessions, setSessions] = useState(initialSessions);
   // The create form folds away once links exist — the list is what is used daily.
   const [showForm, setShowForm] = useState(initialSessions.length === 0);
+  const [survey, setSurvey] = useState(true); // feedback survey after submitting
   const [name, setName] = useState("");
   const [skills, setSkills] = useState({ grammar: true, reading: true, listening: true, writing: true });
   const [times, setTimes] = useState({ grammar: 40, reading: 40, writing: 30 });
@@ -60,6 +61,7 @@ export default function SessionManager({ initialSessions, banks, initialCategory
           listeningPlays,
           mode,
           className: className.trim() || null,
+          survey,
           opensAt: vnInputToIso(opensAt),
           closesAt: vnInputToIso(closesAt),
           contentBankId: contentBankId || null,
@@ -224,6 +226,11 @@ export default function SessionManager({ initialSessions, banks, initialCategory
           </div>
         </div>
         </>}
+
+        <label className="option" style={{ cursor: "pointer", marginTop: 16 }}>
+          <input type="checkbox" checked={survey} onChange={(e) => setSurvey(e.target.checked)} style={{ marginRight: 10 }} />
+          <span>📝 Hiện khảo sát góp ý sau khi học viên nộp bài <span className="muted" style={{ fontSize: 13 }}>(xem kết quả ở mục "Khảo sát")</span></span>
+        </label>
 
         <button className="btn" style={{ marginTop: 20 }} disabled={creating || bankChoices.length === 0} onClick={create}>
           {creating ? "Đang tạo…" : "Tạo phiên thi →"}
