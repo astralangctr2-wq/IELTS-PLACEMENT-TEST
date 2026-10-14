@@ -29,6 +29,13 @@ export async function POST(req) {
   const writingText = skillsIncluded.includes("writing") ? (body.writingText || "").toString() : "";
   const wordCount = writingText.trim().length === 0 ? 0 : writingText.trim().split(/\s+/).length;
 
+  // Phrases the student highlighted while reading (shown to the teacher).
+  const str = (v, n) => (v ?? "").toString().slice(0, n);
+  const highlights = (Array.isArray(body.highlights) ? body.highlights : []).slice(0, 30).map((h) => ({
+    label: str(h?.label, 160),
+    items: (Array.isArray(h?.items) ? h.items : []).slice(0, 100).map((x) => ({ t: str(x?.t, 400), b: str(x?.b, 60), a: str(x?.a, 60) })).filter((x) => x.t.trim()),
+  })).filter((h) => h.items.length);
+
   const content = await getActiveContentWithAnswers(contentBankId);
 
   const grammarQs = content.grammar || [];
@@ -64,6 +71,7 @@ export async function POST(req) {
         grammar: body.grammarAnswers || {},
         reading: body.readingAnswers || {},
         listening: body.listeningAnswers || {},
+        ...(highlights.length ? { highlights } : {}),
       })}::jsonb,
       ${g.earned}, ${g.total},
       ${r.earned}, ${r.total},

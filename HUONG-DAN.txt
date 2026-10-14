@@ -4,9 +4,10 @@ Gói này gồm TẤT CẢ các bản sửa chưa push:
   - Sửa lỗi nộp bài khi không có Writing
   - Góp ý học viên: kéo thả matching, tắt gạch chân chính tả, mốc 150/250 từ
   - Giao diện mới: Bảng bài thi + Danh sách link thi
-  - Khảo sát góp ý sau khi nộp bài (bật/tắt theo từng link) + trang "📝 Khảo sát" cho GV
+  - Khảo sát góp ý sau khi nộp bài + trang "📝 Khảo sát"
+  - MỚI: GV xem chữ HV đã tô đậm; sửa thời gian làm bài trên link; chấm Writing 2 cột;
+         phiếu điểm theo mẫu Astra (A5, logo in chìm)
 
-Cách cập nhật: chép đè toàn bộ thư mục app/ và lib/ trong gói vào repo
+Cách cập nhật: chép đè toàn bộ thư mục app/, lib/ và public/ trong gói vào repo
 (giữ nguyên đường dẫn, có vài file mới). Không cần xoá file nào.
 Rồi GitHub Desktop -> Commit -> Push. Đợi Vercel deploy xong (~2 phút).
-Bảng dữ liệu khảo sát tự tạo ở lần dùng đầu tiên.

@@ -6,6 +6,7 @@ import WritingGrader from "./WritingGrader";
 import { aptisScaleFromRaw, aptisCefr } from "@/lib/grading";
 import ExamTypeSwitch from "./ExamTypeSwitch";
 import IntegrityCard from "./IntegrityCard";
+import HighlightsCard from "./HighlightsCard";
 import AnswerReview from "./AnswerReview";
 import DeleteButton from "../DeleteButton";
 
@@ -25,7 +26,7 @@ export default async function SubmissionDetail({ params }) {
   };
 
   return (
-    <div className="wrap">
+    <div className="wrap-wide grade-page">
       <div className="topbar">
         <div>
           <p className="serif" style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{s.student_name}</p>
@@ -49,6 +50,8 @@ export default async function SubmissionDetail({ params }) {
 
       <IntegrityCard integrity={s.integrity} />
 
+      {(skills.includes("reading") || skills.includes("listening")) && <HighlightsCard highlights={s.answers?.highlights} />}
+
       {aptis ? (
       <div className="card stack">
         <p className="mono muted" style={{ fontSize: 12 }}>ĐIỂM TỰ ĐỘNG — THANG APTIS (ƯỚC TÍNH)</p>
@@ -66,18 +69,6 @@ export default async function SubmissionDetail({ params }) {
       </div>
       )}
 
-      {snapshot && Array.isArray(snapshot.grammar) && Array.isArray(snapshot.reading) && Array.isArray(snapshot.listening) ? (
-        <>
-          {skills.includes("grammar") && <AnswerReview title="CHI TIẾT — NGỮ PHÁP" questions={snapshot.grammar} answers={s.answers?.grammar} />}
-          {skills.includes("reading") && <AnswerReview title="CHI TIẾT — READING" questions={snapshot.reading} answers={s.answers?.reading} />}
-          {skills.includes("listening") && <AnswerReview title="CHI TIẾT — LISTENING" questions={snapshot.listening} answers={s.answers?.listening} />}
-        </>
-      ) : (
-        <div className="card">
-          <p className="muted" style={{ fontSize: 13 }}>Không có dữ liệu chi tiết từng câu cho bài nộp này (có thể do nộp trước khi tính năng này được bật, hoặc dữ liệu bị thiếu). Chỉ hiện được điểm tổng ở trên.</p>
-        </div>
-      )}
-
       {skills.includes("writing") && (
         <WritingGrader
           submissionId={s.id}
@@ -92,6 +83,19 @@ export default async function SubmissionDetail({ params }) {
       {!skills.includes("writing") && (
         <div className="card"><p className="muted" style={{ fontSize: 13 }}>Bài này không có phần Writing — không cần chấm tay.</p></div>
       )}
+
+      {snapshot && Array.isArray(snapshot.grammar) && Array.isArray(snapshot.reading) && Array.isArray(snapshot.listening) ? (
+        <>
+          {skills.includes("grammar") && <AnswerReview title="CHI TIẾT — NGỮ PHÁP" questions={snapshot.grammar} answers={s.answers?.grammar} />}
+          {skills.includes("reading") && <AnswerReview title="CHI TIẾT — READING" questions={snapshot.reading} answers={s.answers?.reading} />}
+          {skills.includes("listening") && <AnswerReview title="CHI TIẾT — LISTENING" questions={snapshot.listening} answers={s.answers?.listening} />}
+        </>
+      ) : (
+        <div className="card">
+          <p className="muted" style={{ fontSize: 13 }}>Không có dữ liệu chi tiết từng câu cho bài nộp này (có thể do nộp trước khi tính năng này được bật, hoặc dữ liệu bị thiếu). Chỉ hiện được điểm tổng ở trên.</p>
+        </div>
+      )}
+
     </div>
   );
 }

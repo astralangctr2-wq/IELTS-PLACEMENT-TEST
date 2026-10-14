@@ -15,7 +15,24 @@ function offsetIn(container, node, offset) {
   return r.toString().length;
 }
 
-export default function AnnotationEditor({ text, annotations, onChange }) {
+// range: { from, to } — show and annotate only that part of the essay (one
+// Writing task). Offsets stay global, so the saved annotations are the same
+// whichever way the essay is split on screen.
+export default function AnnotationEditor({ text: fullText, annotations: allAnnotations, onChange: onChangeAll, range, hideLegend = false }) {
+  const from = range?.from ?? 0;
+  const to = range?.to ?? (fullText || "").length;
+  const text = (fullText || "").slice(from, to);
+  const globalIdx = [];
+  const annotations = [];
+  (allAnnotations || []).forEach((a, i) => {
+    if (a.start >= from && a.end <= to) { globalIdx.push(i); annotations.push({ ...a, start: a.start - from, end: a.end - from }); }
+  });
+  // Local list in → full global list out.
+  const onChange = (local) => {
+    const others = (allAnnotations || []).filter((_, i) => !globalIdx.includes(i));
+    const back = local.map((a) => ({ ...a, start: a.start + from, end: a.end + from }));
+    onChangeAll([...others, ...back].sort((x, y) => x.start - y.start));
+  };
   const boxRef = useRef(null);
   const [draft, setDraft] = useState(null); // { start, end, tag, note, index? }
   const [msg, setMsg] = useState("");
@@ -66,12 +83,12 @@ export default function AnnotationEditor({ text, annotations, onChange }) {
 
   return (
     <div className="annot">
-      <div className="annot-legend">
+      {!hideLegend && <div className="annot-legend">
         {ANNOTATION_TAGS.map((t) => (
           <span key={t.key} className="annot-chip" style={{ "--tag": t.color }}>{t.label}</span>
         ))}
         <span className="mono muted annot-hint">Bôi đen chữ trong bài để chú thích</span>
-      </div>
+      </div>}
 
       <div
         ref={boxRef}

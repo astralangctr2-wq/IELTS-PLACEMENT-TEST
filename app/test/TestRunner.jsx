@@ -119,7 +119,10 @@ const PassageBlocks = memo(function PassageBlocks({ text }) {
 //      browser's native selection is left completely untouched until a
 //      toolbar button is actually clicked — there's no DOM mutation (and
 //      so no lost selection) in the common case of "select then copy".
-function HighlightZone({ children }) {
+// zoneKey / label / onReport: after every highlight change the zone sends
+// the list of highlighted phrases (with a little text around each) up to
+// the runner, which submits them so the teacher can see what was marked.
+function HighlightZone({ children, zoneKey, label, onReport }) {
   const ref = useRef(null);
   const [toolbarPos, setToolbarPos] = useState(null); // { x, y } in viewport coords
   const pendingRangeRef = useRef(null);
@@ -182,6 +185,25 @@ function HighlightZone({ children }) {
   // its text nodes back up to the parent instead of deleting them —
   // this keeps the Range's node references valid so it can still be
   // used afterwards (e.g. to then apply a fresh, non-nested highlight).
+  const report = () => {
+    const root = ref.current;
+    if (!onReport || !root) return;
+    const clean = (x) => x.replace(/\s+/g, " ");
+    const items = Array.from(root.querySelectorAll("mark.reading-highlight")).map((m) => {
+      // Context comes from the paragraph the highlight sits in.
+      const block = (m.parentElement && m.parentElement.closest("p, li, td, h1, h2, h3, h4")) || root;
+      const scope = root.contains(block) ? block : root;
+      const full = scope.textContent || "";
+      const r = document.createRange();
+      r.setStart(scope, 0);
+      r.setEndBefore(m);
+      const off = r.toString().length;
+      const len = (m.textContent || "").length;
+      return { t: clean(m.textContent || "").trim(), b: clean(full.slice(Math.max(0, off - 40), off)), a: clean(full.slice(off + len, off + len + 40)) };
+    }).filter((x) => x.t);
+    onReport(zoneKey, label, items);
+  };
+
   const unwrapIntersectingMarks = (range) => {
     const el = ref.current;
     if (!el) return;
@@ -219,6 +241,7 @@ function HighlightZone({ children }) {
       }
     }
     ref.current && ref.current.normalize();
+    report();
 
     // Re-select the newly highlighted text so a follow-up Ctrl+C still
     // copies exactly what the student just marked.
@@ -239,6 +262,7 @@ function HighlightZone({ children }) {
     if (!range) return;
     unwrapIntersectingMarks(range);
     ref.current && ref.current.normalize();
+    report();
     window.getSelection().removeAllRanges();
     setToolbarPos(null);
     pendingRangeRef.current = null;
@@ -1022,6 +1046,9 @@ export default function TestRunner({ config }) {
   // Everything else — and all of exam mode — runs the same code as before.
   const practice = config.mode === "practice";
   const [review, setReview] = useState(null);
+  // Phrases the student highlighted, per zone — sent with the submission.
+  const [highlights, setHighlights] = useState({});
+  const reportHl = useCallback((key, label, items) => setHighlights((p) => ({ ...p, [key]: { label, items } })), []);
   // Class the student studies in — fixed by the link when the teacher set
   // one, otherwise typed by the student ("fl-1" and "FL1" are the same).
   const [studentClass, setStudentClass] = useState(config.className || "");
@@ -1231,6 +1258,7 @@ export default function TestRunner({ config }) {
           grammarAnswers: gAns,
           readingAnswers: rAns,
           listeningAnswers: lAns,
+          highlights: Object.keys(highlights).sort().map((k) => highlights[k]).filter((h) => h.items.length),
           writingText: combinedWritingText(),
         }),
       });
@@ -1389,7 +1417,7 @@ export default function TestRunner({ config }) {
                       {sec.imageUrl && (
                         <ZoomableImage src={sec.imageUrl} alt="" />
                       )}
-                      <HighlightZone>
+                      <HighlightZone zoneKey={`r${si}p`} label={`Reading · ${sec.title || `Passage ${si + 1}`} — bài đọc`} onReport={reportHl}>
                         <PassageBlocks text={sec.passage} />
                       </HighlightZone>
                     </div>
@@ -1404,7 +1432,7 @@ export default function TestRunner({ config }) {
                     <span className="split-handle-grip">⟷</span>
                   </div>
                   <div className="reading-questions-pane">
-                    <HighlightZone>
+                    <HighlightZone zoneKey={`r${si}q`} label={`Reading · ${sec.title || `Passage ${si + 1}`} — câu hỏi`} onReport={reportHl}>
                       <QuestionListBlock questions={sec.questions} answers={rAns} setAnswers={setRAns} startIndex={priorCount} locked={expired.reading} />
                     </HighlightZone>
                   </div>
@@ -1444,7 +1472,7 @@ export default function TestRunner({ config }) {
                     <p className="mono muted" style={{ fontSize: 12 }}>Đã phát: {count}/{config.listeningPlays} lần</p>
                   </div>
                 )}
-                <HighlightZone>
+                <HighlightZone zoneKey={`l${si}q`} label={`Listening · ${sec.title || `Part ${si + 1}`} — câu hỏi`} onReport={reportHl}>
                   <QuestionListBlock questions={sec.questions} answers={lAns} setAnswers={setLAns} startIndex={priorCount} />
                 </HighlightZone>
               </div>

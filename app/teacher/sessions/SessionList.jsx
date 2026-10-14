@@ -21,6 +21,16 @@ const TABS = [
   ["not_yet", "Chưa mở"],
   ["ended", "Đã đóng / tắt"],
 ];
+const TIMED = ["grammar", "reading", "writing"];
+// "Ngữ pháp 40′ · Reading 60′ · Listening nghe 2 lần · Writing 60′"
+function timeSummary(s) {
+  const t = s.time_limits || {};
+  const parts = (s.skills || []).map((k) => {
+    if (k === "listening") return `Listening nghe ${t.listeningPlays || 1} lần`;
+    return t[k] ? `${SKILL_SHORT[k]} ${t[k]} phút` : `${SKILL_SHORT[k]} không giới hạn`;
+  });
+  return parts.join(" · ") || "—";
+}
 const inTab = (st, tab) => tab === "all" || (tab === "ended" ? st === "closed" || st === "off" : st === tab);
 
 export default function SessionList({ sessions, setSessions, bankName, classOptions = [], teacherMode = false }) {
@@ -30,6 +40,7 @@ export default function SessionList({ sessions, setSessions, bankName, classOpti
   const [editing, setEditing] = useState(null); // { id, opensAt, closesAt }
   const [classEdit, setClassEdit] = useState(null); // { id, value }
   const [confirmDel, setConfirmDel] = useState(null);
+  const [timeEdit, setTimeEdit] = useState(null); // { id, grammar, reading, writing, listeningPlays }
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
   const withStatus = useMemo(() => sessions.map((s) => ({ ...s, _st: linkStatus(s) })), [sessions]);
@@ -63,6 +74,14 @@ export default function SessionList({ sessions, setSessions, bankName, classOpti
     if (!res.ok) { alert((await res.json().catch(() => ({}))).error || "Không đổi được lớp."); return; }
     setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, class_name: normalizeClassName(value) || null } : x)));
     setClassEdit(null);
+  };
+  const saveTimes = async (s) => {
+    const { grammar, reading, writing, listeningPlays } = timeEdit;
+    const res = await patch(s.id, { timeLimits: { grammar, reading, writing }, listeningPlays });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(d.error || "Không lưu được."); return; }
+    setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, time_limits: d.timeLimits } : x)));
+    setTimeEdit(null);
   };
   const toggleSurvey = async (s) => {
     const on = !(s.time_limits?.survey === true);
@@ -136,6 +155,31 @@ export default function SessionList({ sessions, setSessions, bankName, classOpti
                 </button>
                 {legacyPractice && <span className="meta-chip">Luyện tập (cũ)</span>}
               </div>
+
+              {!legacyPractice && (timeEdit?.id === s.id ? (
+                <div className="sess-sched-edit">
+                  {TIMED.filter((k) => (s.skills || []).includes(k)).map((k) => (
+                    <label key={k} className="sched-field">{SKILL_SHORT[k]} (phút)
+                      <input type="number" min={1} max={600} value={timeEdit[k] ?? ""} placeholder="không giới hạn" onChange={(e) => setTimeEdit((t) => ({ ...t, [k]: e.target.value }))} style={{ width: 120 }} />
+                    </label>
+                  ))}
+                  {(s.skills || []).includes("listening") && (
+                    <label className="sched-field">Listening — số lần nghe
+                      <input type="number" min={1} max={5} value={timeEdit.listeningPlays ?? 1} onChange={(e) => setTimeEdit((t) => ({ ...t, listeningPlays: e.target.value }))} style={{ width: 120 }} />
+                    </label>
+                  )}
+                  <div className="row" style={{ gap: 6, width: "auto" }}>
+                    <button className="btn btn-sm" onClick={() => saveTimes(s)}>Lưu thời gian</button>
+                    <button className="btn-ghost btn-sm" onClick={() => setTimeEdit(null)}>Huỷ</button>
+                  </div>
+                  <p className="muted" style={{ fontSize: 12, margin: 0, flexBasis: "100%" }}>Áp dụng cho học viên mở link từ bây giờ. Ai đang làm bài giữ thời gian lúc bắt đầu. Để trống = không giới hạn.</p>
+                </div>
+              ) : (
+                <div className="sess-sched">
+                  <span>⏱ {timeSummary(s)}</span>
+                  <button className="btn-ghost btn-xs" onClick={() => setTimeEdit({ id: s.id, grammar: s.time_limits?.grammar ?? "", reading: s.time_limits?.reading ?? "", writing: s.time_limits?.writing ?? "", listeningPlays: s.time_limits?.listeningPlays ?? 1 })}>Sửa thời gian</button>
+                </div>
+              ))}
 
               {editing?.id === s.id ? (
                 <div className="sess-sched-edit">

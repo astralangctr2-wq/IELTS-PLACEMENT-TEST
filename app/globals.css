@@ -934,3 +934,104 @@ input[type="datetime-local"]:focus { outline: none; border-color: var(--primary)
 .sv-comment { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--border); }
 .sv-comment p { margin: 0; line-height: 1.5; }
 @media (max-width: 600px) { .sv-bar-row { grid-template-columns: minmax(0, 1fr) auto; } .sv-bar-track { grid-column: 1 / -1; grid-row: 2; } }
+
+/* ================= HV tô đậm (trang chấm) ================= */
+.hl-card summary { cursor: pointer; list-style: none; display: flex; align-items: center; }
+.hl-card summary::-webkit-details-marker { display: none; }
+.hl-card summary::before { content: "▸"; margin-right: 8px; color: var(--muted); }
+.hl-card[open] summary::before { content: "▾"; }
+.hl-zones { display: grid; gap: 12px; margin-top: 12px; }
+.hl-zone { margin: 0 0 4px; font-weight: 700; font-size: 13.5px; }
+.hl-list { margin: 0; padding-left: 22px; display: grid; gap: 4px; font-size: 14px; line-height: 1.55; }
+.hl-mark { background: #ffe58a; color: #1b2033; padding: 0 2px; border-radius: 3px; margin: 0 2px; }
+
+/* ================= Chấm Writing 2 cột ================= */
+.grade-page { max-width: 1280px; }
+.gs { display: grid; gap: 16px; margin-bottom: 18px; }
+.gs-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.gs-top .annot-legend { margin: 0; }
+.gs-split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); overflow: clip; }
+.gs-left { border-right: 1px solid var(--border); min-width: 0; }
+.gs-left-head, .gs-right-head { display: flex; align-items: baseline; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--subtle); }
+.gs-left-head b, .gs-right-head b { font-size: 16px; font-family: var(--font-heading); }
+.gs-left-head .mono { margin-left: auto; font-size: 12.5px; }
+.gs-essay { padding: 16px 18px; position: sticky; top: 0; max-height: calc(100vh - 90px); overflow: auto; }
+.gs-essay .annot-text { font-size: 15.5px; line-height: 1.85; }
+.gs-right { min-width: 0; display: grid; align-content: start; }
+.gs-band { margin-left: auto; font-size: 14px; }
+.gs-band b { font-size: 20px; color: var(--primary); }
+.gs-crit { display: grid; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+.gs-crit:last-child { border-bottom: 0; }
+.gs-crit label { font-weight: 700; font-size: 13.5px; }
+.gs-crit-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gs-crit-head select { width: 120px; flex-shrink: 0; font-weight: 700; }
+.gs-crit textarea { min-height: 78px; }
+.gs-bar { position: sticky; bottom: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 -6px 24px rgba(20, 26, 60, .12); }
+.gs-bar-scores { display: flex; flex-wrap: wrap; gap: 16px; font-size: 14px; }
+.gs-bar-scores b { font-size: 20px; font-family: var(--font-heading); margin-left: 4px; }
+.gs-bar-msg { font-size: 12.5px; color: var(--muted); margin-left: auto; }
+@media (max-width: 900px) {
+  .gs-split { grid-template-columns: minmax(0, 1fr); }
+  .gs-left { border-right: 0; border-bottom: 1px solid var(--border); }
+  .gs-essay { position: static; max-height: 60vh; }
+}
+
+/* ================= Phiếu điểm mẫu Astra (A5) ================= */
+.ps-layout { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 24px; align-items: start; padding: 24px 20px 60px; max-width: 1180px; margin: 0 auto; }
+.ps-editor { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; display: grid; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+.ps-field { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.ps-field input, .ps-field select, .ps-field textarea { color: var(--ink); font-size: 14px; }
+.ps-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ps-sheets { display: grid; gap: 24px; justify-content: center; }
+.ps-page {
+  --ps-navy: #1f3a6e; --ps-fill: #dce3f1; --ps-red: #e01b1b; --ps-line: #222;
+  position: relative; width: 148mm; min-height: 210mm; background: #fff; color: #111; box-shadow: 0 6px 30px rgba(0, 0, 0, .18);
+  padding: 7mm 10mm 22mm; font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; font-size: 10pt; overflow: hidden;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.ps-wm { position: absolute; left: 50%; top: 52%; width: 112mm; transform: translate(-50%, -50%); z-index: 0; pointer-events: none; mix-blend-mode: multiply; }
+.ps-head, .ps-body, .ps-foot span { position: relative; z-index: 1; }
+.ps-head { display: flex; align-items: center; gap: 5mm; padding-left: 4mm; }
+.ps-logo { width: 39mm; height: auto; }
+.ps-addr { display: grid; gap: .6mm; font-family: "Times New Roman", Times, serif; font-size: 7.4pt; color: #111; }
+.ps-addr b { font-size: 7.8pt; }
+.ps-indent { padding-left: 3.6mm; }
+.ps-contact { display: flex; gap: 6mm; }
+.ps-title { text-align: center; font-size: 19pt; font-weight: 700; margin: 3.5mm 0 0; letter-spacing: .01em; color: #111; font-family: Arial, sans-serif; }
+.ps-subtitle { text-align: center; font-weight: 700; font-size: 10.5pt; margin: .5mm 0 3mm; }
+.ps-h { font-weight: 700; font-size: 10.5pt; margin: 3mm 0 2mm; }
+.ps-table { width: 100%; border-collapse: collapse; }
+.ps-table th, .ps-table td { border: .25mm solid var(--ps-line); padding: 1.8mm 2.2mm; vertical-align: middle; background: transparent; color: #111; }
+.ps-table th { background: color-mix(in srgb, var(--ps-fill) 88%, transparent); color: var(--ps-navy); font-weight: 700; text-align: left;  text-transform: none; letter-spacing: normal; font-family: Arial, sans-serif; }
+.ps-info th { width: 32mm; font-size: 11pt; }
+.ps-info td { text-align: center; font-size: 12pt; }
+.ps-name { font-weight: 700; font-size: 13pt !important; }
+.ps-level b { display: block; font-size: 12pt; }
+.ps-level i { display: block; font-size: 10pt; }
+.ps-class { font-weight: 700; }
+.ps-scores th, .ps-scores td { text-align: center; }
+.ps-scores thead th { font-size: 9.5pt; line-height: 1.5; }
+.ps-scores thead th span { font-weight: 700; }
+.ps-scores tbody th { font-size: 10pt; text-align: center; }
+.ps-scores tbody td { color: var(--ps-red); font-weight: 700; font-size: 11pt; height: 9mm; }
+.ps-scores .ps-cefr { color: var(--ps-navy); font-size: 10pt; height: auto; }
+.ps-comment { margin-top: 6mm; }
+.ps-comment th { width: 22mm; text-align: center; font-family: "Century Gothic", "Gill Sans", Arial, sans-serif; font-size: 10pt; }
+.ps-prose { font-style: italic; font-size: 9.6pt; line-height: 1.5; text-align: justify; }
+.ps-prose p { margin: 0 0 1mm; white-space: pre-wrap; }
+.ps-empty { min-height: 18mm; }
+.ps-letter { margin-top: 7mm; font-style: italic; font-size: 10pt; line-height: 1.7; }
+.ps-letter p { margin: 0 0 1.5mm; text-indent: 9mm; }
+.ps-foot { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; }
+.ps-foot span { display: block; font-family: "Times New Roman", serif; font-weight: 700; font-size: 9pt; margin-bottom: 2mm; }
+.ps-foot img { display: block; width: 100%; height: 5.4mm; }
+@media (max-width: 980px) { .ps-layout { grid-template-columns: minmax(0, 1fr); } .ps-editor { position: static; max-height: none; } .ps-sheets { overflow-x: auto; justify-content: start; } }
+@media print {
+  @page { size: A5 portrait; margin: 0; }
+  html, body { background: #fff !important; }
+  .ps-editor, .top-controls { display: none !important; }
+  .ps-layout { display: block; padding: 0; max-width: none; }
+  .ps-sheets { display: block; }
+  .ps-page { box-shadow: none; width: 148mm; min-height: 209mm; height: auto; overflow: visible; break-after: page; page-break-after: always; }
+  .ps-page:last-child { break-after: auto; page-break-after: auto; }
+}
