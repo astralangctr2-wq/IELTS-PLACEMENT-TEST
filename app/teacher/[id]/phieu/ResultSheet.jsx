@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { aptisScaleFromRaw, aptisCefr } from "@/lib/grading";
+import { scoreColumns } from "@/lib/sheetCols";
 
 // Astra result sheet (A5). Left: what the teacher fills in (screen only).
 // Right: the sheet exactly as it prints — header with logo and centre
@@ -10,7 +10,6 @@ import { aptisScaleFromRaw, aptisCefr } from "@/lib/grading";
 //   full : 3 pages — results, comments per skill, class attitude and
 //          study direction (mid-term / final)
 
-const fmt = (v) => (v === null || v === undefined || v === "" || Number.isNaN(Number(v)) ? "" : Number(v).toFixed(1));
 
 function Page({ n, children }) {
   return (
@@ -59,32 +58,17 @@ export default function ResultSheet({ data, initial }) {
   const full = r.template === "full";
   const has = (k) => data.skills.includes(k);
 
-  // ----- score table columns
-  let cols;
-  if (data.aptis) {
-    const sc = (k) => (has(k) ? aptisScaleFromRaw(data[k][0], data[k][1]) : null);
-    cols = [
-      has("listening") && { name: "Listening", max: 50, val: sc("listening"), sub: sc("listening") !== null ? aptisCefr("listening", sc("listening")) : "" },
-      has("reading") && { name: "Reading", max: 50, val: sc("reading"), sub: sc("reading") !== null ? aptisCefr("reading", sc("reading")) : "" },
-      has("writing") && { name: "Writing", max: 50, val: data.writingBand, sub: Number.isInteger(data.writingBand) ? aptisCefr("writing", data.writingBand) : "" },
-      (r.speaking !== "" || full) && { name: "Speaking", max: 50, val: r.speaking, sub: "" },
-    ].filter(Boolean);
-  } else {
-    const autoTotal = data.graded ? data.finalBand : !has("writing") ? data.objectiveBand : null;
-    cols = [
-      has("grammar") && { name: "Grammar", max: data.grammar[1], val: data.grammar[0] },
-      has("reading") && { name: "Reading", max: data.reading[1], val: data.reading[0] },
-      has("listening") && { name: "Listening", max: data.listening[1], val: data.listening[0] },
-      has("writing") && { name: "Writing", max: 9, val: fmt(data.writingBand) },
-      (full || r.speaking !== "") && { name: "Speaking", max: 9, val: fmt(r.speaking) },
-      full && { name: "TOTAL", max: 9, val: r.total !== "" ? fmt(r.total) : fmt(autoTotal) },
-    ].filter(Boolean);
-  }
+  const cols = scoreColumns(data, r);
 
   const save = async () => {
     setState("saving");
     const res = await fetch(`/api/teacher/report/${data.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(r) });
     setState(res.ok ? "saved" : "error");
+    return res.ok;
+  };
+  // Word file: save first so the file has exactly what is on screen.
+  const downloadWord = async () => {
+    if (await save()) window.location.href = `/api/teacher/report/${data.id}/docx`;
   };
 
   const info = (
@@ -119,6 +103,7 @@ export default function ResultSheet({ data, initial }) {
         <div className="row" style={{ gap: 8, width: "auto", flexWrap: "wrap", justifyContent: "flex-start" }}>
           <a href={`/teacher/${data.id}`}><button className="btn-ghost btn-sm">← Bài chấm</button></a>
           <button className="btn btn-sm" onClick={() => window.print()}>🖨 In / Lưu PDF</button>
+          <button className="btn-ghost btn-sm" onClick={downloadWord} disabled={state === "saving"}>⬇ Tải Word (.docx)</button>
         </div>
         <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>Khi in: chọn khổ A5, bật "Đồ hoạ nền" (Background graphics), lề "Không" (None).</p>
 

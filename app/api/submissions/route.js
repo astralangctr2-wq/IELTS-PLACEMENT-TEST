@@ -49,7 +49,7 @@ export async function POST(req) {
 
   const objTotal = g.total + r.total + l.total;
   const objectiveBand = objTotal > 0 ? bandFromScore(g.earned + r.earned + l.earned, objTotal) : null;
-  const id = randomUUID();
+  let id = randomUUID();
 
   const contentSnapshot = {
     grammar: grammarQs,
@@ -57,30 +57,48 @@ export async function POST(req) {
     listening: listeningQs,
   };
 
-  await sql`
-    INSERT INTO submissions (
-      id, student_name, answers,
-      grammar_score, grammar_total,
-      reading_score, reading_total,
-      listening_score, listening_total,
-      objective_band, writing_text, writing_word_count, content_snapshot,
-      target_band, session_id, skills_included, content_bank_id,
-      student_class, integrity
-    ) VALUES (
-      ${id}, ${studentName}, ${JSON.stringify({
-        grammar: body.grammarAnswers || {},
-        reading: body.readingAnswers || {},
-        listening: body.listeningAnswers || {},
-        ...(highlights.length ? { highlights } : {}),
-      })}::jsonb,
-      ${g.earned}, ${g.total},
-      ${r.earned}, ${r.total},
-      ${l.earned}, ${l.total},
-      ${objectiveBand}, ${writingText}, ${wordCount}, ${JSON.stringify(contentSnapshot)}::jsonb,
-      ${targetBand}, ${sessionId}, ${JSON.stringify(skillsIncluded)}::jsonb, ${contentBankId},
-      ${studentClass}, ${integrity ? JSON.stringify(integrity) : null}::jsonb
-    )
-  `;
+  const answersJson = JSON.stringify({
+    grammar: body.grammarAnswers || {},
+    reading: body.readingAnswers || {},
+    listening: body.listeningAnswers || {},
+    ...(highlights.length ? { highlights } : {}),
+  });
+  // The same attempt sent twice (an auto-submit when time runs out after the
+  // student already submitted, a double tap, a retry after a dropped
+  // connection) is stored once: identical name, link, answers and essay
+  // within 3 hours → reuse the first submission.
+  const { rows: dup } = await sql`
+    SELECT id FROM submissions
+    WHERE created_at > now() - interval '3 hours'
+      AND lower(student_name) = lower(${studentName})
+      AND COALESCE(session_id, '') = COALESCE(${sessionId}, '')
+      AND COALESCE(content_bank_id, '') = COALESCE(${contentBankId}, '')
+      AND writing_text = ${writingText}
+      AND answers - 'highlights' = (${answersJson}::jsonb) - 'highlights'
+    ORDER BY created_at LIMIT 1`;
+  if (dup[0]) {
+    id = dup[0].id;
+  } else {
+    await sql`
+      INSERT INTO submissions (
+        id, student_name, answers,
+        grammar_score, grammar_total,
+        reading_score, reading_total,
+        listening_score, listening_total,
+        objective_band, writing_text, writing_word_count, content_snapshot,
+        target_band, session_id, skills_included, content_bank_id,
+        student_class, integrity
+      ) VALUES (
+        ${id}, ${studentName}, ${answersJson}::jsonb,
+        ${g.earned}, ${g.total},
+        ${r.earned}, ${r.total},
+        ${l.earned}, ${l.total},
+        ${objectiveBand}, ${writingText}, ${wordCount}, ${JSON.stringify(contentSnapshot)}::jsonb,
+        ${targetBand}, ${sessionId}, ${JSON.stringify(skillsIncluded)}::jsonb, ${contentBankId},
+        ${studentClass}, ${integrity ? JSON.stringify(integrity) : null}::jsonb
+      )
+    `;
+  }
 
   // Practice sessions get the full answer review back (correct answers +
   // explanations). The mode is looked up from the session in the database —

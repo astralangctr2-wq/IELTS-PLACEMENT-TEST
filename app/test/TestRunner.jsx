@@ -1062,6 +1062,7 @@ export default function TestRunner({ config }) {
   const [expired, setExpired] = useState({}); // { grammar: true, ... } once time has run out
   const [now, setNow] = useState(Date.now());
   const autoActionDone = useRef({});
+  const submittedRef = useRef(false);
 
   // Text size preference — set via the control cluster in the top-right
   // corner and read from the shared ThemeProvider, so a change applies
@@ -1126,6 +1127,9 @@ export default function TestRunner({ config }) {
   }, []);
 
   useEffect(() => {
+    // Nothing runs out once the test is submitted (this used to submit a
+    // second copy when Writing time ended after an early submission).
+    if (stage === "done" || submittedRef.current) return;
     for (const s of ["grammar", "reading", "writing"]) {
       const dl = deadlines[s];
       if (!dl || expired[s]) continue;
@@ -1241,6 +1245,10 @@ export default function TestRunner({ config }) {
   };
 
   const submit = async () => {
+    // One submission per attempt: a click, the Writing timer and a second
+    // click can no longer each send their own copy.
+    if (submittedRef.current) return;
+    submittedRef.current = true;
     setSubmitting(true);
     setSubmitError("");
     try {
@@ -1268,6 +1276,7 @@ export default function TestRunner({ config }) {
       if (practice && data.review) setReview(data.review);
       setStage("done");
     } catch (err) {
+      submittedRef.current = false; // allow a retry after a real error
       setSubmitError(err.message);
     }
     setSubmitting(false);
