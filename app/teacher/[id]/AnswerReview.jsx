@@ -1,101 +1,74 @@
-function OptionRow({ opt, index, chosen, correct }) {
-  const isChosen = chosen === index;
-  const isCorrect = correct === index;
-  let bg = "transparent";
-  let border = "var(--border)";
-  if (isCorrect) { bg = "rgba(47,111,99,0.12)"; border = "var(--success)"; }
-  if (isChosen && !isCorrect) { bg = "rgba(225,89,107,0.14)"; border = "var(--danger)"; }
+// Per-question answer review on the teacher grading page. Uses the same
+// reviewQuestion() as the student practice review (lib/review.js), so every
+// question type is shown — mc, gap, multi_select, matching, heading_match,
+// text_completion (table / notes / form), reorder — with the student's
+// answer next to the key, and the ✓/✗ marks always agree with the score.
 
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", border: `1px solid ${border}`, background: bg, marginBottom: 4 }}>
-      <span className="mono" style={{ fontSize: 11, width: 16 }}>{String.fromCharCode(65 + index)}</span>
-      <span style={{ fontSize: 13 }}>{opt}</span>
-      {isChosen && <span className="mono" style={{ fontSize: 11, marginLeft: "auto" }} title="Học viên chọn">HV chọn</span>}
-      {isCorrect && <span className="mono success" style={{ fontSize: 11, marginLeft: isChosen ? 8 : "auto" }}>✓ Đáp án đúng</span>}
-    </div>
-  );
-}
-
-function MultiSelectReview({ opts, chosen, correct }) {
-  const chosenArr = Array.isArray(chosen) ? chosen : [];
-  return (
-    <div>
-      {opts.map((opt, oi) => {
-        const isChosen = chosenArr.includes(oi);
-        const isCorrect = correct.includes(oi);
-        let bg = "transparent";
-        let border = "var(--border)";
-        if (isCorrect) { bg = "rgba(47,111,99,0.12)"; border = "var(--success)"; }
-        if (isChosen && !isCorrect) { bg = "rgba(225,89,107,0.14)"; border = "var(--danger)"; }
-        return (
-          <div key={oi} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", border: `1px solid ${border}`, background: bg, marginBottom: 4 }}>
-            <span className="mono" style={{ fontSize: 11, width: 16 }}>{String.fromCharCode(65 + oi)}</span>
-            <span style={{ fontSize: 13 }}>{opt}</span>
-            {isChosen && <span className="mono" style={{ fontSize: 11, marginLeft: "auto" }}>HV chọn</span>}
-            {isCorrect && <span className="mono success" style={{ fontSize: 11, marginLeft: isChosen ? 8 : "auto" }}>✓ Đúng</span>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function GapReview({ chosen, answers }) {
-  return (
-    <div style={{ fontSize: 13 }}>
-      <p className="muted" style={{ margin: "2px 0" }}>HV trả lời: <b>{chosen && String(chosen).trim() ? chosen : "(để trống)"}</b></p>
-      <p className="muted" style={{ margin: "2px 0" }}>Đáp án đúng: <b className="success">{Array.isArray(answers) ? answers.join(" / ") : ""}</b></p>
-    </div>
-  );
-}
-
-function isRightAnswer(type, chosen, q) {
-  if (type === "mc") return chosen === q.a;
-  if (type === "gap") {
-    const norm = (s) => (s ?? "").toString().trim().toLowerCase();
-    return Array.isArray(q.answers) && q.answers.some((acc) => norm(acc) === norm(chosen));
-  }
-  if (type === "multi_select") {
-    const required = Array.isArray(q.a) ? q.a : [];
-    const chosenArr = Array.isArray(chosen) ? chosen : [];
-    const correctCount = chosenArr.filter((x) => required.includes(x)).length;
-    return correctCount === required.length && chosenArr.length === required.length;
-  }
-  return false;
-}
+import { reviewQuestion } from "@/lib/review";
 
 export default function AnswerReview({ title, questions, answers }) {
   if (!questions || questions.length === 0) return null;
-  let lastSection = null;
-  return (
-    <div className="card">
-      <p className="mono muted" style={{ fontSize: 12, marginBottom: 10 }}>{title}</p>
-      <div className="stack">
-        {questions.map((q, i) => {
-          const type = q.type || "mc";
-          const chosen = answers ? answers[q.id] : undefined;
-          const isRight = isRightAnswer(type, chosen, q);
-          const showSectionHeader = q.sectionTitle && q.sectionTitle !== lastSection;
-          if (showSectionHeader) lastSection = q.sectionTitle;
 
-          return (
-            <div key={q.id ?? i}>
-              {showSectionHeader && (
-                <p className="mono" style={{ fontSize: 11, marginTop: i > 0 ? 16 : 0, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>{q.sectionTitle}</p>
-              )}
-              <p style={{ fontSize: 13, marginBottom: 6 }}>
-                <span className="mono muted">Câu {i + 1}.</span> {q.q}{" "}
-                {isRight ? <span className="success mono" style={{ fontSize: 11 }}>ĐÚNG</span> : <span className="danger mono" style={{ fontSize: 11 }}>SAI</span>}
-              </p>
-              {type === "mc" && q.opts.map((opt, oi) => (
-                <OptionRow key={oi} opt={opt} index={oi} chosen={chosen} correct={q.a} />
-              ))}
-              {type === "multi_select" && <MultiSelectReview opts={q.opts} chosen={chosen} correct={q.a} />}
-              {type === "gap" && <GapReview chosen={chosen} answers={q.answers} />}
-            </div>
-          );
-        })}
+  // Group by section (the snapshot is a flat list tagged with sectionTitle).
+  const groups = [];
+  let running = 0;
+  let earned = 0;
+  let total = 0;
+  for (const q of questions) {
+    const it = reviewQuestion(q, answers ? answers[q.id] : undefined);
+    if (!it) continue;
+    const start = running + 1;
+    running += Math.max(1, it.total);
+    earned += it.earned;
+    total += it.total;
+    const sec = q.sectionTitle || "";
+    if (!groups.length || groups[groups.length - 1].title !== sec) groups.push({ title: sec, items: [] });
+    groups[groups.length - 1].items.push({ it, start, end: running });
+  }
+
+  return (
+    <div className="card answer-review">
+      <div className="ar-head">
+        <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>{title}</p>
+        <span className="mono" style={{ fontSize: 12 }}>Đúng {earned}/{total}</span>
       </div>
+      {groups.map((g, gi) => (
+        <div key={gi} className="practice-section">
+          {g.title && <p className="practice-section-title">{g.title}</p>}
+          {g.items.map(({ it, start, end }) => {
+            const full = it.total > 0 && it.earned === it.total;
+            const status = full ? "ok" : it.earned > 0 ? "partial" : "bad";
+            return (
+              <div key={it.id} className={`practice-item ${status}`}>
+                <div className="practice-item-head">
+                  <span className="practice-num">{start === end ? `Câu ${start}` : `Câu ${start}–${end}`}</span>
+                  <span className={`practice-badge ${status}`}>
+                    {full ? "✓ Đúng" : it.earned > 0 ? `${it.earned}/${it.total} đúng` : "✗ Sai"}
+                  </span>
+                </div>
+                {it.q && <p className="practice-q">{it.q}</p>}
+                <div className="practice-parts">
+                  {it.parts.map((p, pi) => (
+                    <div key={pi} className={`practice-part ${p.ok ? "ok" : "bad"}`}>
+                      {p.label && <p className="practice-part-label">{p.label}</p>}
+                      <p className="practice-line">
+                        <span className="practice-tag">HV trả lời</span>
+                        <span className={p.ok ? "practice-ok" : "practice-bad"}>{p.ok ? "✓" : "✗"} {p.given}</span>
+                      </p>
+                      {!p.ok && (
+                        <p className="practice-line">
+                          <span className="practice-tag">Đáp án</span>
+                          <span className="practice-ok">{p.correct}</span>
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }

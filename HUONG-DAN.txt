@@ -2,6 +2,7 @@ CẬP NHẬT GỘP (dùng cho code đang chạy trên web, chưa có LMS)
 ============================================================
 Gói này gồm TẤT CẢ các bản sửa chưa push (kể cả các đợt trước).
 MỚI ở lần này:
+  - Thi nhiều buổi (vd Mid-term: buổi R+L, buổi W) → 1 phiếu chung cho mỗi học viên
   - Sửa lỗi 1 bài bị lưu 2 lần
   - Tải phiếu điểm bằng Word (.docx) — nút "⬇ Tải Word (.docx)" ở trang Phiếu kết quả
   - package.json + package-lock.json: thêm thư viện "docx" (Vercel tự cài khi deploy)

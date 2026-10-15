@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { scoreColumns } from "@/lib/sheetCols";
 
 // Astra result sheet (A5). Left: what the teacher fills in (screen only).
@@ -51,8 +52,29 @@ function Field({ label, children, wide }) {
   return <label className={`ps-field ${wide ? "wide" : ""}`}><span>{label}</span>{children}</label>;
 }
 
+const SK = { grammar: "Ngữ pháp", reading: "Reading", listening: "Listening", writing: "Writing" };
+const when = (iso) => new Date(iso).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
 export default function ResultSheet({ data, initial }) {
+  const router = useRouter();
   const [r, setR] = useState(initial);
+  const [merging, setMerging] = useState(false);
+  // After merging a sitting in, take over comments the server pre-filled
+  // from it (e.g. the Writing comment) where the teacher has none yet.
+  useEffect(() => {
+    setR((p) => ({ ...p, cWriting: p.cWriting || initial.cWriting, comment: p.comment || initial.comment }));
+  }, [initial.cWriting, initial.comment]);
+  // Include / leave out another submission of this student, then reload
+  // so the scores are combined on the server.
+  const toggleMerge = async (id, on) => {
+    setMerging(true);
+    const mergeIds = on ? [...(r.mergeIds || []), id] : (r.mergeIds || []).filter((x) => x !== id);
+    const next = { ...r, mergeIds };
+    setR(next);
+    await fetch(`/api/teacher/report/${data.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
+    router.refresh();
+    setMerging(false);
+  };
   const [state, setState] = useState("");
   const set = (k) => (e) => { setR((p) => ({ ...p, [k]: e.target.value })); setState("dirty"); };
   const full = r.template === "full";
@@ -106,6 +128,23 @@ export default function ResultSheet({ data, initial }) {
           <button className="btn-ghost btn-sm" onClick={downloadWord} disabled={state === "saving"}>⬇ Tải Word (.docx)</button>
         </div>
         <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>Khi in: chọn khổ A5, bật "Đồ hoạ nền" (Background graphics), lề "Không" (None).</p>
+
+        {data.siblings.length > 0 && (
+          <div className="ps-merge">
+            <p className="ps-merge-title">Bài thi gộp vào phiếu này</p>
+            <p className="muted" style={{ fontSize: 12, margin: 0 }}>Thi nhiều buổi (vd buổi 1 Reading + Listening, buổi 2 Writing)? Tick các bài của cùng học viên để ra 1 phiếu chung.</p>
+            <label className="ps-merge-row on">
+              <input type="checkbox" checked disabled />
+              <span><b>Bài này</b> · {data.primary.skills.map((k) => SK[k]).join(", ")}<br /><span className="muted">{when(data.primary.created_at)} · {data.primary.bank_name}</span></span>
+            </label>
+            {data.siblings.map((x) => (
+              <label key={x.id} className={`ps-merge-row ${(r.mergeIds || []).includes(x.id) ? "on" : ""}`}>
+                <input type="checkbox" checked={(r.mergeIds || []).includes(x.id)} disabled={merging} onChange={(e) => toggleMerge(x.id, e.target.checked)} />
+                <span>{x.skills.map((k) => SK[k]).join(", ")}{x.skills.includes("writing") ? (x.graded ? " · đã chấm" : " · chưa chấm") : ""}<br /><span className="muted">{when(x.created_at)} · {x.session_name || x.bank_name}</span></span>
+              </label>
+            ))}
+          </div>
+        )}
 
         <Field label="Mẫu phiếu">
           <select value={r.template} onChange={set("template")}>

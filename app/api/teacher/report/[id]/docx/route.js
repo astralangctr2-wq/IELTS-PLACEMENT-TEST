@@ -200,7 +200,8 @@ function buildDoc(data, r) {
 }
 
 export async function GET(_req, { params }) {
-  const { s, data, initial } = await loadSheet(params.id);
+  let { s, data, initial, redirectTo } = await loadSheet(params.id);
+  if (redirectTo) ({ s, data, initial } = await loadSheet(redirectTo));
   if (!s) return new Response("Không tìm thấy bài làm.", { status: 404 });
   if (!(await canEditSheet(s))) return new Response("Bạn không có quyền với bài này.", { status: 403 });
   const buf = await Packer.toBuffer(buildDoc(data, initial));
