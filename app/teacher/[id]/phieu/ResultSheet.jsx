@@ -55,26 +55,39 @@ function Field({ label, children, wide }) {
 const SK = { grammar: "Ngữ pháp", reading: "Reading", listening: "Listening", writing: "Writing" };
 const when = (iso) => new Date(iso).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-export default function ResultSheet({ data, initial }) {
+export default function ResultSheet({ data, initial, classmates = [] }) {
   const router = useRouter();
   const [r, setR] = useState(initial);
   const [merging, setMerging] = useState(false);
-  // After merging a sitting in, take over comments the server pre-filled
-  // from it (e.g. the Writing comment) where the teacher has none yet.
+  // After a reload (merge ticked, Writing graded meanwhile…) take over the
+  // fresh server values for the auto-filled parts: the merge list and the
+  // Writing feedback where the teacher has not written their own text.
   useEffect(() => {
-    setR((p) => ({ ...p, cWriting: p.cWriting || initial.cWriting, comment: p.comment || initial.comment }));
-  }, [initial.cWriting, initial.comment]);
+    setR((p) => {
+      const keep = (k) => (p[k] || "").trim() && (p[k] || "").trim() !== (p.autoW || "").trim();
+      return {
+        ...p,
+        autoW: initial.autoW,
+        mergeIds: initial.mergeIds,
+        mergeOff: initial.mergeOff,
+        comment: keep("comment") ? p.comment : initial.comment,
+        cWriting: keep("cWriting") ? p.cWriting : initial.cWriting,
+      };
+    });
+  }, [initial.autoW, initial.comment, initial.cWriting, (initial.mergeIds || []).join(",")]);
   // Include / leave out another submission of this student, then reload
   // so the scores are combined on the server.
   const toggleMerge = async (id, on) => {
     setMerging(true);
-    const mergeIds = on ? [...(r.mergeIds || []), id] : (r.mergeIds || []).filter((x) => x !== id);
-    const next = { ...r, mergeIds };
+    const mergeIds = on ? [...new Set([...(r.mergeIds || []), id])] : (r.mergeIds || []).filter((x) => x !== id);
+    const mergeOff = on ? (r.mergeOff || []).filter((x) => x !== id) : [...new Set([...(r.mergeOff || []), id])];
+    const next = { ...r, mergeIds, mergeOff };
     setR(next);
     await fetch(`/api/teacher/report/${data.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
     router.refresh();
     setMerging(false);
   };
+  const refill = (k) => { setR((p) => ({ ...p, [k]: data.autoW })); setState("dirty"); };
   const [state, setState] = useState("");
   const set = (k) => (e) => { setR((p) => ({ ...p, [k]: e.target.value })); setState("dirty"); };
   const full = r.template === "full";
@@ -92,6 +105,14 @@ export default function ResultSheet({ data, initial }) {
   const downloadWord = async () => {
     if (await save()) window.location.href = `/api/teacher/report/${data.id}/docx`;
   };
+  // All students of this class who took this test, one Word file (one
+  // sheet per student, each starting on a new page).
+  const downloadClass = async () => {
+    if (await save()) window.location.href = `/api/teacher/report/${data.id}/docx?all=1`;
+  };
+  const idx = classmates.findIndex((c) => c.current);
+  const nextMate = idx >= 0 ? classmates[idx + 1] : null;
+  const missing = classmates.filter((c) => c.needsGrading).length;
 
   const info = (
     <>
@@ -126,7 +147,11 @@ export default function ResultSheet({ data, initial }) {
           <a href={`/teacher/${data.id}`}><button className="btn-ghost btn-sm">← Bài chấm</button></a>
           <button className="btn btn-sm" onClick={() => window.print()}>🖨 In / Lưu PDF</button>
           <button className="btn-ghost btn-sm" onClick={downloadWord} disabled={state === "saving"}>⬇ Tải Word (.docx)</button>
+          {classmates.length > 1 && <button className="btn-ghost btn-sm" onClick={downloadClass} disabled={state === "saving"}>⬇ Word cả lớp ({classmates.length})</button>}
         </div>
+        {data.hasWriting && !data.graded && (
+          <p className="ps-warn">⚠ Writing của học viên này <b>chưa chấm</b> — nhận xét Viết sẽ tự điền vào phiếu khi chấm xong. <a href={`/teacher/${data.writerId}`}>Chấm ngay →</a></p>
+        )}
         <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>Khi in: chọn khổ A5, bật "Đồ hoạ nền" (Background graphics), lề "Không" (None).</p>
 
         {data.siblings.length > 0 && (
@@ -164,13 +189,15 @@ export default function ResultSheet({ data, initial }) {
           {full && !data.aptis && <Field label="TOTAL (bỏ trống = tự tính)"><input type="text" inputMode="decimal" value={r.total} onChange={set("total")} /></Field>}
         </div>
 
-        {!full && <Field label="Teacher’s comment" wide><textarea rows={6} value={r.comment} onChange={set("comment")} /></Field>}
+        {!full && <Field label="Teacher’s comment (lấy sẵn nhận xét Writing từ phần chấm)" wide><textarea rows={8} value={r.comment} onChange={set("comment")} /></Field>}
+        {!full && data.autoW && r.comment !== data.autoW && <button type="button" className="btn-ghost btn-sm ps-refill" onClick={() => refill("comment")}>↻ Lấy lại nhận xét từ phần chấm Writing</button>}
         {full && (
           <>
             <Field label="Nhận xét — Nghe" wide><textarea rows={4} value={r.cListening} onChange={set("cListening")} /></Field>
             <Field label="Nhận xét — Nói" wide><textarea rows={4} value={r.cSpeaking} onChange={set("cSpeaking")} /></Field>
             <Field label="Nhận xét — Đọc" wide><textarea rows={4} value={r.cReading} onChange={set("cReading")} /></Field>
             <Field label="Nhận xét — Viết (lấy sẵn từ phần chấm)" wide><textarea rows={8} value={r.cWriting} onChange={set("cWriting")} /></Field>
+            {data.autoW && r.cWriting !== data.autoW && <button type="button" className="btn-ghost btn-sm ps-refill" onClick={() => refill("cWriting")}>↻ Lấy lại nhận xét từ phần chấm Writing</button>}
             <Field label="Tình hình trên lớp" wide><textarea rows={4} value={r.classSituation} onChange={set("classSituation")} /></Field>
             <Field label="Phương hướng học tập" wide><textarea rows={5} value={r.direction} onChange={set("direction")} /></Field>
           </>
@@ -180,7 +207,22 @@ export default function ResultSheet({ data, initial }) {
           <span className="mono" style={{ fontSize: 12 }}>
             {state === "saved" ? <span className="success">✓ Đã lưu</span> : state === "error" ? <span className="accent">Không lưu được</span> : state === "dirty" ? "Có thay đổi chưa lưu" : ""}
           </span>
+          {nextMate && <button className="btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={async () => { if (state !== "dirty" || (await save())) window.location.href = `/teacher/${nextMate.id}/phieu`; }}>Lưu &amp; HV tiếp theo →</button>}
         </div>
+
+        {classmates.length > 1 && (
+          <div className="ps-mates">
+            <p className="ps-merge-title">Cả lớp {r.className || ""} — {classmates.length} học viên{missing ? <span className="ps-mates-miss"> · {missing} bài Writing chưa chấm</span> : ""}</p>
+            <div className="ps-mates-list">
+              {classmates.map((c) => (
+                <a key={c.id} href={`/teacher/${c.id}/phieu`} className={`ps-mate ${c.current ? "on" : ""}`}>
+                  <span>{c.name}</span>
+                  <span className={c.needsGrading ? "ps-mate-st warn" : "ps-mate-st"}>{c.needsGrading ? "✍ chưa chấm" : "✓"}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </aside>
 
       <div className="ps-sheets">

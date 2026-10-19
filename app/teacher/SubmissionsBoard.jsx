@@ -27,7 +27,13 @@ function autoScore(r) {
   return parts.join(" · ") || "—";
 }
 
+// Writing still to be graded by the teacher (Reading / Listening alone are
+// marked by the machine and only confirmed by the teacher).
+const hasWriting = (r) => (Array.isArray(r.skills_included) ? r.skills_included : ["writing"]).includes("writing");
+const needsGrading = (r) => hasWriting(r) && !r.graded;
+
 function finalScore(r) {
+  if (!hasWriting(r)) return r.aptis ? autoScore(r) : r.objective_band !== null ? r.objective_band.toFixed(1) : "—";
   if (!r.graded) return "—";
   if (r.aptis) return r.aptis_writing !== null ? `W ${r.aptis_writing} · ${aptisCefr("writing", r.aptis_writing)}` : "—";
   return r.final_band !== null ? r.final_band.toFixed(1) : "—";
@@ -114,11 +120,14 @@ function SubRow({ row, showName, checked, onCheck, allSessions, onChanged }) {
       <div className="sub-score s-auto"><span>Tự động</span><b className="mono">{autoScore(row)}</b></div>
       <div className="sub-score s-final"><span>Kết quả</span><b className="mono">{finalScore(row)}</b></div>
       <div className="sub-status">
-        {row.graded ? <span className="state-chip done">Đã chấm</span> : <span className="state-chip todo">Chưa chấm</span>}
+        {needsGrading(row) ? <span className="state-chip todo">Chưa chấm</span>
+          : hasWriting(row) ? <span className="state-chip done">Đã chấm</span>
+          : row.graded ? <span className="state-chip done" title="Giáo viên đã xem lại và xác nhận điểm trắc nghiệm">GV đã duyệt</span>
+          : <span className="state-chip auto" title="Không có Writing — máy đã chấm theo đáp án">Máy đã chấm</span>}
       </div>
       <div className="sub-actions">
         <Link href={`/teacher/${row.id}`}>
-          <button className={row.graded ? "btn-ghost btn-sm" : "btn btn-sm"}>{row.graded ? "Xem" : "Chấm →"}</button>
+          <button className={needsGrading(row) ? "btn btn-sm" : "btn-ghost btn-sm"}>{needsGrading(row) ? "Chấm →" : "Xem"}</button>
         </Link>
         <RowMenu row={row} allSessions={allSessions} onChanged={onChanged} />
       </div>
@@ -199,7 +208,7 @@ const STATUS_TABS = [
   ["flag", "⚠ Giám sát"],
 ];
 const matchStatus = (r, st) =>
-  st === "all" ? true : st === "todo" ? !r.graded : st === "done" ? r.graded : Boolean(r.integrity && r.integrity.level !== "normal");
+  st === "all" ? true : st === "todo" ? needsGrading(r) : st === "done" ? !needsGrading(r) : Boolean(r.integrity && r.integrity.level !== "normal");
 
 export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, allSessions, classNames }) {
   const router = useRouter();
@@ -343,7 +352,7 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
       )}
 
       {cls !== ALL && students.map((st) => {
-        const pending = st.rows.filter((r) => !r.graded).length;
+        const pending = st.rows.filter(needsGrading).length;
         const flagged = st.rows.some((r) => r.integrity && r.integrity.level !== "normal");
         const isOpen = open.has(st.key) || students.length <= 3;
         return (

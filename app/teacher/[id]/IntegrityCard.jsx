@@ -5,6 +5,7 @@ const TYPE = {
   tab_leave: "Rời trang (chuyển tab / ứng dụng)",
   tab_return: "Quay lại trang",
   paste_blocked: "Thử dán vào Writing (đã chặn)",
+  resume: "Mở lại bài làm dở (tự lưu) — máy tắt / tải lại trang",
 };
 const SKILL = { grammar: "Ngữ pháp", reading: "Reading", listening: "Listening", writing: "Writing" };
 
@@ -32,6 +33,7 @@ export default function IntegrityCard({ integrity }) {
         <span className={`integrity-pill ${s.level}`}>{INTEGRITY_LABEL[s.level]}</span>
       </div>
       <p style={{ margin: "10px 0 0" }}>{s.incidents === 0 && !s.pasteBlocked ? "Không ghi nhận lần nào rời bài hay thử dán." : integrityText(s) + "."}</p>
+      {s.fullscreenSupported && <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>{s.keyboardLock ? "Trình duyệt có khoá phím (Esc, F11, Alt+Tab bị chặn khi toàn màn hình)." : "Trình duyệt không khoá được phím (không phải Chrome/Edge máy tính) — chỉ ghi nhận việc thoát."}{s.pasteInternal ? ` Dán nội dung tự chép trong bài: ${s.pasteInternal} lần (được phép).` : ""}</p>}
       {!s.fullscreenSupported && <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>Thiết bị không hỗ trợ toàn màn hình (thường là iPhone) — chỉ ghi được việc rời trang.</p>}
       {integrity.events?.length > 0 && (
         <details style={{ marginTop: 10 }}>

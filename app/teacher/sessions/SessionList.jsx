@@ -41,6 +41,17 @@ export default function SessionList({ sessions, setSessions, bankName, classOpti
   const [classEdit, setClassEdit] = useState(null); // { id, value }
   const [confirmDel, setConfirmDel] = useState(null);
   const [timeEdit, setTimeEdit] = useState(null); // { id, grammar, reading, writing, listeningPlays }
+  const [drafts, setDrafts] = useState(null); // { id, rows | null (loading) | "error" }
+  // Students who started this link and have not submitted yet (autosave).
+  const showDrafts = async (id) => {
+    if (drafts?.id === id) { setDrafts(null); return; }
+    setDrafts({ id, rows: null });
+    try {
+      const res = await fetch(`/api/teacher/drafts?session=${encodeURIComponent(id)}`, { cache: "no-store" });
+      const j = await res.json();
+      setDrafts({ id, rows: res.ok ? j.rows || [] : "error" });
+    } catch { setDrafts({ id, rows: "error" }); }
+  };
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
   const withStatus = useMemo(() => sessions.map((s) => ({ ...s, _st: linkStatus(s) })), [sessions]);
@@ -172,7 +183,7 @@ export default function SessionList({ sessions, setSessions, bankName, classOpti
                     <button className="btn btn-sm" onClick={() => saveTimes(s)}>Lưu thời gian</button>
                     <button className="btn-ghost btn-sm" onClick={() => setTimeEdit(null)}>Huỷ</button>
                   </div>
-                  <p className="muted" style={{ fontSize: 12, margin: 0, flexBasis: "100%" }}>Áp dụng cho học viên mở link từ bây giờ. Ai đang làm bài giữ thời gian lúc bắt đầu. Để trống = không giới hạn.</p>
+                  <p className="muted" style={{ fontSize: 12, margin: 0, flexBasis: "100%" }}>Áp dụng cho học viên mở link từ bây giờ và cho học viên mở lại bài làm dở (vd máy bị tắt) — dùng để bù giờ. Ai đang làm bình thường giữ thời gian lúc bắt đầu. Để trống = không giới hạn.</p>
                 </div>
               ) : (
                 <div className="sess-sched">
@@ -202,9 +213,31 @@ export default function SessionList({ sessions, setSessions, bankName, classOpti
                 </div>
               )}
 
+              {drafts?.id === s.id && (
+                <div className="sess-drafts">
+                  {drafts.rows === null ? <span className="muted">Đang tải…</span>
+                    : drafts.rows === "error" ? <span className="accent">Không tải được.</span>
+                    : drafts.rows.length === 0 ? <span className="muted">Không có ai đang làm dở (bài đã nộp không hiện ở đây).</span>
+                    : (
+                      <>
+                        <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>{drafts.rows.length} học viên đã bắt đầu nhưng chưa nộp — bài được lưu tự động, mở lại link là làm tiếp được.</p>
+                        {drafts.rows.map((d, i) => (
+                          <div key={i} className="sess-draft-row">
+                            <b>{d.student_name}</b>
+                            <span className="muted">{d.class_key || "—"}</span>
+                            <span>{SKILL_SHORT[d.stage] || (d.stage === "test" ? "đang làm" : d.stage || "")}</span>
+                            <span className="mono muted">lưu lúc {new Date(d.updated_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} · {new Date(d.updated_at).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                </div>
+              )}
+
               <div className="sess-actions">
                 <button className="btn btn-sm" onClick={() => copy(s)}>{copied === s.id ? "Đã copy ✓" : "Copy link"}</button>
                 <a href={`/test/s/${s.id}`} target="_blank" rel="noreferrer"><button className="btn-ghost btn-sm">Mở thử ↗</button></a>
+                <button className={`btn-ghost btn-sm ${drafts?.id === s.id ? "on" : ""}`} onClick={() => showDrafts(s.id)} title="Học viên đã bắt đầu nhưng chưa nộp (bài được lưu tự động)">👀 Đang làm</button>
                 <span className="sess-spacer" />
                 <button className="btn-ghost btn-sm" onClick={() => toggleActive(s)}>{s.active ? "Tắt link" : "Bật lại"}</button>
                 {confirmDel === s.id ? (

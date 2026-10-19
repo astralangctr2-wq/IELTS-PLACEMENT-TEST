@@ -1,5 +1,7 @@
 "use client";
 
+import { useScreenZoom } from "./useScreenZoom";
+import { useDraft, readLocalDraft, fetchServerDraft, rebaseDeadlines, DraftPrompt } from "./useDraft";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useFontSize } from "@/app/contexts/ThemeContext";
@@ -53,7 +55,7 @@ function ZoomableImage({ src, alt, className }) {
         <img src={src} alt={alt || ""} className="passage-image" />
         <span className="zoom-hint">🔍 Bấm để phóng to</span>
       </div>
-      {open && (
+      {open && createPortal(
         <div className="image-lightbox-overlay" onClick={() => setOpen(false)}>
           <button
             type="button"
@@ -69,7 +71,8 @@ function ZoomableImage({ src, alt, className }) {
             className="image-lightbox-img"
             onClick={(e) => e.stopPropagation()}
           />
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
@@ -1064,11 +1067,70 @@ export default function TestRunner({ config }) {
   const autoActionDone = useRef({});
   const submittedRef = useRef(false);
 
+  // ---- Autosave (see useDraft.jsx): every change is kept on this computer
+  // and, every 20 s, on the server — a power cut / closed tab / other
+  // computer can continue the test where it stopped.
+  const draftKey = config.sessionId ? `s:${config.sessionId}` : config.assignmentId ? `a:${config.assignmentId}` : `b:${config.contentBankId || "default"}`;
+  const draft = useDraft({
+    key: draftKey,
+    active: SECTION_STEPS.includes(stage) && !submittedRef.current,
+    name,
+    classKey,
+    getSnapshot: () => ({ v: 1, kind: "ielts", stage, furthestIndex, name, targetBand, studentClass, gAns, rAns, lAns, writingAnswers, playCounts, deadlines, expired, limits: config.timeLimits, highlights, integrity: integrity.snapshot() }),
+    deps: [stage, furthestIndex, gAns, rAns, lAns, writingAnswers, playCounts, deadlines, expired, highlights],
+  });
+  const [pendingDraft, setPendingDraft] = useState(null); // { draft, fromServer }
+  const dismissedDrafts = useRef(new Set());
+  const usableDraft = (d) => d && d.kind === "ielts" && SECTION_STEPS.includes(d.stage) && !dismissedDrafts.current.has(d.savedAt);
+  // A test left unfinished on this computer…
+  useEffect(() => {
+    const d = readLocalDraft(draftKey);
+    if (usableDraft(d)) setPendingDraft({ draft: d, fromServer: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // …or on the server, once name and class are typed (another computer).
+  useEffect(() => {
+    if (stage !== "intro" || pendingDraft || !name.trim() || !classKey) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const d = await fetchServerDraft(draftKey, name, classKey);
+      if (!cancelled && usableDraft(d)) setPendingDraft({ draft: d, fromServer: true });
+    }, 700);
+    return () => { cancelled = true; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, classKey, stage, pendingDraft]);
+  const resumeDraft = () => {
+    const d = pendingDraft?.draft;
+    if (!d) return;
+    if (!config.student && d.name) setName(d.name);
+    setTargetBand(d.targetBand || "");
+    if (!config.className && d.studentClass) setStudentClass(d.studentClass);
+    setGAns(d.gAns || {});
+    setRAns(d.rAns || {});
+    setLAns(d.lAns || {});
+    setWritingAnswers(d.writingAnswers || {});
+    setPlayCounts(d.playCounts || {});
+    setHighlights(d.highlights || {});
+    setExpired(d.expired || {});
+    for (const [k, v] of Object.entries(d.expired || {})) if (v) autoActionDone.current[k] = true;
+    setDeadlines(rebaseDeadlines(d.deadlines, d.limits, config.timeLimits));
+    setFurthestIndex(Number(d.furthestIndex) || 0);
+    integrity.restore(d.integrity);
+    integrity.start();
+    setPendingDraft(null);
+    setStage(d.stage);
+  };
+  const discardDraft = () => {
+    if (pendingDraft?.draft) dismissedDrafts.current.add(pendingDraft.draft.savedAt);
+    setPendingDraft(null);
+  };
+
   // Text size preference — set via the control cluster in the top-right
   // corner and read from the shared ThemeProvider, so a change applies
   // to this test view instantly (no separate copy of the state to keep
   // in sync) and persists across pages.
   const { fontSize } = useFontSize();
+  const screenZoom = useScreenZoom(fontSize);
 
   // Draggable divider ratio for the Reading split-screen (percentage
   // width of the passage column), shared across all sections on the page.
@@ -1273,6 +1335,7 @@ export default function TestRunner({ config }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Không thể nộp bài.");
       setSubmittedId(data.id);
+      draft.clear();
       if (practice && data.review) setReview(data.review);
       setStage("done");
     } catch (err) {
@@ -1313,7 +1376,7 @@ export default function TestRunner({ config }) {
   };
 
   return (
-    <div className={["reading", "writing"].includes(stage) ? "wrap-reading" : "wrap"} style={{ zoom: FONT_SIZES[fontSize] }} spellCheck={false}>
+    <div className={["reading", "writing"].includes(stage) ? "wrap-reading" : "wrap"} style={screenZoom.style} spellCheck={false}>
       {integrity.overlay}
       <div className="topbar">
         <div>
@@ -1342,6 +1405,7 @@ export default function TestRunner({ config }) {
               </button>
             );
           })}
+          {draft.savedAt && <span className="autosave-note" title="Bài làm được lưu tự động — mất điện / tắt máy vẫn làm tiếp được">💾 Đã tự lưu {new Date(draft.savedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>}
         </div>
       )}
 
@@ -1355,6 +1419,7 @@ export default function TestRunner({ config }) {
 
       {stage === "intro" && (
         <div>
+          {pendingDraft && <DraftPrompt draft={pendingDraft.draft} fromServer={pendingDraft.fromServer} onResume={resumeDraft} onDiscard={discardDraft} />}
           <div className="card card-strong">
             <p style={{ marginBottom: 8 }}>Nhập tên của bạn:</p>
             <input type="text" placeholder="Nguyễn Văn A" value={name} onChange={(e) => setName(e.target.value)} />
@@ -1420,7 +1485,7 @@ export default function TestRunner({ config }) {
               <div key={si} style={{ marginTop: si > 0 ? 40 : 0 }}>
                 {sec.title && <p className="mono muted" style={{ fontSize: 12, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{sec.title}</p>}
                 {sec.instructions && <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>{sec.instructions}</p>}
-                <div className="reading-split" style={{ gridTemplateColumns: `${splitRatio}% 14px ${100 - splitRatio}%` }}>
+                <div className="reading-split" style={{ gridTemplateColumns: `minmax(0, ${splitRatio}fr) 14px minmax(0, ${100 - splitRatio}fr)` }}>
                   <div className="reading-passage-pane">
                     <div className="card">
                       {sec.imageUrl && (
@@ -1510,7 +1575,7 @@ export default function TestRunner({ config }) {
                 {writingTasks.length > 1 && (
                   <p className="mono muted" style={{ fontSize: 12, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Task {ti + 1}</p>
                 )}
-                <div className="reading-split" style={{ gridTemplateColumns: `${splitRatio}% 14px ${100 - splitRatio}%` }}>
+                <div className="reading-split" style={{ gridTemplateColumns: `minmax(0, ${splitRatio}fr) 14px minmax(0, ${100 - splitRatio}fr)` }}>
                   <div className="reading-passage-pane">
                     <div className="card">
                       {task.imageUrl && (

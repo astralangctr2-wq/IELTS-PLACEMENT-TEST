@@ -17,6 +17,8 @@
 //     paragraph (Reading Part 4); sentence ordering (Reading Part 2) is
 //     drag-and-drop, with tap-to-place as a fallback for touch screens.
 
+import { useScreenZoom } from "./useScreenZoom";
+import { useDraft, readLocalDraft, fetchServerDraft, rebaseDeadlines, DraftPrompt } from "./useDraft";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useFontSize } from "@/app/contexts/ThemeContext";
 import PracticeAudioPlayer from "./PracticeAudioPlayer";
@@ -436,7 +438,8 @@ function WritingPage({ task, ti, answers, setAnswer, onPaste }) {
 // ======================================================================
 export default function AptisRunner({ config }) {
   const { fontSize } = useFontSize();
-  const zoom = FONT_ZOOM[fontSize] || 1;
+  const screenZoom = useScreenZoom(fontSize);
+  const zoom = screenZoom.zoom;
 
   const [content, setContent] = useState(null);
   const [loadError, setLoadError] = useState("");
@@ -507,6 +510,55 @@ export default function AptisRunner({ config }) {
   const lastOfSkill = skillPages.length ? skillPages[skillPages.length - 1].i : 0;
   const nextSkill = pages[lastOfSkill + 1]?.skill;
   const maxPlays = Math.max(1, Number(config.listeningPlays) || 2);
+
+  // ---- Autosave (see useDraft.jsx): kept on this computer after every
+  // change and on the server every 20 s — continue after a power cut.
+  const draftKey = config.sessionId ? `s:${config.sessionId}` : config.assignmentId ? `a:${config.assignmentId}` : `b:${config.contentBankId || "default"}`;
+  const draft = useDraft({
+    key: draftKey,
+    active: stage === "test" && !submittedRef.current,
+    name: studentName,
+    classKey,
+    getSnapshot: () => ({ v: 1, kind: "aptis", stage: "test", skill, pageIdx, studentName, targetBand, studentClass, answers, plays, deadlines, limits: config.timeLimits || {}, integrity: integrity.snapshot() }),
+    deps: [stage, pageIdx, answers, plays, deadlines],
+  });
+  const [pendingDraft, setPendingDraft] = useState(null);
+  const dismissedDrafts = useRef(new Set());
+  const usableDraft = (d) => d && d.kind === "aptis" && Number.isInteger(d.pageIdx) && !dismissedDrafts.current.has(d.savedAt);
+  useEffect(() => {
+    const d = readLocalDraft(draftKey);
+    if (usableDraft(d)) setPendingDraft({ draft: d, fromServer: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (stage !== "intro" || pendingDraft || !studentName.trim() || !classKey) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const d = await fetchServerDraft(draftKey, studentName, classKey);
+      if (!cancelled && usableDraft(d)) setPendingDraft({ draft: d, fromServer: true });
+    }, 700);
+    return () => { cancelled = true; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentName, classKey, stage, pendingDraft]);
+  const resumeDraft = () => {
+    const d = pendingDraft?.draft;
+    if (!d) return;
+    if (!config.student && d.studentName) setStudentName(d.studentName);
+    setTargetBand(d.targetBand || "");
+    if (!config.className && d.studentClass) setStudentClass(d.studentClass);
+    setAnswers({ listening: {}, reading: {}, writing: {}, ...(d.answers || {}) });
+    setPlays(d.plays || {});
+    setDeadlines(rebaseDeadlines(d.deadlines, d.limits, config.timeLimits || {}));
+    setPageIdx(Math.max(0, Math.min(Number(d.pageIdx) || 0, Math.max(0, pages.length - 1))));
+    integrity.restore(d.integrity);
+    integrity.start();
+    setPendingDraft(null);
+    setStage("test");
+  };
+  const discardDraft = () => {
+    if (pendingDraft?.draft) dismissedDrafts.current.add(pendingDraft.draft.savedAt);
+    setPendingDraft(null);
+  };
 
   const setAnswer = useCallback((sk, id, v) => {
     setAnswers((prev) => ({ ...prev, [sk]: { ...prev[sk], [id]: v } }));
@@ -581,6 +633,7 @@ export default function AptisRunner({ config }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Không thể nộp bài.");
       setResult(data);
+      draft.clear();
       setStage("done");
     } catch (err) {
       submittedRef.current = false;
@@ -633,6 +686,7 @@ export default function AptisRunner({ config }) {
       <div className="wrap" style={{ zoom }}>
         <h1 className="serif" style={{ marginBottom: 6 }}>Aptis ESOL</h1>
         <p className="muted" style={{ marginBottom: 18 }}>{config.name || "Bài thi thử"}</p>
+        {pendingDraft && <div style={{ maxWidth: 560 }}><DraftPrompt draft={pendingDraft.draft} fromServer={pendingDraft.fromServer} onResume={resumeDraft} onDiscard={discardDraft} /></div>}
         <div className="card stack" style={{ maxWidth: 560 }}>
           <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8 }}>
             {activeSkills.includes("listening") && <li>Listening: {count("listening")} câu — {practice ? "nghe không giới hạn, có thể tạm dừng." : `mỗi đoạn ghi âm nghe tối đa ${maxPlays} lần.`}</li>}
@@ -713,7 +767,7 @@ export default function AptisRunner({ config }) {
   const isLastPage = pageIdx >= pages.length - 1;
 
   return (
-    <div className="aptis-shell" style={{ zoom }} spellCheck={false}>
+    <div className="aptis-shell" style={screenZoom.style} spellCheck={false}>
       {integrity.overlay}
       {confirmBox && (
         <div className="integrity-modal" role="dialog" aria-modal="true">
@@ -739,6 +793,7 @@ export default function AptisRunner({ config }) {
         </div>
         <div className={`aptis-timer ${timeLeft !== null && timeLeft < 300 ? "warn" : ""}`}>
           {timeLeft !== null ? `⏱ ${fmtTime(timeLeft)}` : ""}
+          {draft.savedAt && <span className="autosave-note" title="Bài làm được lưu tự động — mất điện / tắt máy vẫn làm tiếp được">💾 {new Date(draft.savedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</span>}
         </div>
       </header>
 

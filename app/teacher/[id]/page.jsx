@@ -8,12 +8,14 @@ import ExamTypeSwitch from "./ExamTypeSwitch";
 import IntegrityCard from "./IntegrityCard";
 import HighlightsCard from "./HighlightsCard";
 import AnswerReview from "./AnswerReview";
+import { reviewItems, ensureReviewSchema } from "@/lib/answerReview";
 import DeleteButton from "../DeleteButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function SubmissionDetail({ params }) {
   requireTeacherOrRedirect();
+  await ensureReviewSchema();
   const s = await getSubmissionFull(params.id);
   if (!s) notFound();
   const snapshot = s.content_snapshot || null;
@@ -61,7 +63,7 @@ export default async function SubmissionDetail({ params }) {
       </div>
       ) : (
       <div className="card stack">
-        <p className="mono muted" style={{ fontSize: 12 }}>ĐIỂM TỰ ĐỘNG</p>
+        <p className="mono muted" style={{ fontSize: 12 }}>{s.answer_review?.confirmedAt ? "ĐIỂM TRẮC NGHIỆM — GV ĐÃ XÁC NHẬN ✓" : "ĐIỂM TỰ ĐỘNG (máy chấm — GV xác nhận ở cuối trang)"}</p>
         {skills.includes("grammar") && <p>Ngữ pháp: <b>{s.grammar_score}/{s.grammar_total}</b></p>}
         {skills.includes("reading") && <p>Reading: <b>{s.reading_score}/{s.reading_total}</b></p>}
         {skills.includes("listening") && <p>Listening: <b>{s.listening_score}/{s.listening_total}</b></p>}
@@ -81,15 +83,17 @@ export default async function SubmissionDetail({ params }) {
         />
       )}
       {!skills.includes("writing") && (
-        <div className="card"><p className="muted" style={{ fontSize: 13 }}>Bài này không có phần Writing — không cần chấm tay.</p></div>
+        <div className="card"><p className="muted" style={{ fontSize: 13 }}>Bài này không có Writing. Máy đã chấm phần trắc nghiệm — GV xem lại từng câu bên dưới (bấm ✓ Đúng / ✗ Sai nếu cần) rồi bấm <b>Lưu &amp; xác nhận điểm</b>.</p></div>
       )}
 
       {snapshot && Array.isArray(snapshot.grammar) && Array.isArray(snapshot.reading) && Array.isArray(snapshot.listening) ? (
-        <>
-          {skills.includes("grammar") && <AnswerReview title="CHI TIẾT — NGỮ PHÁP" questions={snapshot.grammar} answers={s.answers?.grammar} />}
-          {skills.includes("reading") && <AnswerReview title="CHI TIẾT — READING" questions={snapshot.reading} answers={s.answers?.reading} />}
-          {skills.includes("listening") && <AnswerReview title="CHI TIẾT — LISTENING" questions={snapshot.listening} answers={s.answers?.listening} />}
-        </>
+        <AnswerReview
+          submissionId={s.id}
+          sections={["grammar", "reading", "listening"].filter((k) => skills.includes(k) && snapshot[k].length).map((k) => ({ skill: k, items: reviewItems(snapshot[k], s.answers?.[k]) }))}
+          initialMarks={s.answer_review?.marks || {}}
+          confirmedAt={s.answer_review?.confirmedAt || null}
+          autoScores={s.answer_review?.auto || null}
+        />
       ) : (
         <div className="card">
           <p className="muted" style={{ fontSize: 13 }}>Không có dữ liệu chi tiết từng câu cho bài nộp này (có thể do nộp trước khi tính năng này được bật, hoặc dữ liệu bị thiếu). Chỉ hiện được điểm tổng ở trên.</p>

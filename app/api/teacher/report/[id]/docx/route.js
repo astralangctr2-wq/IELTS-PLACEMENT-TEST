@@ -3,8 +3,8 @@ import {
   ImageRun, Packer, PageBreak, PageNumber, Paragraph, ShadingType, Table, TableCell, TableLayoutType, TableRow,
   TextRun, TextWrappingType, VerticalAlign, VerticalPositionAlign, VerticalPositionRelativeFrom, WidthType,
 } from "docx";
-import { loadSheet } from "@/lib/sheetData";
-import { canEditSheet } from "@/lib/sheetAuth";
+import { loadSheet, classmatesOf } from "@/lib/sheetData";
+import { canEditSheet, visibleSheets } from "@/lib/sheetAuth";
 import { scoreColumns, show } from "@/lib/sheetCols";
 import { LOGO_PNG, BARS_PNG, WATERMARK_JPG } from "@/lib/sheetAssets";
 
@@ -67,7 +67,7 @@ function commentTable(rows, labelW = Math.round(22 * MM)) {
   });
 }
 
-function buildDoc(data, r) {
+function buildSection(data, r) {
   const full = r.template === "full";
   const has = (k) => data.skills.includes(k);
   const cols = scoreColumns(data, r);
@@ -181,36 +181,63 @@ function buildDoc(data, r) {
     body.push(commentTable([["Tình hình\ntrên lớp", r.classSituation], ["Phương\nhướng\nhọc tập", r.direction]]));
   }
 
+  return {
+    properties: {
+      page: {
+        size: { width: PAGE_W, height: PAGE_H },
+        margin: { top: Math.round(33 * MM), bottom: Math.round(20 * MM), left: SIDE, right: SIDE, header: Math.round(6 * MM), footer: Math.round(8 * MM) },
+        pageNumbers: { start: 1 },
+      },
+    },
+    headers: { default: header },
+    footers: { default: footer },
+    children: body,
+  };
+}
+
+// One or several sheets (whole class): each sheet is its own section, so
+// it starts on a new page and its page numbers restart at 1.
+function buildDoc(sheets, title) {
   return new Document({
     creator: "Astra Language & IT Center",
-    title: `Test result — ${data.name}`,
+    title,
     styles: { default: { document: { run: { font: "Arial", size: 20 } } } },
-    sections: [{
-      properties: {
-        page: {
-          size: { width: PAGE_W, height: PAGE_H },
-          margin: { top: Math.round(33 * MM), bottom: Math.round(20 * MM), left: SIDE, right: SIDE, header: Math.round(6 * MM), footer: Math.round(8 * MM) },
-        },
-      },
-      headers: { default: header },
-      footers: { default: footer },
-      children: body,
-    }],
+    sections: sheets.map(({ data, initial }) => buildSection(data, initial)),
   });
 }
 
-export async function GET(_req, { params }) {
+const slug = (t, fb) => (t || fb).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || fb;
+
+export async function GET(req, { params }) {
   let { s, data, initial, redirectTo } = await loadSheet(params.id);
   if (redirectTo) ({ s, data, initial } = await loadSheet(redirectTo));
   if (!s) return new Response("Không tìm thấy bài làm.", { status: 404 });
   if (!(await canEditSheet(s))) return new Response("Bạn không có quyền với bài này.", { status: 403 });
-  const buf = await Packer.toBuffer(buildDoc(data, initial));
-  const safe = (data.name || "hoc-vien").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  const title = (initial.testTitle || "phieu").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  let sheets = [{ data, initial }];
+  let fileName = `Phieu-diem-${slug(data.name, "hoc-vien")}-${slug(initial.testTitle, "phieu")}.docx`;
+  if (new URL(req.url).searchParams.get("all")) {
+    // Whole class, same test: one sheet per student (merged sittings and
+    // sheet owners resolved exactly as when each sheet is opened).
+    const mates = await visibleSheets(await classmatesOf(s));
+    const seen = new Set();
+    sheets = [];
+    for (const c of mates) {
+      let x = await loadSheet(c.id);
+      if (x.redirectTo) x = await loadSheet(x.redirectTo);
+      if (!x.s || seen.has(x.data.id)) continue;
+      seen.add(x.data.id);
+      sheets.push({ data: x.data, initial: x.initial });
+    }
+    if (!sheets.length) sheets = [{ data, initial }];
+    sheets.sort((a, b) => (a.data.name || "").localeCompare(b.data.name || "", "vi"));
+    fileName = `Phieu-diem-lop-${slug(initial.className, "lop")}-${slug(initial.testTitle, "phieu")}.docx`;
+  }
+  const buf = await Packer.toBuffer(buildDoc(sheets, sheets.length > 1 ? `Test results — ${initial.className}` : `Test result — ${data.name}`));
   return new Response(buf, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename="Phieu-diem-${safe}-${title}.docx"`,
+      "Content-Disposition": `attachment; filename="${fileName}"`,
     },
   });
 }

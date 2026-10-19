@@ -1,7 +1,21 @@
 CẬP NHẬT GỘP (dùng cho code đang chạy trên web, chưa có LMS)
 ============================================================
 Gói này gồm TẤT CẢ các bản sửa chưa push (kể cả các đợt trước).
-MỚI ở lần này:
+MỚI ở lần này (19/10):
+  1. Phiếu điểm: luôn lấy nhận xét Writing từ phần chấm (kể cả khi chấm SAU lúc đã mở/lưu phiếu);
+     phiếu ngắn (Mock test) cũng có nhận xét từng tiêu chí; buổi thi đến sau tự gộp vào phiếu;
+     nút "↻ Lấy lại nhận xét", danh sách cả lớp + "Lưu & HV tiếp theo", nút "⬇ Word cả lớp".
+  2. Thi: khoá phím khi toàn màn hình (Chrome/Edge: Esc, F11, Alt+Tab, phím Windows);
+     ra khỏi toàn màn hình thì bài bị che cho tới khi bấm quay lại; hỏi lại trước khi đóng/tải lại tab.
+     Writing: được Ctrl C / Ctrl V nội dung chép TRONG bài; dán từ ngoài vẫn bị chặn và ghi lại.
+  3. Reading/Listening: GV bấm ✓ Đúng / ✗ Sai từng câu, "Lưu & xác nhận điểm" → điểm + band tính lại.
+     Bảng bài nộp: bài không có Writing hiện "Máy đã chấm" / "GV đã duyệt" (không còn "Chưa chấm").
+  4. Chữ to hơn 1 bậc trên màn hình lớn (≥ 1500px, vd 20–22"); cỡ "A lớn" to hơn trước; sửa lỗi
+     khung bài đọc bị lệch/tràn khi phóng chữ.
+  5. Tự lưu bài đang làm (trên máy + trên hệ thống mỗi 20 giây). Mất điện / tắt máy / đổi máy:
+     mở lại đúng link, nhập đúng tên + lớp → "Tiếp tục bài làm". GV xem ai đang làm ở nút "👀 Đang làm".
+
+CÁC ĐỢT TRƯỚC (vẫn có trong gói):
   - Thi nhiều buổi (vd Mid-term: buổi R+L, buổi W) → 1 phiếu chung cho mỗi học viên
   - Sửa lỗi 1 bài bị lưu 2 lần
   - Tải phiếu điểm bằng Word (.docx) — nút "⬇ Tải Word (.docx)" ở trang Phiếu kết quả
