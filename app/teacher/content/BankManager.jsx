@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import ReviewPanel from "./ReviewPanel";
 
 const CATEGORY_LABELS = { placement: "Placement Test", midterm: "Mid-term Test", mock: "Mock Test", final: "Final Test", aptis: "Aptis ESOL", other: "Khác" };
 const CATEGORY_ORDER = ["placement", "midterm", "mock", "final", "aptis", "other"];
@@ -46,6 +47,7 @@ function CategorySelect({ value, onChange, disabled }) {
 
 function BankRow({ bank, onChanged }) {
   const [editing, setEditing] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [text, setText] = useState("");
   const [name, setName] = useState(bank.name);
   const [category, setCategory] = useState(bank.category || "other");
@@ -132,10 +134,13 @@ function BankRow({ bank, onChanged }) {
           </p>
         </div>
         <div className="row" style={{ gap: 6, justifyContent: "flex-end", width: "auto" }}>
+          <button className={reviewOpen ? "btn btn-sm" : "btn-ghost btn-sm"} onClick={() => setReviewOpen((v) => !v)} title="Đáp án + chữa chi tiết cho học viên, 1 link dùng chung cho các lớp">📖 Chữa bài</button>
           {!editing && <button className="btn-ghost btn-sm" onClick={openEditor}>Sửa nội dung</button>}
           <button className="btn-ghost btn-sm" onClick={remove}>Xoá</button>
         </div>
       </div>
+
+      {reviewOpen && <ReviewPanel bankId={bank.id} />}
 
       {editing && (
         <div style={{ marginTop: 14 }}>
