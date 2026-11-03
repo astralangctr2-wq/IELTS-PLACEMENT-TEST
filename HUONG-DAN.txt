@@ -1,6 +1,19 @@
 CẬP NHẬT GỘP (dùng cho code đang chạy trên web, chưa có LMS)
 ============================================================
 Gói này gồm TẤT CẢ các bản sửa chưa push (kể cả các đợt trước).
+MỚI (31/10) — Kiểm tra file đề khi tải lên:
+  - Phần để trống ("grammar": []) tự bỏ qua, không báo lỗi nữa.
+  - Báo rõ: "Choose TWO" bị tách 2 câu; Listening thiếu audio; Writing "… below" thiếu hình; đường dẫn audio/hình sai.
+  - File mẫu mới: mau-bo-de-ielts-v2.json (đủ các dạng câu IELTS).
+
+MỚI (22/10) — Link chữa bài theo bộ đề:
+  - Bộ đề → nút "📖 Chữa bài": tải file "... -- chua-bai.json", Xem trước, "Công bố cho học viên".
+  - 1 link /chua-bai/... dùng chung cho mọi lớp thi đề đó. Chưa công bố thì học viên không xem được.
+  - Học viên: đáp án + vị trí (tô vàng trong bài đọc) + paraphrase + giải thích + bẫy;
+    Listening có audio + transcript, nút "▶ Nghe lại" đúng đoạn chứa đáp án.
+    Nhập đúng tên + lớp lúc thi → thấy bài làm của mình, câu sai đánh dấu đỏ.
+  - Đáp án dạng mẫu (bắt đầu bằng "re:") — dùng cho đáp án viết nhiều kiểu (vd khung giờ 9am-5pm).
+
 MỚI ở lần này (19/10):
   1. Phiếu điểm: luôn lấy nhận xét Writing từ phần chấm (kể cả khi chấm SAU lúc đã mở/lưu phiếu);
      phiếu ngắn (Mock test) cũng có nhận xét từng tiêu chí; buổi thi đến sau tự gộp vào phiếu;

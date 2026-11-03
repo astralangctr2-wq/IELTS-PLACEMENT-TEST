@@ -1,12 +1,13 @@
 import {
   AlignmentType, BorderStyle, Document, Footer, Header, HorizontalPositionAlign, HorizontalPositionRelativeFrom,
-  ImageRun, Packer, PageBreak, PageNumber, Paragraph, ShadingType, Table, TableCell, TableLayoutType, TableRow,
+  HeightRule, ImageRun, Packer, PageBreak, PageNumber, Paragraph, ShadingType, SymbolRun, Tab, Table, TableCell, TableLayoutType, TableRow,
   TextRun, TextWrappingType, VerticalAlign, VerticalPositionAlign, VerticalPositionRelativeFrom, WidthType,
 } from "docx";
-import { loadSheet, classmatesOf } from "@/lib/sheetData";
+import { resolveSheet, classmatesOf } from "@/lib/sheetData";
 import { canEditSheet, visibleSheets } from "@/lib/sheetAuth";
 import { scoreColumns, show } from "@/lib/sheetCols";
 import { LOGO_PNG, BARS_PNG, WATERMARK_JPG } from "@/lib/sheetAssets";
+import { splitLabel, cleanText } from "@/lib/sheetText";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,21 +16,40 @@ export const runtime = "nodejs";
 // address, ASTRA watermark, yellow / navy bars at the bottom) — the same
 // content as the printable page, editable in Word.
 
-const NAVY = "1F3A6E", FILL = "DCE3F1", RED = "E01B1B";
-const MM = 56.7; // twips per millimetre
-const PAGE_W = Math.round(148 * MM), PAGE_H = Math.round(210 * MM);
-const SIDE = Math.round(12 * MM);
-const CONTENT_W = PAGE_W - 2 * SIDE;
+// Layout, sizes and colours follow the centre's templates (MOCK_TEST.docx,
+// MIDTERM - FINAL.docx): A5, Arial, navy labels on light-blue cells, red
+// scores. Full sheet: one comment table whose first row ("Nhận xét của
+// giáo viên:") repeats at the top of every page it runs onto.
+const LABEL_C = "244061", DARK = "0F243E", FILL = "DBE5F1", RED = "EE0000";
+const PAGE_W = 8392, PAGE_H = 11907; // A5, as in the templates
 const EMU_MM = 36000;
 const img = (b64) => Buffer.from(b64, "base64");
 
-const line = { style: BorderStyle.SINGLE, size: 6, color: "222222" };
+const line = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
 const borders = { top: line, bottom: line, left: line, right: line };
-const noLine = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
-const noBorders = { top: noLine, bottom: noLine, left: noLine, right: noLine, insideHorizontal: noLine, insideVertical: noLine };
+const nil = { style: BorderStyle.NIL, size: 0, color: "auto" };
+const CELL_MAR = { top: 0, bottom: 0, left: 108, right: 108 };
 
-const run = (text, o = {}) => new TextRun({ text, font: o.font || "Arial", size: Math.round((o.pt || 10) * 2), bold: o.bold, italics: o.italic, color: o.color, underline: o.underline ? {} : undefined });
-const para = (children, o = {}) => new Paragraph({ children: Array.isArray(children) ? children : [children], alignment: o.align, spacing: { before: o.before || 0, after: o.after ?? 0, line: o.line }, indent: o.indent });
+// sz = half-points, as in the template XML
+// A tab typed in a comment stays a tab in Word.
+const withTabs = (text) => {
+  const parts = cleanText(text).replace(/\n/g, " ").split("\t");
+  return parts.length === 1 ? { text: parts[0] } : { children: parts.flatMap((x, i) => (i ? [new Tab(), x] : [x])) };
+};
+const run = (text, o = {}) => {
+  const t = new TextRun({ ...withTabs(text), font: o.font || "Arial", size: o.sz || 20, bold: o.bold, italics: o.italic, color: o.color || (o.font === "Times New Roman" ? undefined : "000000"), underline: o.underline ? {} : undefined });
+  t.mark = { size: o.sz || 20, font: o.font || "Arial" }; // the paragraph mark takes the text's size, so line heights match Word's
+  return t;
+};
+const para = (children, o = {}) => {
+  const kids = Array.isArray(children) ? children : [children];
+  return new Paragraph({
+    children: kids, alignment: o.align, run: o.mark || kids.find((k) => k.mark)?.mark,
+    spacing: { before: o.before ?? 0, after: o.after ?? 0, line: o.line ?? 240 }, indent: o.indent,
+  });
+};
+// The templates' "Normal" paragraph: 3pt before / after, 1.3 line.
+const normal = (children, o = {}) => para(children, { before: 60, after: 60, line: 312, ...o });
 
 function cell(children, o = {}) {
   return new TableCell({
@@ -37,33 +57,25 @@ function cell(children, o = {}) {
     width: { size: o.w, type: WidthType.DXA },
     verticalAlign: o.valign || VerticalAlign.CENTER,
     shading: o.fill ? { type: ShadingType.CLEAR, color: "auto", fill: o.fill } : undefined,
-    margins: { top: 90, bottom: 90, left: 110, right: 110 },
+    margins: o.margins || CELL_MAR,
     borders: o.borders || borders,
     columnSpan: o.span,
   });
 }
-const label = (text, w, pt = 11, align = AlignmentType.LEFT) =>
-  cell(text.split("\n").map((t) => para(run(t, { bold: true, color: NAVY, pt }), { align })), { w, fill: FILL });
+const row = (children, height, extra = {}) => new TableRow({ children, height: height ? { value: height, rule: HeightRule.ATLEAST } : undefined, ...extra });
+const table = (widths, rows) => new Table({
+  width: { size: widths.reduce((a, b) => a + b, 0), type: WidthType.DXA },
+  columnWidths: widths, layout: TableLayoutType.FIXED, margins: CELL_MAR, rows,
+});
 
-// Teacher text → paragraphs; "Task 1: 6.0" style heads in bold.
-function prose(text) {
-  const lines = (text || "").split("\n");
-  if (!(text || "").trim()) return [para(run(" ", { pt: 9.6 }), { after: 400 })];
-  return lines.map((l) => {
-    const m = /^(Task \d+|Writing|Điểm mạnh|Cần cải thiện)(:)(.*)$/.exec(l);
-    const kids = m
-      ? [run(m[1] + m[2], { bold: true, italic: true, pt: 9.6 }), run(m[3], { italic: true, pt: 9.6 })]
-      : [run(l || " ", { italic: true, pt: 9.6 })];
-    return para(kids, { align: AlignmentType.JUSTIFIED, after: 40, line: 300 });
-  });
-}
-
-function commentTable(rows, labelW = Math.round(22 * MM)) {
-  return new Table({
-    width: { size: CONTENT_W, type: WidthType.DXA },
-    columnWidths: [labelW, CONTENT_W - labelW],
-    layout: TableLayoutType.FIXED,
-    rows: rows.map(([l, text]) => new TableRow({ children: [label(l, labelW, 10, AlignmentType.CENTER), cell(prose(text), { w: CONTENT_W - labelW })] })),
+// Teacher text → paragraphs; a leading criterion label in bold.
+function prose(text, sz = 20, lineH = 240) {
+  const clean = cleanText(text);
+  if (!clean.trim()) return [para(run("", { sz, italic: true }), { before: 60, after: 60, align: AlignmentType.JUSTIFIED })];
+  return clean.split("\n").map((l) => {
+    const { bold, rest } = splitLabel(l);
+    const kids = [...(bold ? [run(bold, { sz, bold: true, italic: true })] : []), run(rest, { sz, italic: true })];
+    return para(kids, { align: AlignmentType.JUSTIFIED, before: 60, after: 60, line: lineH });
   });
 }
 
@@ -71,37 +83,39 @@ function buildSection(data, r) {
   const full = r.template === "full";
   const has = (k) => data.skills.includes(k);
   const cols = scoreColumns(data, r);
+  const SIDE = full ? 624 : 737; // template margins differ: mid-term 1.1 cm, mock 1.3 cm
+  const CW = PAGE_W - 2 * SIDE;
+  const pct = (p) => Math.round((CW * p) / 5000); // template widths are in fiftieths of a percent
 
-  // ---- header (logo + address) and watermark, repeated on every page
-  const addr = [
-    [run("Trung tâm Ngoại ngữ và Tin học ASTRA", { font: "Times New Roman", pt: 7.8, bold: true })],
-    [run("📌 Lô BN2 - LK28, đường N1, KP Vinh Thạnh", { font: "Times New Roman", pt: 7.4 })],
-    [run("     P. Trấn Biên, thành phố Đồng Nai, Việt Nam", { font: "Times New Roman", pt: 7.4 })],
-    [run("☎ 0909.911.922     ✉ ", { font: "Times New Roman", pt: 7.4 }), run("info@astra.edu.vn", { font: "Times New Roman", pt: 7.4, underline: true }), run("     🌐 ", { font: "Times New Roman", pt: 7.4 }), run("www.astra.edu.vn", { font: "Times New Roman", pt: 7.4, underline: true })],
-  ];
-  const logoW = Math.round(43 * MM);
+  // ---- header, as in the template: floating logo top-left, the centre's
+  // address indented 5 cm (7pt navy), the ASTRA watermark behind the page.
+  const hr = (t, o = {}) => new TextRun({ text: t, font: o.font || "Times New Roman", size: 14, bold: o.bold, color: o.color || "002060", underline: o.underline ? {} : undefined });
+  const sym = (ch) => new SymbolRun({ char: ch, symbolfont: "Wingdings", size: 14, color: "002060" });
+  const hp = (kids) => new Paragraph({ children: kids, run: { size: 14, font: "Times New Roman" }, spacing: { before: 0, after: 0, line: 240 }, indent: { left: 2835, right: -800 } });
   const header = new Header({
     children: [
-      new Paragraph({
-        children: [new ImageRun({
-          type: "jpg", data: img(WATERMARK_JPG), transformation: { width: 423, height: 427 },
+      hp([
+        new ImageRun({
+          type: "png", data: img(LOGO_PNG), transformation: { width: 150, height: 52 },
           floating: {
-            horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, align: HorizontalPositionAlign.CENTER },
-            verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, align: VerticalPositionAlign.CENTER },
-            behindDocument: true, wrap: { type: TextWrappingType.NONE },
+            horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 640237 },
+            verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: 144302 },
+            wrap: { type: TextWrappingType.NONE }, allowOverlap: true,
           },
-        })],
-      }),
-      new Table({
-        width: { size: CONTENT_W, type: WidthType.DXA },
-        columnWidths: [logoW, CONTENT_W - logoW],
-        layout: TableLayoutType.FIXED,
-        borders: noBorders,
-        rows: [new TableRow({ children: [
-          cell([para(new ImageRun({ type: "png", data: img(LOGO_PNG), transformation: { width: 147, height: 51 } }))], { w: logoW, borders: noBorders }),
-          cell(addr.map((k) => para(k, { after: 10 })), { w: CONTENT_W - logoW, borders: noBorders }),
-        ] })],
-      }),
+        }),
+        new ImageRun({
+          type: "jpg", data: img(WATERMARK_JPG), transformation: { width: 446, height: 450 },
+          floating: {
+            horizontalPosition: { relative: HorizontalPositionRelativeFrom.MARGIN, align: HorizontalPositionAlign.CENTER },
+            verticalPosition: { relative: VerticalPositionRelativeFrom.MARGIN, align: VerticalPositionAlign.CENTER },
+            behindDocument: true, wrap: { type: TextWrappingType.NONE }, allowOverlap: true,
+          },
+        }),
+        hr("Trung tâm Ngoại ngữ và Tin học ASTRA", { bold: true, color: "203167" }),
+      ]),
+      hp([hr("📌", { font: "Segoe UI Symbol" }), hr("   Lô BN2 - LK28, đường N1, KP Vinh Thạnh")]),
+      hp([hr("       P. Trấn Biên, thành phố Đồng Nai, Việt Nam")]),
+      hp([sym("F028"), hr(" 0909.911.922       "), sym("F02A"), hr(" "), hr("info@astra.edu.vn", { underline: true }), hr("      "), hr("🌐", { font: "Segoe UI Symbol", bold: true }), hr(" "), hr("www.astra.edu.vn", { underline: true })]),
     ],
   });
 
@@ -109,9 +123,9 @@ function buildSection(data, r) {
   const footer = new Footer({
     children: [
       new Paragraph({
-        alignment: AlignmentType.CENTER,
+        alignment: AlignmentType.CENTER, run: { size: 20, font: "Times New Roman", bold: true },
         children: [
-          new TextRun({ children: [PageNumber.CURRENT], font: "Times New Roman", bold: true, size: 18 }),
+          new TextRun({ children: [PageNumber.CURRENT], font: "Times New Roman", bold: true, size: 20 }),
           new ImageRun({
             type: "png", data: img(BARS_PNG), transformation: { width: 559, height: 20 },
             floating: {
@@ -125,67 +139,88 @@ function buildSection(data, r) {
     ],
   });
 
-  // ---- page 1
-  const infoL = Math.round(32 * MM);
-  const info = new Table({
-    width: { size: CONTENT_W, type: WidthType.DXA },
-    columnWidths: [infoL, CONTENT_W - infoL],
-    layout: TableLayoutType.FIXED,
-    rows: [
-      ["Name:", [para(run((data.name || "").toLocaleUpperCase("vi"), { bold: true, pt: 13 }), { align: AlignmentType.CENTER })]],
-      ["Teacher:", [para(run(r.teacher || " ", { pt: 12 }), { align: AlignmentType.CENTER })]],
-      ["Level:", [para(run(r.level || " ", { bold: true, pt: 12 }), { align: AlignmentType.CENTER }), ...(r.levelNote ? [para(run(`(${r.levelNote})`, { italic: true, pt: 10 }), { align: AlignmentType.CENTER })] : [])]],
-      ["Class:", [para(run(r.className || " ", { bold: true, pt: 12 }), { align: AlignmentType.CENTER })]],
-    ].map(([l, v]) => new TableRow({ children: [label(l, infoL), cell(v, { w: CONTENT_W - infoL })] })),
-  });
+  // ---- page 1: student's information
+  const infoL = pct(1179);
+  const infoLabel = (t) => cell([para(run(t, { sz: 24, bold: true, color: LABEL_C }))], { w: infoL, fill: FILL });
+  const infoVal = (kids) => cell(kids, { w: CW - infoL });
+  const big = (t, o = {}) => para(run(t || " ", { sz: 28, ...o }), { align: AlignmentType.CENTER, before: 120, after: 120 });
+  const info = table([infoL, CW - infoL], [
+    row([infoLabel("Name:"), infoVal([big((data.name || "").toLocaleUpperCase("vi"), { bold: true })])], 567), // 454 in the template, but its 14pt + 6pt spacing makes 1 cm
+    row([infoLabel("Teacher:"), infoVal([big(r.teacher)])], 567),
+    row([infoLabel("Level:"), infoVal([
+      para(run(r.level || " ", { sz: 28, bold: true }), { align: AlignmentType.CENTER }),
+      ...(r.levelNote ? [para(run(`(${r.levelNote})`, { sz: 24, italic: true }), { align: AlignmentType.CENTER })] : []),
+    ])], 850),
+    row([infoLabel("Class:"), infoVal([big(r.className, { bold: true })])], 567),
+  ]);
 
-  const firstW = Math.round(24 * MM);
-  const restW = Math.floor((CONTENT_W - firstW) / Math.max(1, cols.length));
-  const widths = [firstW, ...cols.map((_, i) => (i === cols.length - 1 ? CONTENT_W - firstW - restW * (cols.length - 1) : restW))];
-  const scoreRows = [
-    new TableRow({ children: [label("Skills", widths[0], 10, AlignmentType.CENTER), ...cols.map((c, i) => cell([
-      para(run(c.name, { bold: true, color: NAVY, pt: 9.5 }), { align: AlignmentType.CENTER }),
-      para(run(`(${c.max})`, { bold: true, color: NAVY, pt: 9.5 }), { align: AlignmentType.CENTER }),
-    ], { w: widths[i + 1], fill: FILL }))] }),
-    new TableRow({ children: [label(data.aptis ? "Score" : "Band score", widths[0], 10, AlignmentType.CENTER), ...cols.map((c, i) => cell([para(run(show(c.val), { bold: true, color: RED, pt: 11 }), { align: AlignmentType.CENTER })], { w: widths[i + 1] }))] }),
-    ...(data.aptis ? [new TableRow({ children: [label("CEFR", widths[0], 10, AlignmentType.CENTER), ...cols.map((c, i) => cell([para(run(show(c.sub), { bold: true, color: NAVY, pt: 10 }), { align: AlignmentType.CENTER })], { w: widths[i + 1] }))] })] : []),
-  ];
-  const scores = new Table({ width: { size: CONTENT_W, type: WidthType.DXA }, columnWidths: widths, layout: TableLayoutType.FIXED, rows: scoreRows });
+  // ---- test results
+  const firstW = pct(cols.length >= 5 ? 718 : cols.length === 4 ? 880 : 1055);
+  const restW = Math.floor((CW - firstW) / Math.max(1, cols.length));
+  const widths = [firstW, ...cols.map((_, i) => (i === cols.length - 1 ? CW - firstW - restW * (cols.length - 1) : restW))];
+  const hd = (t, sz = 20) => normal(run(t, { sz, bold: true, color: LABEL_C }), { align: AlignmentType.CENTER });
+  const scores = table(widths, [
+    row([cell([hd("Skills", 22)], { w: widths[0], fill: FILL }), ...cols.map((c, i) => cell([hd(c.name), hd(`(${c.max})`)], { w: widths[i + 1], fill: FILL }))], 842),
+    row([
+      cell([hd(data.aptis ? "Score" : "Band score", 22)], { w: widths[0], fill: FILL }),
+      ...cols.map((c, i) => cell([para(run(show(c.val), { font: "Century Gothic", sz: 22, bold: true, color: RED }), { align: AlignmentType.CENTER })], { w: widths[i + 1] })),
+    ], 624),
+    ...(data.aptis ? [row([
+      cell([hd("CEFR", 22)], { w: widths[0], fill: FILL }),
+      ...cols.map((c, i) => cell([para(run(show(c.sub), { font: "Century Gothic", sz: 20, bold: true, color: LABEL_C }), { align: AlignmentType.CENTER })], { w: widths[i + 1] })),
+    ], 454)] : []),
+  ]);
 
-  const h = (t) => para(run(t, { bold: true, pt: 10.5 }), { before: 160, after: 100 });
+  const h = (t) => normal(run(t, { sz: 22, bold: true }));
+  const blank = () => new Paragraph({ children: [], spacing: { before: 60, after: 60, line: 312 } }); // template: an empty "Normal" line (Times 13pt)
   const body = [
-    para(run("TEST RESULT", { bold: true, pt: 19 }), { align: AlignmentType.CENTER, before: 60 }),
-    para(run(r.testTitle || "", { bold: true, pt: 10.5 }), { align: AlignmentType.CENTER, after: 100 }),
+    para(run("TEST RESULT", { sz: 36, bold: true }), { align: AlignmentType.CENTER, before: 170 }), // clear of the header, where the template's taller header puts it
+    normal(run(r.testTitle || "", { sz: 22, bold: true }), { align: AlignmentType.CENTER }),
     h("Student’s information:"),
     info,
+    blank(),
     h("Test results:"),
     scores,
+    blank(),
   ];
+
   if (!full) {
-    body.push(para(run(" "), { after: 200 }), commentTable([["Teacher’s\ncomment", r.comment]]));
+    // Mock test: one "Teacher's comment" box under the scores.
+    const lw = pct(1050);
+    body.push(table([lw, CW - lw], [row([
+      cell([normal(run("Teacher’s comment", { font: "Century Gothic", sz: 22, bold: true, color: LABEL_C }))], { w: lw, fill: FILL }),
+      cell(prose(r.comment, 22, 312), { w: CW - lw }),
+    ], 842)]));
   } else {
-    body.push(para(run(" "), { after: 160 }));
     for (const t of ["Trung tâm Ngoại ngữ và Tin học Astra xin thông báo điểm và nhận xét lớp học của Học viên.", "Kính chúc Quý Phụ huynh và các em sức khỏe, hạnh phúc,", "Trân trọng cảm ơn Quý Phụ huynh và Học viên."]) {
-      body.push(new Paragraph({ children: [run(t, { italic: true, pt: 10 })], indent: { firstLine: Math.round(9 * MM) }, spacing: { after: 80, line: 340 } }));
+      body.push(para(run(t, { sz: 20, italic: true }), { align: AlignmentType.JUSTIFIED, before: 60, after: 0, line: 360, indent: { firstLine: 720 } }));
     }
-    // page 2 — comments per skill
-    body.push(new Paragraph({ children: [new PageBreak()] }), h("Nhận xét của giáo viên:"));
-    body.push(commentTable([
-      ...(has("listening") ? [["Nghe", r.cListening]] : []),
-      ["Nói", r.cSpeaking],
-      ...(has("reading") ? [["Đọc", r.cReading]] : []),
-      ...(has("writing") ? [["Viết", r.cWriting]] : []),
+    // Page 2 on: ONE table. Its first row is a repeating header, so
+    // "Nhận xét của giáo viên:" heads every page the comments run onto.
+    const lw = pct(737);
+    const skillRow = (label, text, height) => row([
+      cell([para(run(label, { sz: 20, bold: true, color: DARK }), { align: AlignmentType.CENTER, before: 60, line: 360 })], { w: lw, fill: FILL }),
+      cell(prose(text), { w: CW - lw }),
+    ], height);
+    body.push(new Paragraph({ children: [new PageBreak()], spacing: { before: 0, after: 200, line: 276 } }));
+    body.push(table([lw, CW - lw], [
+      row([cell([para(run("Nhận xét của giáo viên:", { font: "Calibri", sz: 22, bold: true, color: DARK }), { align: AlignmentType.JUSTIFIED, before: 60, after: 60 })], {
+        w: CW, span: 2, fill: "FFFFFF", borders: { top: nil, left: nil, right: nil, bottom: line },
+      })], 283, { tableHeader: true }),
+      ...(has("listening") ? [skillRow("Nghe", r.cListening, 680)] : []),
+      skillRow("Nói", r.cSpeaking, 680),
+      ...(has("reading") ? [skillRow("Đọc", r.cReading, 680)] : []),
+      ...(has("writing") ? [skillRow("Viết", r.cWriting, 680)] : []),
+      skillRow("Tình hình trên lớp", r.classSituation, 1191),
+      skillRow("Phương hướng học tập", r.direction, 1191),
     ]));
-    // page 3 — class attitude, study direction
-    body.push(new Paragraph({ children: [new PageBreak()] }), h("Nhận xét của giáo viên:"));
-    body.push(commentTable([["Tình hình\ntrên lớp", r.classSituation], ["Phương\nhướng\nhọc tập", r.direction]]));
   }
 
   return {
     properties: {
       page: {
         size: { width: PAGE_W, height: PAGE_H },
-        margin: { top: Math.round(33 * MM), bottom: Math.round(20 * MM), left: SIDE, right: SIDE, header: Math.round(6 * MM), footer: Math.round(8 * MM) },
+        margin: { top: 1247, bottom: 851, left: SIDE, right: SIDE, header: 284, footer: 510 },
         pageNumbers: { start: 1 },
       },
     },
@@ -201,7 +236,7 @@ function buildDoc(sheets, title) {
   return new Document({
     creator: "Astra Language & IT Center",
     title,
-    styles: { default: { document: { run: { font: "Arial", size: 20 } } } },
+    styles: { default: { document: { run: { font: "Times New Roman", size: 26 } } } }, // = the templates' Normal style
     sections: sheets.map(({ data, initial }) => buildSection(data, initial)),
   });
 }
@@ -209,8 +244,7 @@ function buildDoc(sheets, title) {
 const slug = (t, fb) => (t || fb).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || fb;
 
 export async function GET(req, { params }) {
-  let { s, data, initial, redirectTo } = await loadSheet(params.id);
-  if (redirectTo) ({ s, data, initial } = await loadSheet(redirectTo));
+  const { s, data, initial } = await resolveSheet(params.id);
   if (!s) return new Response("Không tìm thấy bài làm.", { status: 404 });
   if (!(await canEditSheet(s))) return new Response("Bạn không có quyền với bài này.", { status: 403 });
 
@@ -223,9 +257,8 @@ export async function GET(req, { params }) {
     const seen = new Set();
     sheets = [];
     for (const c of mates) {
-      let x = await loadSheet(c.id);
-      if (x.redirectTo) x = await loadSheet(x.redirectTo);
-      if (!x.s || seen.has(x.data.id)) continue;
+      const x = await resolveSheet(c.id);
+      if (!x.s || !x.data || seen.has(x.data.id)) continue;
       seen.add(x.data.id);
       sheets.push({ data: x.data, initial: x.initial });
     }

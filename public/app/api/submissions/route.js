@@ -1,0 +1,127 @@
+import { randomUUID } from "crypto";
+import { NextResponse } from "next/server";
+import { sql, ensureSchema } from "@/lib/db";
+import { getActiveContentWithAnswers } from "@/lib/activeContent";
+import { flattenSectionQuestions } from "@/lib/content";
+import { bandFromScore, scoreQuestions } from "@/lib/scoring";
+import { getSession, sessionMode } from "@/lib/testSessions";
+import { buildReview } from "@/lib/review";
+import { normalizeClassName } from "@/lib/classNames";
+import { sanitizeIntegrity } from "@/lib/integrity";
+
+const ALL_SKILLS = ["grammar", "reading", "listening", "writing"];
+
+export async function POST(req) {
+  await ensureSchema();
+  const body = await req.json();
+  const studentName = (body.studentName || "").toString().trim().slice(0, 120) || "Học viên ẩn danh";
+  const targetBand = (body.targetBand || "").toString().trim().slice(0, 20) || null;
+  const sessionId = (body.sessionId || "").toString().trim().slice(0, 20) || null;
+  const contentBankId = (body.contentBankId || "").toString().trim().slice(0, 20) || null;
+  // Class typed on the start screen (or fixed by the link) — normalized so
+  // "fl-1" and "FL1" file together. Exam-mode integrity log, if any.
+  const studentClass = normalizeClassName(body.studentClass) || null;
+  const integrity = sanitizeIntegrity(body.integrity);
+  const skillsIncluded = ALL_SKILLS.filter((s) => Array.isArray(body.skills) ? body.skills.includes(s) : true);
+
+  // Only keep an essay when Writing is part of this test (the runner may
+  // send empty "TASK 1 / TASK 2" headers otherwise).
+  const writingText = skillsIncluded.includes("writing") ? (body.writingText || "").toString() : "";
+  const wordCount = writingText.trim().length === 0 ? 0 : writingText.trim().split(/\s+/).length;
+
+  // Phrases the student highlighted while reading (shown to the teacher).
+  const str = (v, n) => (v ?? "").toString().slice(0, n);
+  const highlights = (Array.isArray(body.highlights) ? body.highlights : []).slice(0, 30).map((h) => ({
+    label: str(h?.label, 160),
+    items: (Array.isArray(h?.items) ? h.items : []).slice(0, 100).map((x) => ({ t: str(x?.t, 400), b: str(x?.b, 60), a: str(x?.a, 60) })).filter((x) => x.t.trim()),
+  })).filter((h) => h.items.length);
+
+  const content = await getActiveContentWithAnswers(contentBankId);
+
+  const grammarQs = content.grammar || [];
+  const readingQs = flattenSectionQuestions(content.reading?.sections);
+  const listeningQs = flattenSectionQuestions(content.listening?.sections);
+
+  const zero = { earned: 0, total: 0 };
+  const g = skillsIncluded.includes("grammar") ? scoreQuestions(body.grammarAnswers, grammarQs) : zero;
+  const r = skillsIncluded.includes("reading") ? scoreQuestions(body.readingAnswers, readingQs) : zero;
+  const l = skillsIncluded.includes("listening") ? scoreQuestions(body.listeningAnswers, listeningQs) : zero;
+
+  const objTotal = g.total + r.total + l.total;
+  const objectiveBand = objTotal > 0 ? bandFromScore(g.earned + r.earned + l.earned, objTotal) : null;
+  let id = randomUUID();
+
+  const contentSnapshot = {
+    grammar: grammarQs,
+    reading: readingQs,
+    listening: listeningQs,
+  };
+
+  const answersJson = JSON.stringify({
+    grammar: body.grammarAnswers || {},
+    reading: body.readingAnswers || {},
+    listening: body.listeningAnswers || {},
+    ...(highlights.length ? { highlights } : {}),
+  });
+  // The same attempt sent twice (an auto-submit when time runs out after the
+  // student already submitted, a double tap, a retry after a dropped
+  // connection) is stored once: identical name, link, answers and essay
+  // within 3 hours → reuse the first submission.
+  const { rows: dup } = await sql`
+    SELECT id FROM submissions
+    WHERE created_at > now() - interval '3 hours'
+      AND lower(student_name) = lower(${studentName})
+      AND COALESCE(session_id, '') = COALESCE(${sessionId}, '')
+      AND COALESCE(content_bank_id, '') = COALESCE(${contentBankId}, '')
+      AND writing_text = ${writingText}
+      AND answers - 'highlights' = (${answersJson}::jsonb) - 'highlights'
+    ORDER BY created_at LIMIT 1`;
+  if (dup[0]) {
+    id = dup[0].id;
+  } else {
+    await sql`
+      INSERT INTO submissions (
+        id, student_name, answers,
+        grammar_score, grammar_total,
+        reading_score, reading_total,
+        listening_score, listening_total,
+        objective_band, writing_text, writing_word_count, content_snapshot,
+        target_band, session_id, skills_included, content_bank_id,
+        student_class, integrity
+      ) VALUES (
+        ${id}, ${studentName}, ${answersJson}::jsonb,
+        ${g.earned}, ${g.total},
+        ${r.earned}, ${r.total},
+        ${l.earned}, ${l.total},
+        ${objectiveBand}, ${writingText}, ${wordCount}, ${JSON.stringify(contentSnapshot)}::jsonb,
+        ${targetBand}, ${sessionId}, ${JSON.stringify(skillsIncluded)}::jsonb, ${contentBankId},
+        ${studentClass}, ${integrity ? JSON.stringify(integrity) : null}::jsonb
+      )
+    `;
+  }
+
+  // Practice sessions get the full answer review back (correct answers +
+  // explanations). The mode is looked up from the session in the database —
+  // never taken from the request — so an exam link can't be made to reveal
+  // the answer key.
+  let review;
+  if (sessionId) {
+    const session = await getSession(sessionId);
+    if (session && sessionMode(session) === "practice") {
+      review = buildReview(
+        content,
+        { grammar: body.grammarAnswers || {}, reading: body.readingAnswers || {}, listening: body.listeningAnswers || {} },
+        skillsIncluded,
+      );
+    }
+  }
+
+  return NextResponse.json({
+    id,
+    gScore: g.earned, gTotal: g.total,
+    rScore: r.earned, rTotal: r.total,
+    lScore: l.earned, lTotal: l.total,
+    objectiveBand,
+    ...(review ? { review } : {}),
+  });
+}

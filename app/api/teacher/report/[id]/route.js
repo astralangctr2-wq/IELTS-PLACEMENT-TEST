@@ -12,6 +12,16 @@ export async function POST(req, { params }) {
   if (!row) return NextResponse.json({ error: "Không tìm thấy bài làm." }, { status: 404 });
   if (!(await canEditSheet(row))) return NextResponse.json({ error: "Bạn không có quyền với bài này." }, { status: 403 });
   const body = await req.json().catch(() => ({}));
+  // Sittings merged in: only ones this teacher may see.
+  if (Array.isArray(body.mergeIds)) {
+    const ok = [];
+    for (const x of body.mergeIds.slice(0, 20)) {
+      if (x === params.id) continue;
+      const m = await getSubmissionFull(String(x));
+      if (m && (await canEditSheet(m))) ok.push(m.id);
+    }
+    body.mergeIds = ok;
+  }
   const data = await saveReport(params.id, normalizeClassName(body.className || row.effective_class) || null, body);
   return NextResponse.json({ ok: true, data });
 }
