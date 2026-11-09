@@ -3,6 +3,7 @@ import { classSummary, listForClass, NO_CLASS } from "@/lib/classes";
 import { computeStats, hardestQuestions } from "@/lib/stats";
 import { INTEGRITY_LABEL, integrityText } from "@/lib/integrity";
 import { vnInputToIso } from "@/lib/vnTime";
+import StaffNav from "../StaffNav";
 
 export const dynamic = "force-dynamic";
 
@@ -60,15 +61,9 @@ export default async function StatsPage({ searchParams }) {
 
   return (
     <div className="wrap-wide">
-      <div className="topbar">
-        <div>
-          <p className="serif" style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Thống kê theo lớp</p>
-          <p className="mono muted" style={{ fontSize: 13, margin: "4px 0 0" }}>
-            {cls === NO_CLASS ? "Chưa phân lớp" : `Lớp ${cls}`} · {aptis ? "Aptis" : "IELTS"}{bank ? ` · ${banks.find((b) => b.bank_id === bank)?.bank_name}` : " · tất cả bài thi"}
-          </p>
-        </div>
-        <a href={`/teacher${cls && cls !== NO_CLASS ? `?class=${encodeURIComponent(cls)}` : ""}`}><button className="btn-ghost btn-sm">← Bảng bài nộp</button></a>
-      </div>
+      <StaffNav title="Thống kê theo lớp"
+        subtitle={`${cls === NO_CLASS ? "Chưa phân lớp" : `Lớp ${cls}`} · ${aptis ? "Aptis" : "IELTS"}${bank ? ` · ${banks.find((b) => b.bank_id === bank)?.bank_name}` : " · tất cả bài thi"}${staff.role === "teacher" ? " · học viên của bạn" : ""}`}
+        actions={<a href={`/teacher${cls && cls !== NO_CLASS ? `?class=${encodeURIComponent(cls)}` : ""}`}><button className="btn-ghost btn-sm">Xem bài nộp của lớp</button></a>} />
 
       <form className="card export-panel" method="get" style={{ marginBottom: 16 }}>
         <label>Lớp

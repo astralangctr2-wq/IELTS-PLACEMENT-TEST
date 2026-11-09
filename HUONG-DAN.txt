@@ -1,15 +1,23 @@
-CẬP NHẬT NHỎ (09/11/2026) — dùng sau gói cap-nhat-tai-khoan-gv
+CẬP NHẬT 09/11/2026 — GIAO DIỆN MỚI KHU GIÁO VIÊN + 3 SỬA NHỎ
 ================================================================
-1. Câu "Choose TWO / THREE" làm đúng một phần: ở trang chữa bài và chế độ luyện tập,
-   học viên thấy "1/2 đúng" (màu vàng), từng lựa chọn có ✓ / ✗ — không còn bị tô đỏ như sai hết.
-2. Thẻ bộ đề (📚 Đề thi) ghi đúng số câu của đề: đếm theo số ô tính điểm
-   (bảng 5 ô = 5 câu, Choose TWO = 2 câu, dòng "Questions 1–5" không tính).
-3. Link phòng thi (/p/<tên GV>) chỉ hiện ca đã mở hoặc mở trong 30 phút tới.
-   Ví dụ cô Lan có FL4 lúc 8:00 và FL8 lúc 14:00: buổi sáng HV vào thẳng bài FL4,
-   ca FL8 chỉ hiện từ 13:30. Link không đặt giờ mở thì hiện ngay như cũ.
-   → Nhớ đặt "Mở lúc" cho các ca thi cùng ngày.
+Dùng sau gói cap-nhat-tai-khoan-gv. Gói này ĐÃ GỘP gói nhỏ cap-nhat-nho-09-11
+(không cần push gói đó nữa).
 
-Không đổi điểm, không đổi dữ liệu nào.
+A. GIAO DIỆN MỚI (chỉ khu Giáo viên / Admin — trang thi của học viên không đổi)
+   - Menu bên trái, xếp theo đúng quy trình làm việc:
+       Admin : Chuẩn bị kỳ thi (Đề thi, Link thi) → Chấm & trả phiếu (Bài nộp,
+               Level & xuất phiếu) → Báo cáo (Thống kê, Khảo sát) → Quản lý (Giáo viên)
+       GV    : Ca thi của tôi (Link được giao) → Chấm bài → Thống kê lớp
+   - Admin: nền trắng. GV: nền đen. Màu nhấn theo nhận diện Astra (xanh navy / vàng).
+   - Số đỏ cạnh menu: Admin = bài chưa có GV; GV = bài chưa chấm Writing.
+   - GV copy link phòng thi ngay ở góc dưới menu.
+   - Điện thoại: bấm ☰ để mở menu.
+B. Câu "Choose TWO" đúng một phần: học viên thấy "1/2 đúng", từng lựa chọn ✓ / ✗.
+C. Thẻ bộ đề ghi đúng số câu (vd FL8 Midterm 40 / 40).
+D. Link phòng thi chỉ hiện ca đã mở hoặc mở trong 30 phút tới → nhớ đặt "Mở lúc".
+
+Không đổi điểm, không đổi dữ liệu nào. Không cần sửa Vercel.
 
 Cách cập nhật: chép đè thư mục app/ và lib/ trong gói vào repo (giữ nguyên đường dẫn).
-GitHub Desktop → Commit → Push. Không cần sửa biến môi trường trên Vercel.
+Có thể xoá file app/teacher/SwRegister.jsx trong repo (không còn dùng; để lại cũng không sao).
+GitHub Desktop → Commit → Push.

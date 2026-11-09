@@ -31,8 +31,8 @@ export default async function TeacherDashboard({ searchParams }) {
 
   return (
     <div className="wrap-wide">
-      <StaffNav staff={staff} title={admin ? "Bảng điều khiển Admin" : "Bài chấm của tôi"}
-        subtitle={`${totalAll} bài nộp — ${pendingAll} chưa chấm Writing${admin && inbox ? ` — ${inbox} bài chưa có GV` : ""}`} />
+      <StaffNav title={admin ? "Bài nộp" : "Bài chấm của tôi"} count={totalAll}
+        subtitle={`${pendingAll} bài chưa chấm Writing${admin && inbox ? ` · ${inbox} bài chưa có GV (Hộp chờ phân bài)` : ""}${admin ? "" : " · chỉ hiện bài của các link được giao cho bạn"}`} />
 
       {totalAll === 0 && !(admin && inbox) ? (
         <div className="card">

@@ -2,6 +2,7 @@ import { requireStaffPage } from "@/lib/staff";
 import { listContentBanks } from "@/lib/contentBanks";
 import { scoredCount, sectionsCount } from "@/lib/scoring";
 import BankManager from "./BankManager";
+import StaffNav from "../StaffNav";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +24,8 @@ export default async function TeacherContentPage() {
     hasWriting: Boolean(b.content.writing),
   }));
   return (
-    <div className="wrap">
-      <div className="topbar">
-        <p className="serif" style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Quản lý các bộ đề</p>
-        <a href="/teacher"><button className="btn-ghost btn-sm">← Bảng điều khiển</button></a>
-      </div>
+    <div className="wrap-wide">
+      <StaffNav title="Đề thi" count={summaries.length} subtitle="Bộ đề IELTS / Aptis dùng để tạo link thi, kèm file chữa bài cho học viên." />
       <BankManager initialBanks={summaries} />
     </div>
   );

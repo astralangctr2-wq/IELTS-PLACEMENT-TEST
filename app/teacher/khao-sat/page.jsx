@@ -1,6 +1,7 @@
 import { surveyScopeOrRedirect } from "@/lib/surveyAuth";
 import { listSurveys, summarizeSurveys, SURVEY } from "@/lib/survey";
 import { formatVN } from "@/lib/formatDate";
+import StaffNav from "../StaffNav";
 
 export const dynamic = "force-dynamic";
 
@@ -38,17 +39,10 @@ export default async function SurveyResults({ searchParams }) {
   const qs = new URLSearchParams({ ...(cls ? { class: cls } : {}), ...(sessionId ? { link: sessionId } : {}) }).toString();
 
   return (
-    <div className="wrap-wide" style={{ maxWidth: 980 }}>
-      <div className="topbar">
-        <div>
-          <p className="serif" style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>📝 Khảo sát góp ý của học viên</p>
-          <p className="mono muted" style={{ fontSize: 12, margin: 0 }}>Bật khảo sát cho từng link ở trang "Tạo link phiên thi".</p>
-        </div>
-        <div className="row" style={{ gap: 8, width: "auto" }}>
-          {rows.length > 0 && <a href={`/api/teacher/survey-export${qs ? `?${qs}` : ""}`}><button className="btn-ghost btn-sm">⬇ Xuất Excel</button></a>}
-          <a href="/teacher"><button className="btn-ghost btn-sm">← Bảng điều khiển</button></a>
-        </div>
-      </div>
+    <div className="wrap-wide">
+      <StaffNav title="Khảo sát học viên" count={rows.length}
+        subtitle="Góp ý của học viên sau khi nộp bài. Bật / tắt khảo sát cho từng link ở trang Link thi."
+        actions={rows.length > 0 ? <a href={`/api/teacher/survey-export${qs ? `?${qs}` : ""}`}><button className="btn-ghost btn-sm">⬇ Xuất Excel</button></a> : null} />
 
       <form className="sv-filter" method="get">
         <label>Lớp

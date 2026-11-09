@@ -50,7 +50,7 @@ export default async function QuickEntryPage({ searchParams }) {
 
   return (
     <div className="wrap-wide">
-      <StaffNav staff={staff} title="Bảng nhập nhanh" subtitle="Level + TOTAL cho cả lớp sau khi GV nộp phiếu, rồi xuất Word" />
+      <StaffNav title="Level & xuất phiếu" subtitle="Sau khi GV nộp phiếu: điền Level + TOTAL cho cả lớp trên 1 màn hình, rồi xuất Word." />
       <form className="card quick-pick" method="get">
         <label>Lớp
           <select name="class" defaultValue={cls}>

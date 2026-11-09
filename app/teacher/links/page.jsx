@@ -22,8 +22,8 @@ export default async function MyLinksPage() {
     bank: bankNames[s.content_bank_id] || "",
   }));
   return (
-    <div className="wrap-wide" style={{ maxWidth: 960 }}>
-      <StaffNav staff={staff} title="Link được giao" subtitle={`${list.length} link · link phòng thi của bạn: /p/${staff.roomSlug || "—"}`} />
+    <div className="wrap-wide">
+      <StaffNav title="Link được giao" count={list.length} subtitle="Copy link hoặc mã thi cho học viên, xem ai đang làm bài. Admin tạo và chỉnh link." />
       <LinkCards sessions={JSON.parse(JSON.stringify(list))} roomSlug={staff.roomSlug} />
     </div>
   );
