@@ -498,6 +498,12 @@ export default function AptisRunner({ config }) {
   }, [content, activeSkills]);
 
   const page = pages[pageIdx];
+  // Each new page (part) starts at its top — no scrolling back up.
+  useEffect(() => {
+    if (typeof window === "undefined" || stage !== "test") return;
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.querySelectorAll(".aptis-passage, .aptis-pane, .reading-passage-pane").forEach((el) => { el.scrollTop = 0; });
+  }, [pageIdx, stage]);
   const skill = page?.skill;
   // Exam mode only: fullscreen + leave/paste log (see ExamIntegrity.jsx).
   const integrity = useExamIntegrity({ enabled: !practice, active: stage === "test", section: skill });

@@ -1,16 +1,38 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { isValidSessionValue } from "@/lib/auth";
-import { setSessionTimes, setSessionSurvey, setSessionActive, setSessionClass, setSessionSchedule, deleteSession } from "@/lib/testSessions";
+import { adminSignedIn } from "@/lib/staff";
+import { setSessionTimes, setSessionSurvey, setSessionActive, setSessionClass, setSessionSchedule, deleteSession, setSessionTeacher, setSessionLevel, setSessionSpeaking, setRoomFor } from "@/lib/testSessions";
+import { getTeacher } from "@/lib/staff";
 
-function requireTeacher() {
-  const value = cookies().get("teacher_session")?.value;
-  return isValidSessionValue(value);
-}
+// Admin only: teachers receive links and grade, they do not manage them.
+const requireTeacher = adminSignedIn;
 
 export async function PATCH(req, { params }) {
-  if (!requireTeacher()) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
+  if (!(await requireTeacher())) return NextResponse.json({ error: "Chỉ admin được làm việc này (hoặc chưa đăng nhập)." }, { status: 401 });
   const body = await req.json();
+  if ("teacherId" in body) {
+    if (body.teacherId) {
+      const t = await getTeacher(String(body.teacherId));
+      if (!t || !t.active) return NextResponse.json({ error: "Không tìm thấy giáo viên." }, { status: 400 });
+    }
+    try {
+      await setSessionTeacher(params.id, body.teacherId ? String(body.teacherId) : null);
+    } catch (e) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+  if ("level" in body) {
+    await setSessionLevel(params.id, body.level);
+    return NextResponse.json({ ok: true });
+  }
+  if ("withSpeaking" in body) {
+    await setSessionSpeaking(params.id, body.withSpeaking);
+    return NextResponse.json({ ok: true });
+  }
+  if ("roomHours" in body) {
+    await setRoomFor(params.id, body.roomHours);
+    return NextResponse.json({ ok: true });
+  }
   if ("opensAt" in body || "closesAt" in body) {
     await setSessionSchedule(params.id, body.opensAt || null, body.closesAt || null);
     return NextResponse.json({ ok: true });
@@ -36,7 +58,7 @@ export async function PATCH(req, { params }) {
 }
 
 export async function DELETE(_req, { params }) {
-  if (!requireTeacher()) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
+  if (!(await requireTeacher())) return NextResponse.json({ error: "Chỉ admin được làm việc này (hoặc chưa đăng nhập)." }, { status: 401 });
   await deleteSession(params.id);
   return NextResponse.json({ ok: true });
 }

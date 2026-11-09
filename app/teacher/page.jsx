@@ -1,24 +1,29 @@
-import { requireTeacherOrRedirect } from "@/lib/auth";
+import { requireStaffPage, scopeTeacher, listTeachers } from "@/lib/staff";
 import { listSessions } from "@/lib/testSessions";
-import { listSubmissionsPage, classSummary, listClassNames, ALL_CLASSES, PAGE_SIZE } from "@/lib/classes";
-import LogoutButton from "./LogoutButton";
+import { listSubmissionsPage, classSummary, listClassNames, inboxCount, ALL_CLASSES, PAGE_SIZE } from "@/lib/classes";
+import StaffNav from "./StaffNav";
 import SubmissionsBoard from "./SubmissionsBoard";
 
 export const dynamic = "force-dynamic";
 
 // Loads only what is on screen: one page of the newest submissions (or all
 // of one class), plus per-class counts for the filter / export / stats.
+// A teacher sees only the submissions of the links given to them.
 export default async function TeacherDashboard({ searchParams }) {
-  requireTeacherOrRedirect();
+  const staff = await requireStaffPage();
+  const admin = staff.role === "admin";
+  const tid = scopeTeacher(staff);
   const cls = (searchParams?.class || ALL_CLASSES).toString();
   const q = (searchParams?.q || "").toString().slice(0, 80);
   const limit = Math.min(1000, Math.max(PAGE_SIZE, Number(searchParams?.n) || PAGE_SIZE));
 
-  const [{ rows, total }, summary, sessions, classNames] = await Promise.all([
-    listSubmissionsPage({ cls, q, limit }),
-    classSummary(),
-    listSessions(),
-    listClassNames(),
+  const [{ rows, total }, summary, sessions, classNames, teachers, inbox] = await Promise.all([
+    listSubmissionsPage({ cls: admin || cls !== "__inbox__" ? cls : ALL_CLASSES, q, limit, tid }),
+    classSummary(tid),
+    admin ? listSessions() : Promise.resolve([]),
+    admin ? listClassNames() : Promise.resolve([]),
+    admin ? listTeachers() : Promise.resolve([]),
+    admin ? inboxCount() : Promise.resolve(0),
   ]);
   const allSessions = sessions.map((s) => ({ id: s.id, name: s.name }));
   const totalAll = summary.reduce((a, r) => a + r.n, 0);
@@ -26,22 +31,14 @@ export default async function TeacherDashboard({ searchParams }) {
 
   return (
     <div className="wrap-wide">
-      <div className="topbar">
-        <div>
-          <p className="serif" style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Bảng điều khiển Giáo viên</p>
-          <p className="mono muted" style={{ fontSize: 13, margin: "4px 0 0" }}>{totalAll} bài nộp — {pendingAll} chưa chấm Writing</p>
-        </div>
-        <div className="row" style={{ gap: 10, width: "auto", flexWrap: "wrap" }}>
-          <a href="/teacher/stats"><button className="btn-ghost btn-sm">📊 Thống kê</button></a>
-          <a href="/teacher/khao-sat"><button className="btn-ghost btn-sm">📝 Khảo sát</button></a>
-          <a href="/teacher/sessions"><button className="btn-ghost btn-sm">Tạo link phiên thi</button></a>
-          <a href="/teacher/content"><button className="btn-ghost btn-sm">Quản lý đề thi</button></a>
-          <LogoutButton />
-        </div>
-      </div>
+      <StaffNav staff={staff} title={admin ? "Bảng điều khiển Admin" : "Bài chấm của tôi"}
+        subtitle={`${totalAll} bài nộp — ${pendingAll} chưa chấm Writing${admin && inbox ? ` — ${inbox} bài chưa có GV` : ""}`} />
 
-      {totalAll === 0 ? (
-        <div className="card"><p className="muted">Chưa có bài nộp nào.</p></div>
+      {totalAll === 0 && !(admin && inbox) ? (
+        <div className="card">
+          <p className="muted">{admin ? "Chưa có bài nộp nào." : "Chưa có bài nào. Khi admin giao link cho bạn, bài làm của học viên sẽ hiện ở đây."}</p>
+          {!admin && <p style={{ margin: "8px 0 0" }}><a href="/teacher/links">→ Xem link được giao</a></p>}
+        </div>
       ) : (
         <SubmissionsBoard
           rows={rows}
@@ -52,6 +49,9 @@ export default async function TeacherDashboard({ searchParams }) {
           summary={summary.map((r) => ({ ...r, class_name: r.class_name || null }))}
           allSessions={allSessions}
           classNames={classNames}
+          isAdmin={admin}
+          teachers={teachers.map((t) => ({ id: t.id, name: t.name, email: t.email, active: t.active }))}
+          inboxCount={inbox}
         />
       )}
     </div>

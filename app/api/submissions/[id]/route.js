@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { sql, ensureSchema } from "@/lib/db";
-import { isValidSessionValue } from "@/lib/auth";
+import { getStaff, staffOwns } from "@/lib/staff";
 import { roundHalf } from "@/lib/scoring";
 import { getSubmissionFull } from "@/lib/classes";
 import {
@@ -86,9 +85,17 @@ async function saveDetailedGrade(id, body) {
 
 export const dynamic = "force-dynamic";
 
-function requireTeacher() {
-  const value = cookies().get("teacher_session")?.value;
-  return isValidSessionValue(value);
+// Admin: every submission. Teacher: the submissions of their own links.
+async function staffFor(id, { admin = false } = {}) {
+  const staff = await getStaff();
+  if (!staff) return { error: NextResponse.json({ error: "Bạn cần đăng nhập với vai trò giáo viên." }, { status: 401 }) };
+  if (admin && staff.role !== "admin") return { error: NextResponse.json({ error: "Chỉ admin được làm việc này." }, { status: 403 }) };
+  if (staff.role !== "admin") {
+    const row = await getSubmissionFull(id);
+    if (!row) return { error: NextResponse.json({ error: "Không tìm thấy bài làm." }, { status: 404 }) };
+    if (!staffOwns(staff, row)) return { error: NextResponse.json({ error: "Bài này không thuộc link của bạn." }, { status: 403 }) };
+  }
+  return { staff };
 }
 
 // Public: lets a student check whether their essay has been graded yet,
@@ -107,20 +114,20 @@ export async function GET(req, { params }) {
 
 // Teacher-only: permanently delete a submission.
 export async function DELETE(req, { params }) {
-  if (!requireTeacher()) {
-    return NextResponse.json({ error: "Bạn cần đăng nhập với vai trò giáo viên." }, { status: 401 });
-  }
+  const auth = await staffFor(params.id, { admin: true });
+  if (auth.error) return auth.error;
   await ensureSchema();
   const { rowCount } = await sql`DELETE FROM submissions WHERE id = ${params.id}`;
   if (rowCount === 0) return NextResponse.json({ error: "Không tìm thấy bài làm." }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
 export async function PATCH(req, { params }) {
-  if (!requireTeacher()) {
-    return NextResponse.json({ error: "Bạn cần đăng nhập với vai trò giáo viên." }, { status: 401 });
-  }
   await ensureSchema();
   const body = await req.json();
+  // Moving a submission to another link / changing its test type: admin.
+  // Grading: the teacher of the submission (or the admin).
+  const auth = await staffFor(params.id, { admin: body.action === "moveSession" || body.action === "setExamType" });
+  if (auth.error) return auth.error;
 
   // Moving a submission into a different session/folder — a separate
   // concern from grading, kept in the same route since both act on a

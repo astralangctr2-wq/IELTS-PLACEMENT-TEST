@@ -1,22 +1,19 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { isValidSessionValue } from "@/lib/auth";
+import { adminSignedIn } from "@/lib/staff";
 import { getContentBank, updateContentBank, deleteContentBank } from "@/lib/contentBanks";
 
-function requireTeacher() {
-  const value = cookies().get("teacher_session")?.value;
-  return isValidSessionValue(value);
-}
+// Admin only: teachers receive links and grade, they do not manage them.
+const requireTeacher = adminSignedIn;
 
 export async function GET(_req, { params }) {
-  if (!requireTeacher()) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
+  if (!(await requireTeacher())) return NextResponse.json({ error: "Chỉ admin được làm việc này (hoặc chưa đăng nhập)." }, { status: 401 });
   const bank = await getContentBank(params.id);
   if (!bank) return NextResponse.json({ error: "Không tìm thấy bộ đề." }, { status: 404 });
   return NextResponse.json(bank);
 }
 
 export async function PATCH(req, { params }) {
-  if (!requireTeacher()) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
+  if (!(await requireTeacher())) return NextResponse.json({ error: "Chỉ admin được làm việc này (hoặc chưa đăng nhập)." }, { status: 401 });
   try {
     const body = await req.json();
     if (body.content) {
@@ -30,7 +27,7 @@ export async function PATCH(req, { params }) {
 }
 
 export async function DELETE(_req, { params }) {
-  if (!requireTeacher()) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
+  if (!(await requireTeacher())) return NextResponse.json({ error: "Chỉ admin được làm việc này (hoặc chưa đăng nhập)." }, { status: 401 });
   try {
     await deleteContentBank(params.id);
     return NextResponse.json({ ok: true });

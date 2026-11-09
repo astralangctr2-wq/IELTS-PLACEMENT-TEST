@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import ExcelJS from "exceljs";
-import { isValidSessionValue } from "@/lib/auth";
+import { adminSignedIn } from "@/lib/staff";
 import { listForClass, NO_CLASS } from "@/lib/classes";
 import { normalizeClassName } from "@/lib/classNames";
 import { INTEGRITY_LABEL, integrityText } from "@/lib/integrity";
@@ -117,7 +116,7 @@ function sheetName(name, used) {
 const ascii = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
 
 export async function GET(req) {
-  if (!isValidSessionValue(cookies().get("teacher_session")?.value)) {
+  if (!(await adminSignedIn())) {
     return new Response("Chưa đăng nhập.", { status: 401 });
   }
   const url = new URL(req.url);

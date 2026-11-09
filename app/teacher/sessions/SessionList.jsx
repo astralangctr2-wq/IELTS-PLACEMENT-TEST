@@ -33,7 +33,29 @@ function timeSummary(s) {
 }
 const inTab = (st, tab) => tab === "all" || (tab === "ended" ? st === "closed" || st === "off" : st === tab);
 
-export default function SessionList({ sessions, setSessions, bankName, classOptions = [], teacherMode = false }) {
+export default function SessionList({ sessions, setSessions, bankName, classOptions = [], teacherMode = false, teachers = [], onClone }) {
+  const tName = (id) => { const t = teachers.find((x) => x.id === id); return t ? t.name || t.email : "?"; };
+  const [gvEdit, setGvEdit] = useState(null); // { id, value }
+  const [levelEdit, setLevelEdit] = useState(null); // { id, value }
+  const saveTeacher = async (s, teacherId) => {
+    const res = await patch(s.id, { teacherId: teacherId || null });
+    if (!res.ok) { alert((await res.json().catch(() => ({}))).error || "Không đổi được GV."); return; }
+    setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, teacher_id: teacherId || null } : x)));
+    setGvEdit(null);
+  };
+  const saveLevel = async (s, value) => {
+    await patch(s.id, { level: value });
+    setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, level: value.trim() || null } : x)));
+    setLevelEdit(null);
+  };
+  const toggleSpeaking = async (s) => {
+    await patch(s.id, { withSpeaking: !s.with_speaking });
+    setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, with_speaking: !s.with_speaking } : x)));
+  };
+  const setRoom = async (s, hours) => {
+    await patch(s.id, { roomHours: hours });
+    setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, room_until: hours ? new Date(Date.now() + hours * 3600000).toISOString() : new Date(0).toISOString() } : x)));
+  };
   const [tab, setTab] = useState("all");
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState(null);
@@ -167,6 +189,42 @@ export default function SessionList({ sessions, setSessions, bankName, classOpti
                 {legacyPractice && <span className="meta-chip">Luyện tập (cũ)</span>}
               </div>
 
+              <div className="sess-meta">
+                {gvEdit?.id === s.id ? (
+                  <span className="sess-inline">
+                    <select value={gvEdit.value} onChange={(e) => setGvEdit({ id: s.id, value: e.target.value })}>
+                      <option value="">— Chưa giao GV —</option>
+                      {teachers.filter((t) => t.active || t.id === s.teacher_id).map((t) => <option key={t.id} value={t.id}>{t.name || t.email}</option>)}
+                    </select>
+                    <button className="btn btn-xs" onClick={() => saveTeacher(s, gvEdit.value)}>Lưu</button>
+                    <button className="btn-ghost btn-xs" onClick={() => setGvEdit(null)}>Huỷ</button>
+                    {s.teacher_id && <span className="muted" style={{ fontSize: 12 }}>Bài đã nộp vẫn ở GV cũ, bài mới về GV mới.</span>}
+                  </span>
+                ) : (
+                  <button className={`meta-chip editable ${s.teacher_id ? "on" : "warn"}`} title="Giáo viên canh thi & chấm bài của link" onClick={() => setGvEdit({ id: s.id, value: s.teacher_id || "" })}>
+                    GV <b>{s.teacher_id ? tName(s.teacher_id) : "chưa giao"}</b> ✎
+                  </button>
+                )}
+                <button className={`meta-chip editable ${s.with_speaking ? "on" : ""}`} title="GV của link được nhập điểm & nhận xét Nói" onClick={() => toggleSpeaking(s)}>
+                  🗣 Nói <b>{s.with_speaking ? "Có" : "Không"}</b>
+                </button>
+                {levelEdit?.id === s.id ? (
+                  <span className="sess-inline">
+                    <input type="text" value={levelEdit.value} placeholder="VD: FLY UP 8" onChange={(e) => setLevelEdit({ id: s.id, value: e.target.value })} />
+                    <button className="btn btn-xs" onClick={() => saveLevel(s, levelEdit.value)}>Lưu</button>
+                    <button className="btn-ghost btn-xs" onClick={() => setLevelEdit(null)}>Huỷ</button>
+                  </span>
+                ) : (
+                  <button className="meta-chip editable" title="Level in trên phiếu" onClick={() => setLevelEdit({ id: s.id, value: s.level || "" })}>
+                    Level <b>{s.level || "—"}</b> ✎
+                  </button>
+                )}
+                {s.access_code && <span className="meta-chip" title="Học viên gõ mã này ở trang chủ">Mã thi <b className="mono">{s.access_code}</b></span>}
+                {s.teacher_id && (new Date(s.room_until || 0).getTime() > Date.now()
+                  ? <button className="meta-chip editable on" title="Đang hiện trên link phòng thi của GV — bấm để ẩn" onClick={() => setRoom(s, 0)}>🚪 Phòng thi đến <b>{formatVnShort(s.room_until)}</b> ✕</button>
+                  : <button className="meta-chip editable" title="Hiện link này trên link phòng thi của GV trong 12 giờ tới" onClick={() => setRoom(s, 12)}>🚪 Hiện trên phòng thi 12 giờ</button>)}
+              </div>
+
               {!legacyPractice && (timeEdit?.id === s.id ? (
                 <div className="sess-sched-edit">
                   {TIMED.filter((k) => (s.skills || []).includes(k)).map((k) => (
@@ -238,6 +296,7 @@ export default function SessionList({ sessions, setSessions, bankName, classOpti
                 <button className="btn btn-sm" onClick={() => copy(s)}>{copied === s.id ? "Đã copy ✓" : "Copy link"}</button>
                 <a href={`/test/s/${s.id}`} target="_blank" rel="noreferrer"><button className="btn-ghost btn-sm">Mở thử ↗</button></a>
                 <button className={`btn-ghost btn-sm ${drafts?.id === s.id ? "on" : ""}`} onClick={() => showDrafts(s.id)} title="Học viên đã bắt đầu nhưng chưa nộp (bài được lưu tự động)">👀 Đang làm</button>
+                {onClone && <button className="btn-ghost btn-sm" onClick={() => onClone(s)} title="Tạo link mới cùng đề, lớp, thời gian — rồi đổi kỹ năng / GV">⧉ Nhân bản</button>}
                 <span className="sess-spacer" />
                 <button className="btn-ghost btn-sm" onClick={() => toggleActive(s)}>{s.active ? "Tắt link" : "Bật lại"}</button>
                 {confirmDel === s.id ? (

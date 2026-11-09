@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { scoreColumns } from "@/lib/sheetCols";
+import { scoreColumns, aptisSkills } from "@/lib/sheetCols";
 import { splitLabel, missingFields, cleanText } from "@/lib/sheetText";
 
 // Result-sheet workspace for a whole class: class list (status of each
@@ -124,9 +124,23 @@ function Card({ id, title, en, right, active, onFocus, children }) {
   );
 }
 
-export default function ResultSheet({ data, initial, classmates = [] }) {
+const ALL_RIGHTS = { admin: true, mine: true, fields: [], ownIds: [] };
+const SKILL_VI = { listening: "Nghe", reading: "Đọc", writing: "Viết", speaking: "Nói", grammar: "Ngữ pháp" };
+const FIELD_SKILL = { cListening: "listening", cReading: "reading", cWriting: "writing", cSpeaking: "speaking", speaking: "speaking" };
+
+export default function ResultSheet({ data, initial, classmates = [], rights = ALL_RIGHTS, me = { role: "admin" } }) {
   const router = useRouter();
   const [r, setR] = useState(initial);
+  // Parts of the sheet this person may write (lib/sheetRights.js); the
+  // server enforces the same rules.
+  const can = (k) => rights.admin || rights.fields.includes(k);
+  const whose = (k) => (FIELD_SKILL[k] ? (data.owners?.[FIELD_SKILL[k]] ? `Phần của ${data.owners[FIELD_SKILL[k]]}` : "Chỉ GV được phân phần này hoặc admin") : "Chỉ admin nhập");
+  const isTeacher = me.role === "teacher";
+  const myParts = (data.parts || []).filter((p) => isTeacher && p.teacherId === me.id);
+  const [handedAt, setHandedAt] = useState(myParts.length && myParts.every((p) => p.doneAt) ? myParts.map((p) => p.doneAt).sort().pop() : null);
+  const [handState, setHandState] = useState(""); // "" | confirm | sending | error text
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState(() => new Set());
   const [merging, setMerging] = useState(false);
   const [state, setState] = useState("saved"); // saved | dirty | saving | error
   const [active, setActive] = useState(null);
@@ -139,6 +153,9 @@ export default function ResultSheet({ data, initial, classmates = [] }) {
 
   // ---- saving: by itself 1 s after the last change, and before leaving
   const rRef = useRef(r); rRef.current = r;
+  // The values this screen started from / last saved: the server only
+  // takes the fields changed since (several people can have the sheet open).
+  const baseRef = useRef(initial);
   const dirty = useRef(false);
   const timer = useRef(null);
   const chain = useRef(Promise.resolve(true));
@@ -149,8 +166,10 @@ export default function ResultSheet({ data, initial, classmates = [] }) {
       dirty.current = false;
       setState("saving");
       try {
-        const res = await fetch(`/api/teacher/report/${data.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rRef.current) });
+        const sent = rRef.current;
+        const res = await fetch(`/api/teacher/report/${data.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...sent, base: baseRef.current }) });
         if (!res.ok) throw new Error();
+        baseRef.current = sent;
         if (!dirty.current) setState("saved");
         return true;
       } catch {
@@ -172,7 +191,7 @@ export default function ResultSheet({ data, initial, classmates = [] }) {
   useEffect(() => {
     const flush = () => {
       if (!dirty.current) return;
-      fetch(`/api/teacher/report/${data.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rRef.current), keepalive: true });
+      fetch(`/api/teacher/report/${data.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...rRef.current, base: baseRef.current }), keepalive: true });
       dirty.current = false;
     };
     const warn = (e) => { if (dirty.current) { e.preventDefault(); e.returnValue = ""; } };
@@ -193,12 +212,14 @@ export default function ResultSheet({ data, initial, classmates = [] }) {
       for (const k of ["teacher", "level", "levelNote", "speaking", "total", "cListening", "cSpeaking", "cReading", "classSituation", "direction"]) {
         if (!(p[k] || "").toString().trim() && (initial[k] || "").toString().trim()) fill[k] = initial[k];
       }
-      return {
-        ...p, ...fill,
+      const took = {
+        ...fill,
         autoW: initial.autoW, mergeIds: initial.mergeIds, mergeOff: initial.mergeOff,
-        comment: keep("comment") ? p.comment : initial.comment,
-        cWriting: keep("cWriting") ? p.cWriting : initial.cWriting,
+        ...(keep("comment") ? {} : { comment: initial.comment }),
+        ...(keep("cWriting") ? {} : { cWriting: initial.cWriting }),
       };
+      baseRef.current = { ...baseRef.current, ...took };
+      return { ...p, ...took };
     });
   }, [initial.autoW, initial.comment, initial.cWriting, initial.cSpeaking, initial.cListening, initial.cReading, initial.direction, initial.classSituation, (initial.mergeIds || []).join(",")]);
 
@@ -284,7 +305,38 @@ export default function ResultSheet({ data, initial, classmates = [] }) {
   const ps = (key, cls = "") => ({ "data-psec": key, className: [cls, active === key && "hl"].filter(Boolean).join(" ") || undefined });
 
   const saveLabel = { saved: "Đã lưu", dirty: "Chưa lưu…", saving: "Đang lưu…", error: "Lưu lỗi — thử lại" }[state];
-  const ta = (k, placeholder) => <AutoText className="sb-ta" value={r[k]} onChange={set(k)} placeholder={placeholder} />;
+  const ta = (k, placeholder) => (can(k)
+    ? <AutoText className="sb-ta" value={r[k]} onChange={set(k)} placeholder={placeholder} />
+    : <AutoText className="sb-ta sb-ro" value={r[k]} readOnly placeholder={whose(k)} title={whose(k)} />);
+  const ro = (k) => (can(k) ? {} : { readOnly: true, title: whose(k), className: "sb-inp sb-ro" });
+
+  // ---- teacher: hand sheets in to the admin
+  const FIELD_OF = { nghe: "cListening", doc: "cReading", viet: "cWriting", noi: "cSpeaking", scores: "speaking", lop: "classSituation", huong: "direction", mock: "comment" };
+  const myMissing = missing.filter((m) => can(FIELD_OF[m.key]));
+  const handIn = async (ids, force = false) => {
+    if (!force && ids.length === 1 && ids[0] === data.id && myMissing.length && handState !== "confirm") { setHandState("confirm"); return; }
+    setHandState("sending");
+    if (!(await save())) { setHandState("Chưa lưu được phiếu — thử lại."); return; }
+    try {
+      const res = await fetch("/api/teacher/handin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sheetIds: ids }) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "Không nộp được.");
+      if (ids.includes(data.id)) setHandedAt(j.at);
+      setHandState(""); setPicking(false); setPicked(new Set());
+      router.refresh();
+    } catch (e) { setHandState(e.message); }
+  };
+  const toggleUp = (k) => {
+    const up = new Set((r.cefrUp || "").split(",").filter(Boolean));
+    if (up.has(k)) up.delete(k); else up.add(k);
+    edit({ cefrUp: [...up].join(",") });
+  };
+  const apt = data.aptis ? aptisSkills(data, r) : null;
+  const partLine = (data.parts || []).filter((p) => p.teacherId).map((p) => ({
+    who: data.teacherNames?.[p.teacherId] || "GV",
+    what: [...p.skills, ...(p.speaking ? ["speaking"] : [])].map((k) => SKILL_VI[k]).filter(Boolean).join(", "),
+    doneAt: p.doneAt,
+  }));
   const chip = (name) => { const c = cols.find((x) => x.name === name); return c && c.val !== "" && c.val !== null && c.val !== undefined ? <span className="sb-chip">{name} {c.val}{["Reading", "Listening", "Grammar"].includes(name) ? `/${c.max}` : ""}</span> : null; };
 
   const info = (
@@ -320,8 +372,8 @@ export default function ResultSheet({ data, initial, classmates = [] }) {
         <div className="sb-brand"><b>Phiếu điểm</b><span className="sb-crumb">Lớp <span>{r.className || "—"}</span> · <span>{r.testTitle}</span></span></div>
         <div className="sb-grow" />
         <div className="sb-seg" role="group" aria-label="Mẫu phiếu">
-          <button aria-pressed={full} onClick={() => edit({ template: "full" })}>Mid-term / Final</button>
-          <button aria-pressed={!full} onClick={() => edit({ template: "short" })}>Mock test</button>
+          <button aria-pressed={full} disabled={!can("template")} onClick={() => edit({ template: "full" })}>Mid-term / Final</button>
+          <button aria-pressed={!full} disabled={!can("template")} onClick={() => edit({ template: "short" })}>Mock test</button>
         </div>
         <div className="sb-seg sb-viewtabs" role="group" aria-label="Chế độ xem">
           <button aria-pressed={view === "edit"} onClick={() => setView("edit")}>Nhập</button>
@@ -352,16 +404,28 @@ export default function ResultSheet({ data, initial, classmates = [] }) {
               <button aria-pressed={!onlyTodo} onClick={() => setOnlyTodo(false)}>Tất cả</button>
               <button aria-pressed={onlyTodo} onClick={() => setOnlyTodo(true)}>Chưa xong</button>
             </div>
+            {isTeacher && classmates.length > 1 && (
+              <div className="sb-pick">
+                {!picking ? <button type="button" className="sb-link" onClick={() => setPicking(true)}>☑ Nộp nhiều phiếu một lúc</button> : (
+                  <>
+                    <button type="button" className="sb-btn dark" disabled={!picked.size || handState === "sending"} onClick={() => handIn([...picked], true)}>Nộp {picked.size} phiếu</button>
+                    <button type="button" className="sb-link" onClick={() => setPicked(new Set(classmates.map((c) => c.id)))}>Chọn cả lớp</button>
+                    <button type="button" className="sb-link" onClick={() => { setPicking(false); setPicked(new Set()); }}>Huỷ</button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
           <ul className="sb-list">
             {(classmates.length ? shown : [{ id: data.id, name: data.name, current: true }]).map((c) => {
               const st = statusOf(c);
               return (
-                <li key={c.id}>
-                  <button className="sb-stu" aria-current={c.current ? "true" : undefined} onClick={() => go(c)}>
+                <li key={c.id} className={picking ? "sb-picking" : undefined}>
+                  {picking && <input type="checkbox" className="sb-pick-box" aria-label={`Chọn ${c.name}`} checked={picked.has(c.id)} onChange={(e) => setPicked((p) => { const n = new Set(p); if (e.target.checked) n.add(c.id); else n.delete(c.id); return n; })} />}
+                  <button className="sb-stu" aria-current={c.current ? "true" : undefined} onClick={() => (picking ? setPicked((p) => { const n = new Set(p); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; }) : go(c))}>
                     <span className="sb-ava">{initials(c.name)}</span>
                     <span className="sb-stu-t"><span className="sb-nm">{c.name}</span>
-                      <span className="sb-sub">{ST[st]}{st === "doing" && (c.current ? missing.length : c.missing) ? ` · thiếu ${c.current ? missing.length : c.missing}` : ""}{c.needsGrading ? <span className="sb-warn"> · ✍ chưa chấm</span> : ""}</span>
+                      <span className="sb-sub">{ST[st]}{st === "doing" && (c.current ? missing.length : c.missing) ? ` · thiếu ${c.current ? missing.length : c.missing}` : ""}{c.needsGrading ? <span className="sb-warn"> · ✍ chưa chấm</span> : ""}{(c.current ? handedAt : c.handedIn) ? <span className="sb-handed"> · ✓ đã nộp</span> : ""}</span>
                     </span>
                     <i className={`sb-dot st-${st}`} aria-label={ST[st]} />
                   </button>
@@ -388,38 +452,57 @@ export default function ResultSheet({ data, initial, classmates = [] }) {
               </div>
               {data.hasWriting && !data.graded && <a className="sb-warnlink" href={`/teacher/${data.writerId}`}>✍ Writing chưa chấm — chấm ngay →</a>}
             </div>
+            {partLine.length > 0 && (
+              <div className="sb-parts">
+                {partLine.map((p, i) => (
+                  <span key={i} className={p.doneAt ? "done" : ""}><b>{p.who}</b> · {p.what} — {p.doneAt ? `đã nộp ${when(p.doneAt)}` : "chưa nộp"}</span>
+                ))}
+              </div>
+            )}
 
             <details className="sb-info" id="card-info" onFocusCapture={() => setActive("info")}>
               <summary><span>Thông tin phiếu</span><b>{r.testTitle || "—"}</b>·<span>{r.teacher || "chưa có GV"}</span>·<span>{r.level || "chưa có level"}</span>·<span>{r.className || "—"}</span><span className="sb-plus">+</span></summary>
               <div className="sb-grid2">
-                <label className="sb-fld"><span>Tên bài thi (dòng dưới TEST RESULT)</span><input className="sb-inp" value={r.testTitle || ""} onChange={set("testTitle")} /></label>
-                <label className="sb-fld"><span>Giáo viên</span><input className="sb-inp" value={r.teacher || ""} onChange={set("teacher")} placeholder="Ms Ngọc Ngân & Ms Yến Nhi" /></label>
-                <label className="sb-fld"><span>Level</span><input className="sb-inp" value={r.level || ""} onChange={set("level")} placeholder="FLY UP 6" /></label>
-                <label className="sb-fld"><span>Ghi chú level</span><input className="sb-inp" value={r.levelNote || ""} onChange={set("levelNote")} placeholder="Lộ trình đạt 6.0+" /></label>
-                <label className="sb-fld"><span>Lớp</span><input className="sb-inp" value={r.className || ""} onChange={set("className")} /></label>
+                <label className="sb-fld"><span>Tên bài thi (dòng dưới TEST RESULT)</span><input className="sb-inp" value={r.testTitle || ""} onChange={set("testTitle")} {...ro("testTitle")} /></label>
+                <label className="sb-fld"><span>Giáo viên</span><input className="sb-inp" value={r.teacher || ""} onChange={set("teacher")} placeholder="Ms Ngọc Ngân & Ms Yến Nhi" {...ro("teacher")} /></label>
+                <label className="sb-fld"><span>Level</span><input className="sb-inp" value={r.level || ""} onChange={set("level")} placeholder="FLY UP 6" {...ro("level")} /></label>
+                <label className="sb-fld"><span>Ghi chú level</span><input className="sb-inp" value={r.levelNote || ""} onChange={set("levelNote")} placeholder="Lộ trình đạt 6.0+" {...ro("levelNote")} /></label>
+                <label className="sb-fld"><span>Lớp</span><input className="sb-inp" value={r.className || ""} onChange={set("className")} {...ro("className")} /></label>
               </div>
             </details>
 
             <Card id="scores" title="Điểm" en="Test results" active={active === "scores"} onFocus={setActive}
               right={<span className="sb-en">Reading, Listening, Writing lấy từ bài làm & phần chấm</span>}>
-              <div className="sb-scores" style={{ "--n": cols.filter((c) => !["Speaking", "TOTAL"].includes(c.name)).length + 1 + (full && !data.aptis ? 1 : 0) }}>
+              <div className="sb-scores" style={{ "--n": cols.filter((c) => !["Speaking", "TOTAL"].includes(c.name)).length + 1 + (full && !data.aptis ? 1 : 0) + (apt && apt.total !== null ? 1 : 0) }}>
                 {cols.filter((c) => !["Speaking", "TOTAL"].includes(c.name)).map((c) => (
                   <div key={c.name} className="sb-sc ro">
                     <div className="k">{c.name}</div>
                     <div className="v">{c.val === "" || c.val === null || c.val === undefined ? "–" : c.val}<small>{c.name === "Writing" ? "" : `/${c.max}`}</small></div>
                     <div className="hint">{c.name === "Writing" ? (data.graded ? "từ phần chấm" : <a href={`/teacher/${data.writerId}`}>chưa chấm →</a>) : data.aptis ? c.sub || "" : "từ bài làm"}</div>
+                    {apt && c.name !== "TOTAL" && (() => { const k = c.name.toLowerCase(); const a = apt[k]; if (!a) return null; return a.raised
+                      ? <div className="sb-near up">↑ đã nâng lên {a.cefr}{can("cefrUp") && <> · <button type="button" className="sb-link" onClick={() => toggleUp(k)}>bỏ nâng</button></>}</div>
+                      : a.near ? <div className="sb-near">Sát mốc {a.near}{can("cefrUp") && <> · <button type="button" className="sb-link" onClick={() => toggleUp(k)}>nâng lên {a.near}</button></>}</div> : null; })()}
                   </div>
                 ))}
                 <label className="sb-sc">
                   <div className="k">Speaking</div>
-                  <input inputMode="decimal" value={r.speaking || ""} onChange={set("speaking")} placeholder="–" aria-label="Speaking" />
-                  <div className="hint">{data.aptis ? "thang 0–50" : full ? "band, nhập tay" : "bỏ trống nếu không thi"}</div>
+                  <input inputMode="decimal" value={r.speaking || ""} onChange={set("speaking")} placeholder="–" aria-label="Speaking" readOnly={!can("speaking")} title={can("speaking") ? "" : whose("speaking")} />
+                  <div className="hint">{!can("speaking") ? whose("speaking") : data.aptis ? `thang 0–50${apt?.speaking.cefr ? ` · ${apt.speaking.cefr}` : ""}` : full ? "band, nhập tay" : "bỏ trống nếu không thi"}</div>
+                  {apt?.speaking && (apt.speaking.raised ? <div className="sb-near up">↑ đã nâng lên {apt.speaking.cefr}{can("cefrUp") && <> · <button type="button" className="sb-link" onClick={() => toggleUp("speaking")}>bỏ nâng</button></>}</div>
+                    : apt.speaking.near ? <div className="sb-near">Sát mốc {apt.speaking.near}{can("cefrUp") && <> · <button type="button" className="sb-link" onClick={() => toggleUp("speaking")}>nâng lên {apt.speaking.near}</button></>}</div> : null)}
                 </label>
+                {apt && apt.total !== null && (
+                  <label className="sb-sc total">
+                    <div className="k">TOTAL</div>
+                    <input inputMode="numeric" value={r.total || ""} onChange={set("total")} placeholder={String(apt.total)} aria-label="TOTAL" readOnly={!can("total")} title={can("total") ? "" : whose("total")} />
+                    <div className="hint">/200 · CEFR tổng <b>{apt.overall || "–"}</b>{(r.total || "").trim() && can("total") ? <> · <button type="button" className="sb-link" onClick={() => edit({ total: "" })}>↺ về tự tính</button></> : ""}</div>
+                  </label>
+                )}
                 {full && !data.aptis && (() => { const t = cols.find((c) => c.name === "TOTAL"); const auto = (r.total || "").trim() ? "" : t?.val; return (
                   <label className="sb-sc total">
                     <div className="k">TOTAL</div>
-                    <input inputMode="decimal" value={r.total || ""} onChange={set("total")} placeholder={auto || "–"} aria-label="TOTAL" />
-                    <div className="hint">{(r.total || "").trim() ? <button type="button" className="sb-link" onClick={() => edit({ total: "" })}>↺ về tự tính</button> : "tự tính"}</div>
+                    <input inputMode="decimal" value={r.total || ""} onChange={set("total")} placeholder={auto || "–"} aria-label="TOTAL" readOnly={!can("total")} title={can("total") ? "" : whose("total")} />
+                    <div className="hint">{!can("total") ? "admin nhập" : (r.total || "").trim() ? <button type="button" className="sb-link" onClick={() => edit({ total: "" })}>↺ về tự tính</button> : "tự tính"}</div>
                   </label>); })()}
               </div>
             </Card>
@@ -434,7 +517,7 @@ export default function ResultSheet({ data, initial, classmates = [] }) {
                 </label>
                 {data.siblings.map((x) => (
                   <label key={x.id} className={`ps-merge-row ${(r.mergeIds || []).includes(x.id) ? "on" : ""}`}>
-                    <input type="checkbox" checked={(r.mergeIds || []).includes(x.id)} disabled={merging} onChange={(e) => toggleMerge(x.id, e.target.checked)} />
+                    <input type="checkbox" checked={(r.mergeIds || []).includes(x.id)} disabled={merging || !(rights.admin || rights.ownIds.includes(x.id))} title={rights.admin || rights.ownIds.includes(x.id) ? "" : "Bài của GV khác — chỉ admin gộp / bỏ"} onChange={(e) => toggleMerge(x.id, e.target.checked)} />
                     <span>
                       {x.manual && <><b className="ps-merge-name">“{x.name}”</b> · </>}
                       {x.skills.map((k) => SK[k]).join(", ")}{x.skills.includes("writing") ? (x.graded ? " · đã chấm" : " · chưa chấm") : ""}
@@ -449,7 +532,7 @@ export default function ResultSheet({ data, initial, classmates = [] }) {
             {!full && (
               <Card id="mock" title="Teacher’s comment" en="Nhận xét chung" active={active === "mock"} onFocus={setActive}>
                 {ta("comment", "Nhận xét chung cho bài thi")}
-                {data.autoW && r.comment !== data.autoW && <button type="button" className="sb-link" onClick={() => edit({ comment: data.autoW })}>↻ Lấy lại nhận xét từ phần chấm Writing</button>}
+                {can("comment") && data.autoW && r.comment !== data.autoW && <button type="button" className="sb-link" onClick={() => edit({ comment: data.autoW })}>↻ Lấy lại nhận xét từ phần chấm Writing</button>}
               </Card>
             )}
             {full && (
@@ -460,7 +543,7 @@ export default function ResultSheet({ data, initial, classmates = [] }) {
                 {has("writing") && (
                   <Card id="viet" title="Viết" en="Writing" right={chip("Writing")} active={active === "viet"} onFocus={setActive}>
                     {ta("cWriting", data.graded ? "Lấy sẵn từ phần chấm Writing" : "Chấm Writing xong, nhận xét sẽ tự điền vào đây")}
-                    {data.autoW && r.cWriting !== data.autoW && <button type="button" className="sb-link" onClick={() => edit({ cWriting: data.autoW })}>↻ Lấy lại nhận xét từ phần chấm Writing</button>}
+                    {can("cWriting") && data.autoW && r.cWriting !== data.autoW && <button type="button" className="sb-link" onClick={() => edit({ cWriting: data.autoW })}>↻ Lấy lại nhận xét từ phần chấm Writing</button>}
                   </Card>
                 )}
                 <Card id="lop" title="Tình hình trên lớp" active={active === "lop"} onFocus={setActive}>{ta("classSituation", "Thái độ học tập, chuyên cần, tham gia trên lớp")}</Card>
@@ -472,6 +555,17 @@ export default function ResultSheet({ data, initial, classmates = [] }) {
               <div className="sb-miss">
                 {missing.length ? <><span>Còn thiếu:</span>{missing.map((m) => <button key={m.key + m.label} onClick={() => jump(m.key)}>{m.label}</button>)}</> : <span className="sb-ok">✓ Đủ các mục</span>}
               </div>
+              {isTeacher && (
+                <div className="sb-handin">
+                  {handState === "confirm" ? (
+                    <><span className="sb-warn">Còn thiếu: {myMissing.map((m) => m.label).join(", ")}</span><button className="sb-btn" onClick={() => handIn([data.id], true)}>Vẫn nộp</button><button className="sb-link" onClick={() => setHandState("")}>Huỷ</button></>
+                  ) : (
+                    <><button className="sb-btn" disabled={handState === "sending"} onClick={() => handIn([data.id])}>{handState === "sending" ? "Đang nộp…" : handedAt ? "Nộp lại" : "Nộp phiếu cho admin"}</button>
+                      {handedAt && <span className="sb-handed">✓ Đã nộp {when(handedAt)}</span>}
+                      {handState && handState !== "sending" && <span className="accent">{handState}</span>}</>
+                  )}
+                </div>
+              )}
               {nextMate ? <button className="sb-btn dark" onClick={() => go(nextMate)}>Sang em tiếp: {nextMate.name} →</button> : <button className="sb-btn" onClick={save}>Lưu phiếu</button>}
             </div>
           </div>

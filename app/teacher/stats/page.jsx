@@ -1,4 +1,4 @@
-import { requireTeacherOrRedirect } from "@/lib/auth";
+import { requireStaffPage, scopeTeacher } from "@/lib/staff";
 import { classSummary, listForClass, NO_CLASS } from "@/lib/classes";
 import { computeStats, hardestQuestions } from "@/lib/stats";
 import { INTEGRITY_LABEL, integrityText } from "@/lib/integrity";
@@ -31,8 +31,9 @@ function Range({ s }) {
 }
 
 export default async function StatsPage({ searchParams }) {
-  requireTeacherOrRedirect();
-  const summary = await classSummary();
+  const staff = await requireStaffPage();
+  const tid = scopeTeacher(staff); // a teacher: only their own students
+  const summary = await classSummary(tid);
   const classes = [...new Set(summary.map((r) => r.class_name || NO_CLASS))].sort((a, b) => (a === NO_CLASS ? 1 : b === NO_CLASS ? -1 : a.localeCompare(b, "vi")));
   const cls = searchParams?.class && classes.includes(searchParams.class) ? searchParams.class : classes.find((c) => c !== NO_CLASS) || classes[0];
   const inClass = summary.filter((r) => (r.class_name || NO_CLASS) === cls);
@@ -43,7 +44,7 @@ export default async function StatsPage({ searchParams }) {
   const from = (searchParams?.from || "").slice(0, 10);
   const to = (searchParams?.to || "").slice(0, 10);
 
-  let rows = cls ? await listForClass(cls, type, bank) : [];
+  let rows = cls ? await listForClass(cls, type, bank, tid) : [];
   const fromT = from ? new Date(vnInputToIso(`${from}T00:00`)).getTime() : null;
   const toT = to ? new Date(vnInputToIso(`${to}T23:59`)).getTime() + 59999 : null;
   rows = rows.filter((r) => {

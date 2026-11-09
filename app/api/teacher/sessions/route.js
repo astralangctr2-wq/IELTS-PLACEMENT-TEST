@@ -1,23 +1,25 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { isValidSessionValue } from "@/lib/auth";
+import { adminSignedIn } from "@/lib/staff";
 import { createSession, listSessions } from "@/lib/testSessions";
+import { getTeacher } from "@/lib/staff";
 
-function requireTeacher() {
-  const value = cookies().get("teacher_session")?.value;
-  return isValidSessionValue(value);
-}
+// Admin only: teachers receive links and grade, they do not manage them.
+const requireTeacher = adminSignedIn;
 
 export async function GET() {
-  if (!requireTeacher()) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
+  if (!(await requireTeacher())) return NextResponse.json({ error: "Chỉ admin được làm việc này (hoặc chưa đăng nhập)." }, { status: 401 });
   const sessions = await listSessions();
   return NextResponse.json({ sessions });
 }
 
 export async function POST(req) {
-  if (!requireTeacher()) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
+  if (!(await requireTeacher())) return NextResponse.json({ error: "Chỉ admin được làm việc này (hoặc chưa đăng nhập)." }, { status: 401 });
   try {
     const body = await req.json();
+    if (body.teacherId) {
+      const t = await getTeacher(String(body.teacherId));
+      if (!t || !t.active) throw new Error("Không tìm thấy giáo viên đã chọn.");
+    }
     const id = await createSession(body);
     return NextResponse.json({ id });
   } catch (err) {

@@ -4,7 +4,7 @@ import {
   TextRun, TextWrappingType, VerticalAlign, VerticalPositionAlign, VerticalPositionRelativeFrom, WidthType,
 } from "docx";
 import { resolveSheet, classmatesOf } from "@/lib/sheetData";
-import { canEditSheet, visibleSheets } from "@/lib/sheetAuth";
+import { canOpenSheet, visibleSheets } from "@/lib/sheetAuth";
 import { scoreColumns, show } from "@/lib/sheetCols";
 import { LOGO_PNG, BARS_PNG, WATERMARK_JPG } from "@/lib/sheetAssets";
 import { splitLabel, cleanText } from "@/lib/sheetText";
@@ -246,7 +246,7 @@ const slug = (t, fb) => (t || fb).normalize("NFD").replace(/[\u0300-\u036f]/g, "
 export async function GET(req, { params }) {
   const { s, data, initial } = await resolveSheet(params.id);
   if (!s) return new Response("Không tìm thấy bài làm.", { status: 404 });
-  if (!(await canEditSheet(s))) return new Response("Bạn không có quyền với bài này.", { status: 403 });
+  if (!(await canOpenSheet(s, data.parts.map((p) => p.id)))) return new Response("Bạn không có quyền với bài này.", { status: 403 });
 
   let sheets = [{ data, initial }];
   let fileName = `Phieu-diem-${slug(data.name, "hoc-vien")}-${slug(initial.testTitle, "phieu")}.docx`;

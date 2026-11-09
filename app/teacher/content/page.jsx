@@ -1,11 +1,11 @@
-import { requireTeacherOrRedirect } from "@/lib/auth";
+import { requireStaffPage } from "@/lib/staff";
 import { listContentBanks } from "@/lib/contentBanks";
 import BankManager from "./BankManager";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeacherContentPage() {
-  requireTeacherOrRedirect();
+  const staff = await requireStaffPage({ admin: true });
   const banks = await listContentBanks();
   // don't ship full question content to the client on initial load —
   // BankManager fetches a bank's full content only when the teacher

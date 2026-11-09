@@ -88,8 +88,9 @@ function LoginPopoverForm({ onSuccess }) {
       <p className="mono muted" style={{ margin: 0, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
         Khu vực Giáo viên
       </p>
+      <a href="/api/auth/google/start" className="btn-google" style={{ width: "100%" }}>Giáo viên: đăng nhập bằng Google</a>
       <div>
-        <p style={{ marginBottom: 6, fontSize: 14 }}>Mật khẩu:</p>
+        <p style={{ marginBottom: 6, fontSize: 14 }}>Admin — mật khẩu:</p>
         <div style={{ position: "relative" }}>
           <input
             type={showPassword ? "text" : "password"}
@@ -184,6 +185,14 @@ export default function HomeContent({ loggedIn }) {
         <p className="muted" style={{ fontSize: 16, maxWidth: 600, lineHeight: 1.7 }}>
           Nền tảng đánh giá năng lực tiếng Anh chuẩn quốc tế — từ kiểm tra đầu vào đến luyện thi thực chiến, chấm điểm tự động Reading &amp; Listening, giáo viên chấm Writing trực tiếp.
         </p>
+        {/* Exam code: the short code the teacher shows in the room. */}
+        <form action="/ma" method="get" className="code-box">
+          <label htmlFor="exam-code">Vào thi bằng mã</label>
+          <div className="code-row">
+            <input id="exam-code" name="c" maxLength={8} autoComplete="off" autoCapitalize="characters" spellCheck={false} placeholder="VD: K7Q2" required />
+            <button className="btn" type="submit">Vào thi →</button>
+          </div>
+        </form>
       </header>
 
       {/* Programs — chương trình luyện thi */}

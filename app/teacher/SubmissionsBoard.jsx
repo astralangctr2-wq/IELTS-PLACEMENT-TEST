@@ -17,6 +17,7 @@ import { INTEGRITY_LABEL } from "@/lib/integrity";
 const SKILL_LABEL = { grammar: "NP", reading: "R", listening: "L", writing: "W" };
 const ALL = "__all__";
 const NONE = "__none__";
+const INBOX = "__inbox__";
 
 function autoScore(r) {
   if (!r.aptis) return r.objective_band !== null ? r.objective_band.toFixed(1) : "—";
@@ -40,7 +41,7 @@ function finalScore(r) {
 }
 
 // "⋯" menu: result sheet, move to another exam link, delete.
-function RowMenu({ row, allSessions, onChanged }) {
+function RowMenu({ row, allSessions, onChanged, isAdmin }) {
   const [open, setOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -84,26 +85,26 @@ function RowMenu({ row, allSessions, onChanged }) {
       {open && (
         <div className="row-menu-pop" role="menu">
           <a role="menuitem" href={`/teacher/${row.id}/phieu`} target="_blank" rel="noreferrer">🧾 Phiếu kết quả</a>
-          <button role="menuitem" onClick={() => setMoveOpen((v) => !v)}>🔗 Chuyển sang link thi khác {moveOpen ? "▴" : "▾"}</button>
-          {moveOpen && (
+          {isAdmin && <button role="menuitem" onClick={() => setMoveOpen((v) => !v)}>🔗 Chuyển sang link thi khác {moveOpen ? "▴" : "▾"}</button>}
+          {isAdmin && moveOpen && (
             <div className="row-menu-sub">
               <button onClick={() => move(null)}>Không thuộc link nào</button>
               {allSessions.map((s) => <button key={s.id} onClick={() => move(s.id)}>{s.name}</button>)}
             </div>
           )}
-          <button role="menuitem" className="danger" onClick={remove}>🗑 Xoá bài làm</button>
+          {isAdmin && <button role="menuitem" className="danger" onClick={remove}>🗑 Xoá bài làm</button>}
         </div>
       )}
     </div>
   );
 }
 
-function SubRow({ row, showName, checked, onCheck, allSessions, onChanged }) {
+function SubRow({ row, showName, checked, onCheck, allSessions, onChanged, isAdmin, teacherName }) {
   const skills = Array.isArray(row.skills_included) ? row.skills_included : ["grammar", "reading", "listening", "writing"];
   const flag = row.integrity && row.integrity.level !== "normal" ? row.integrity.level : null;
   return (
     <div className={`sub-row ${checked ? "checked" : ""}`}>
-      <input type="checkbox" className="sub-check" checked={checked} onChange={(e) => onCheck(row.id, e.target.checked)} aria-label={`Chọn ${row.student_name}`} />
+      {isAdmin ? <input type="checkbox" className="sub-check" checked={checked} onChange={(e) => onCheck(row.id, e.target.checked)} aria-label={`Chọn ${row.student_name}`} /> : <span />}
       <div className="sub-main">
         <div className="sub-title">
           <Link href={`/teacher/${row.id}`}>{showName ? row.student_name : row.bank_name || "Bài thi"}</Link>
@@ -112,6 +113,8 @@ function SubRow({ row, showName, checked, onCheck, allSessions, onChanged }) {
         <div className="sub-meta">
           {row.class_name ? <span className="class-pill">{row.class_name}</span> : <span className="class-pill none">Chưa phân lớp</span>}
           <span className={`type-pill ${row.aptis ? "aptis" : ""}`}>{row.aptis ? "APTIS" : "IELTS"}</span>
+          {isAdmin && (row.teacher_id ? <span className="gv-pill">GV {teacherName(row.teacher_id)}</span> : <span className="gv-pill none">Chưa có GV</span>)}
+          {row.teacher_done_at && <span className="gv-pill done" title="Giáo viên đã nộp phiếu">✓ GV nộp {formatVN(row.teacher_done_at)}</span>}
           {showName && row.bank_name && <span>{row.bank_name}</span>}
           <span className="mono">{skills.map((s) => SKILL_LABEL[s] || s).join(" ")}</span>
           <span className="mono">{formatVN(row.created_at)}</span>
@@ -129,18 +132,18 @@ function SubRow({ row, showName, checked, onCheck, allSessions, onChanged }) {
         <Link href={`/teacher/${row.id}`}>
           <button className={needsGrading(row) ? "btn btn-sm" : "btn-ghost btn-sm"}>{needsGrading(row) ? "Chấm →" : "Xem"}</button>
         </Link>
-        <RowMenu row={row} allSessions={allSessions} onChanged={onChanged} />
+        <RowMenu row={row} allSessions={allSessions} onChanged={onChanged} isAdmin={isAdmin} />
       </div>
     </div>
   );
 }
 
-function SubList({ rows, showName, selected, onCheck, onCheckMany, allSessions, onChanged }) {
+function SubList({ rows, showName, selected, onCheck, onCheckMany, allSessions, onChanged, isAdmin, teacherName }) {
   const allChecked = rows.length > 0 && rows.every((r) => selected.has(r.id));
   return (
     <div className="sub-list">
       <div className="sub-head">
-        <input type="checkbox" className="sub-check" checked={allChecked} onChange={(e) => onCheckMany(rows.map((r) => r.id), e.target.checked)} aria-label="Chọn tất cả" />
+        {isAdmin ? <input type="checkbox" className="sub-check" checked={allChecked} onChange={(e) => onCheckMany(rows.map((r) => r.id), e.target.checked)} aria-label="Chọn tất cả" /> : <span />}
         <span>{showName ? "Học viên" : "Bài thi"}</span>
         <span>Tự động</span>
         <span>Kết quả</span>
@@ -148,7 +151,7 @@ function SubList({ rows, showName, selected, onCheck, onCheckMany, allSessions, 
         <span />
       </div>
       {rows.map((r) => (
-        <SubRow key={r.id} row={r} showName={showName} checked={selected.has(r.id)} onCheck={onCheck} allSessions={allSessions} onChanged={onChanged} />
+        <SubRow key={r.id} row={r} showName={showName} checked={selected.has(r.id)} onCheck={onCheck} allSessions={allSessions} onChanged={onChanged} isAdmin={isAdmin} teacherName={teacherName} />
       ))}
     </div>
   );
@@ -210,7 +213,10 @@ const STATUS_TABS = [
 const matchStatus = (r, st) =>
   st === "all" ? true : st === "todo" ? needsGrading(r) : st === "done" ? !needsGrading(r) : Boolean(r.integrity && r.integrity.level !== "normal");
 
-export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, allSessions, classNames }) {
+export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, allSessions, classNames, isAdmin = true, teachers = [], inboxCount = 0 }) {
+  const flat = cls === ALL || cls === INBOX;
+  const tName = useMemo(() => { const m = new Map(teachers.map((t) => [t.id, t.name || t.email])); return (id) => m.get(id) || "?"; }, [teachers]);
+  const [gv, setGv] = useState("");
   const router = useRouter();
   const [search, setSearch] = useState(q);
   const [selected, setSelected] = useState(() => new Set());
@@ -252,7 +258,7 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
 
   // One class → group by student (same name ignoring case / extra spaces).
   const students = useMemo(() => {
-    if (cls === ALL) return [];
+    if (flat) return [];
     const m = new Map();
     for (const r of shown) {
       if (!m.has(r.student_key)) m.set(r.student_key, { key: r.student_key, name: r.student_name, rows: [] });
@@ -288,7 +294,27 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
     setBusy(false);
   };
 
-  const listProps = { selected, onCheck, onCheckMany, allSessions, onChanged: () => router.refresh() };
+  const listProps = { selected, onCheck, onCheckMany, allSessions, onChanged: () => router.refresh(), isAdmin, teacherName: tName };
+
+  // Admin: give the selected submissions to a teacher (one by one — the
+  // link keeps its own teacher), or let them follow their link again.
+  const assign = async (teacherId) => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/teacher/assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selected], teacherId }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Không giao được.");
+      setSelected(new Set());
+      setGv("");
+      router.refresh();
+    } catch (e) {
+      alert(e.message);
+    }
+    setBusy(false);
+  };
 
   return (
     <div>
@@ -297,14 +323,15 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
           <option value={ALL}>Tất cả lớp ({[...classCounts.values()].reduce((a, v) => a + v.n, 0)})</option>
           {classList.map((c) => <option key={c} value={c}>Lớp {c} ({classCounts.get(c).n})</option>)}
           <option value={NONE}>Chưa phân lớp ({classCounts.get(NONE)?.n || 0})</option>
+          {isAdmin && <option value={INBOX}>📥 Hộp chờ phân bài — chưa có GV ({inboxCount})</option>}
         </select>
         <form onSubmit={(e) => { e.preventDefault(); go({ q: search.trim(), n: undefined }); }} className="row" style={{ gap: 6, width: "auto" }}>
           <input type="text" placeholder="Tìm tên học viên…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: 200 }} />
           <button className="btn-ghost btn-sm" type="submit">Tìm</button>
           {q && <button className="btn-ghost btn-sm" type="button" onClick={() => go({ q: "", n: undefined })}>✕</button>}
         </form>
-        <button className="btn-ghost btn-sm" onClick={() => setShowExport((v) => !v)}>⬇ Xuất Excel</button>
-        {cls !== ALL && <a href={`/teacher/stats?class=${encodeURIComponent(cls)}`}><button className="btn-ghost btn-sm">📊 Thống kê lớp này</button></a>}
+        {isAdmin && <button className="btn-ghost btn-sm" onClick={() => setShowExport((v) => !v)}>⬇ Xuất Excel</button>}
+        {!flat && <a href={`/teacher/stats?class=${encodeURIComponent(cls)}`}><button className="btn-ghost btn-sm">📊 Thống kê lớp này</button></a>}
       </div>
 
       {showExport && <ExportPanel summary={summary} defaultClass={cls} onClose={() => setShowExport(false)} />}
@@ -316,7 +343,7 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
               {label} <span className="seg-n">{tabCount(k)}</span>
             </button>
           ))}
-          {cls !== ALL && students.length > 0 && (
+          {!flat && students.length > 0 && (
             <button className="seg-extra" onClick={() => setOpen(allOpen ? new Set() : new Set(students.map((s) => s.key)))}>
               {allOpen ? "Thu gọn tất cả" : "Mở tất cả"}
             </button>
@@ -324,9 +351,26 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
         </div>
       )}
 
-      {selected.size > 0 && (
+      {cls === INBOX && (
+        <div className="card" style={{ margin: "0 0 12px", padding: "12px 16px" }}>
+          <p style={{ margin: 0, fontSize: 14 }}><b>Hộp chờ phân bài:</b> bài của các link chưa gắn giáo viên (gồm toàn bộ bài cũ). Cách nhanh nhất: mở <a href="/teacher/sessions">Link thi</a> và chọn GV cho cả link. Hoặc tick từng bài ở dưới rồi chọn “Giao cho GV”.</p>
+        </div>
+      )}
+
+      {isAdmin && selected.size > 0 && (
         <div className="bulk-bar">
           <b>Đã chọn {selected.size} bài</b>
+          {teachers.length > 0 && (
+            <>
+              <select value={gv} onChange={(e) => setGv(e.target.value)} aria-label="Giao cho giáo viên">
+                <option value="">Giao cho GV…</option>
+                {teachers.filter((t) => t.active).map((t) => <option key={t.id} value={t.id}>{t.name || t.email}</option>)}
+              </select>
+              <button className="btn btn-sm" disabled={busy || !gv} onClick={() => assign(gv)}>Giao</button>
+              <button className="btn-ghost btn-sm" disabled={busy} onClick={() => assign(null)} title="Bài đi theo GV của link">Theo GV của link</button>
+              <span className="bulk-sep" />
+            </>
+          )}
           <input type="text" list="class-suggestions" placeholder="Tên lớp, vd FL4" value={target} onChange={(e) => setTarget(e.target.value)} />
           <datalist id="class-suggestions">{suggestions.map((c) => <option key={c} value={c} />)}</datalist>
           <button className="btn btn-sm" disabled={busy || !target.trim()} onClick={() => fileClass(target.trim())}>Chuyển vào lớp</button>
@@ -339,19 +383,19 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
       {rows.length === 0 && <div className="card"><p className="muted">Không có bài nộp nào{q ? ` khớp "${q}"` : ""}.</p></div>}
       {rows.length > 0 && shown.length === 0 && <div className="card"><p className="muted">Không có bài nào ở mục này.</p></div>}
 
-      {cls === ALL && shown.length > 0 && (
+      {flat && shown.length > 0 && (
         <>
           <p className="mono muted" style={{ fontSize: 12, margin: "0 0 6px" }}>Mới nhất — đang hiện {rows.length}/{total} bài{q ? ` khớp "${q}"` : ""}. Chọn một lớp ở trên để xem theo từng học viên.</p>
           <SubList rows={shown} showName {...listProps} />
         </>
       )}
-      {cls === ALL && rows.length > 0 && rows.length < total && (
+      {flat && rows.length > 0 && rows.length < total && (
         <div style={{ textAlign: "center", margin: "14px 0" }}>
           <button className="btn-ghost" onClick={() => go({ n: limit + 50 })}>Xem thêm 50 bài</button>
         </div>
       )}
 
-      {cls !== ALL && students.map((st) => {
+      {!flat && students.map((st) => {
         const pending = st.rows.filter(needsGrading).length;
         const flagged = st.rows.some((r) => r.integrity && r.integrity.level !== "normal");
         const isOpen = open.has(st.key) || students.length <= 3;

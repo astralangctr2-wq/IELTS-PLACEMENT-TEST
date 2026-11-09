@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import SessionList from "./SessionList";
 import { vnInputToIso, isoToVnInput, formatVnShort, scheduleState } from "@/lib/vnTime";
 import { normalizeClassName } from "@/lib/classNames";
@@ -15,8 +15,15 @@ const TIMED_SKILLS = ["grammar", "reading", "writing"];
 
 const CATEGORY_LABELS = { placement: "Placement Test", midterm: "Mid-term Test", mock: "Mock Test", final: "Final Test", aptis: "Aptis", other: "Khác" };
 
-export default function SessionManager({ initialSessions, banks, initialCategory, classNames = [] }) {
+export default function SessionManager({ initialSessions, banks, initialCategory, classNames = [], teachers = [] }) {
   const [sessions, setSessions] = useState(initialSessions);
+  const activeTeachers = teachers.filter((t) => t.active);
+  const tName = (id) => { const t = teachers.find((x) => x.id === id); return t ? t.name || t.email : ""; };
+  const [teacherId, setTeacherId] = useState("");
+  const [withSpeaking, setWithSpeaking] = useState(false);
+  const [level, setLevel] = useState("");
+  const [newInfo, setNewInfo] = useState(null); // { code, room }
+  const formRef = useRef(null);
   // The create form folds away once links exist — the list is what is used daily.
   const [showForm, setShowForm] = useState(initialSessions.length === 0);
   const [survey, setSurvey] = useState(true); // feedback survey after submitting
@@ -65,6 +72,9 @@ export default function SessionManager({ initialSessions, banks, initialCategory
           opensAt: vnInputToIso(opensAt),
           closesAt: vnInputToIso(closesAt),
           contentBankId: contentBankId || null,
+          teacherId: teacherId || null,
+          withSpeaking: Boolean(teacherId) && withSpeaking,
+          level: level.trim() || null,
         }),
       });
       const data = await res.json();
@@ -74,6 +84,9 @@ export default function SessionManager({ initialSessions, banks, initialCategory
       const listRes = await fetch("/api/teacher/sessions");
       const listData = await listRes.json();
       setSessions(listData.sessions || []);
+      const made = (listData.sessions || []).find((x) => x.id === data.id);
+      const t = teachers.find((x) => x.id === teacherId);
+      setNewInfo({ code: made?.access_code || "", room: t?.room_slug ? `${origin}/p/${t.room_slug}` : "", teacher: t ? t.name || t.email : "" });
       setName("");
       setOpensAt("");
       setClosesAt("");
@@ -81,6 +94,38 @@ export default function SessionManager({ initialSessions, banks, initialCategory
       setError(err.message);
     }
     setCreating(false);
+  };
+
+  // Class typed: suggest the teacher / level last used for that class.
+  const onClassChange = (v) => {
+    setClassName(v);
+    const key = normalizeClassName(v);
+    const last = key && sessions.find((x) => x.class_name === key && (x.teacher_id || x.level));
+    if (last) {
+      if (!teacherId && last.teacher_id && teachers.some((t) => t.id === last.teacher_id && t.active)) setTeacherId(last.teacher_id);
+      if (!level && last.level) setLevel(last.level);
+    }
+  };
+
+  // "Nhân bản": a new link with the same settings (test, class, times,
+  // level…); the admin then changes the skills / teacher of the next sitting.
+  const cloneFrom = (x) => {
+    const tl = x.time_limits || {};
+    setName(`${x.name} (bản sao)`);
+    setClassName(x.class_name || "");
+    setContentBankId(x.content_bank_id || contentBankId);
+    setSkills({ grammar: x.skills.includes("grammar"), reading: x.skills.includes("reading"), listening: x.skills.includes("listening"), writing: x.skills.includes("writing") });
+    setTimes((prev) => ({ grammar: tl.grammar || prev.grammar, reading: tl.reading || prev.reading, writing: tl.writing || prev.writing }));
+    setListeningPlays(tl.listeningPlays || 1);
+    setMode(tl.mode === "practice" ? "practice" : "exam");
+    setSurvey(tl.survey === true);
+    setTeacherId(x.teacher_id && teachers.some((t) => t.id === x.teacher_id && t.active) ? x.teacher_id : "");
+    setWithSpeaking(Boolean(x.with_speaking));
+    setLevel(x.level || "");
+    setOpensAt(""); setClosesAt("");
+    setNewLink(""); setNewInfo(null); setError("");
+    setShowForm(true);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 30);
   };
 
   const knownClasses = [...new Set([...classNames, ...sessions.map((s) => s.class_name).filter(Boolean)])].sort();
@@ -138,13 +183,13 @@ export default function SessionManager({ initialSessions, banks, initialCategory
           {showForm ? "▴ Thu gọn khung tạo link" : "＋ Tạo link thi mới"}
         </button>
       </div>
-      {showForm && <div className="card card-strong">
+      {showForm && <div className="card card-strong" ref={formRef}>
         <p className="mono muted" style={{ fontSize: 12, marginBottom: 12 }}>TẠO PHIÊN THI MỚI</p>
         <p style={{ marginBottom: 6 }}>Tên phiên thi (chỉ để bạn nhận biết, học viên không thấy):</p>
         <input type="text" placeholder="VD: Lớp A2 — chỉ Grammar + Reading" value={name} onChange={(e) => setName(e.target.value)} />
 
         <p style={{ margin: "16px 0 6px" }}>Lớp <span className="muted" style={{ fontSize: 13 }}>(bài nộp qua link này sẽ tự vào lớp — dùng để lọc và xuất Excel)</span>:</p>
-        <input type="text" list="session-class-list" placeholder="VD: FL4" value={className} onChange={(e) => setClassName(e.target.value)} />
+        <input type="text" list="session-class-list" placeholder="VD: FL4" value={className} onChange={(e) => onClassChange(e.target.value)} />
         <datalist id="session-class-list">{knownClasses.map((c) => <option key={c} value={c} />)}</datalist>
 
         <p style={{ margin: "16px 0 6px" }}>Thời gian cho phép vào làm bài <span className="muted" style={{ fontSize: 13 }}>(giờ Việt Nam — bỏ trống nếu không giới hạn)</span>:</p>
@@ -176,6 +221,24 @@ export default function SessionManager({ initialSessions, banks, initialCategory
               <span>{SKILL_LABELS[s]}</span>
             </label>
           ))}
+        </div>
+
+        <div className="gv-box">
+          <p style={{ margin: "0 0 8px" }}><b>Giáo viên canh thi &amp; chấm bài</b> <span className="muted" style={{ fontSize: 13 }}>(GV này thấy link, canh thi, chấm và nhận xét các kỹ năng ở trên)</span></p>
+          {activeTeachers.length === 0 ? (
+            <p className="muted" style={{ fontSize: 13, margin: 0 }}>Chưa có tài khoản GV nào. Thêm ở mục <a href="/teacher/admin">👥 Giáo viên</a>. Link không có GV sẽ vào “Hộp chờ phân bài”.</p>
+          ) : (
+            <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
+              <option value="">— Chưa giao GV (bài vào Hộp chờ phân bài) —</option>
+              {activeTeachers.map((t) => <option key={t.id} value={t.id}>{t.name || t.email}</option>)}
+            </select>
+          )}
+          <label className="option" style={{ cursor: teacherId ? "pointer" : "default", marginTop: 8, opacity: teacherId ? 1 : 0.5 }}>
+            <input type="checkbox" checked={withSpeaking} disabled={!teacherId} onChange={(e) => setWithSpeaking(e.target.checked)} style={{ marginRight: 10 }} />
+            <span>🗣 GV này chấm cả <b>Nói (Speaking)</b> <span className="muted" style={{ fontSize: 13 }}>(thi trực tiếp, không qua link — chỉ để GV được nhập điểm & nhận xét Nói)</span></span>
+          </label>
+          <p style={{ margin: "12px 0 6px" }}>Level in trên phiếu <span className="muted" style={{ fontSize: 13 }}>(phiếu tự điền, admin sửa được)</span>:</p>
+          <input type="text" placeholder="VD: FLY UP 8" value={level} onChange={(e) => setLevel(e.target.value)} />
         </div>
 
         <p style={{ margin: "16px 0 8px" }}>Chế độ:</p>
@@ -243,11 +306,13 @@ export default function SessionManager({ initialSessions, banks, initialCategory
               <p className="mono" style={{ fontSize: 13, wordBreak: "break-all", margin: 0 }}>{newLink}</p>
               <button className="btn-ghost btn-sm" onClick={() => copy(newLink)}>Copy</button>
             </div>
+            {newInfo?.code && <p style={{ margin: "8px 0 0", fontSize: 14 }}>Mã thi: <b className="mono code-big">{newInfo.code}</b> <span className="muted" style={{ fontSize: 12.5 }}>(HV vào trang chủ, gõ mã)</span></p>}
+            {newInfo?.room && <p style={{ margin: "6px 0 0", fontSize: 14 }}>Hoặc link phòng thi của {newInfo.teacher}: <span className="mono">{newInfo.room}</span> <span className="muted" style={{ fontSize: 12.5 }}>(máy phòng lab lưu sẵn 1 lần)</span></p>}
           </div>
         )}
       </div>}
 
-      <SessionList sessions={sessions} setSessions={setSessions} bankName={bankName} classOptions={knownClasses}  />
+      <SessionList sessions={sessions} setSessions={setSessions} bankName={bankName} classOptions={knownClasses} teachers={teachers} onClone={cloneFrom} />
     </div>
   );
 }

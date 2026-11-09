@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { staffSignedIn } from "@/lib/sheetAuth";
+import { adminSignedIn } from "@/lib/staff";
 import { getContentBank } from "@/lib/contentBanks";
 import { getBankReview, saveBankReview, reviewCoverage } from "@/lib/bankReview";
 
@@ -15,7 +15,7 @@ const view = (bank, r) => ({
 });
 
 async function load(id) {
-  if (!(await staffSignedIn())) return { error: NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 }) };
+  if (!(await adminSignedIn())) return { error: NextResponse.json({ error: "Chỉ admin được làm việc này." }, { status: 401 }) };
   const bank = await getContentBank(id);
   if (!bank) return { error: NextResponse.json({ error: "Không tìm thấy bộ đề." }, { status: 404 }) };
   return { bank };

@@ -1165,6 +1165,14 @@ export default function TestRunner({ config }) {
     document.body.style.cursor = "col-resize";
   };
 
+  // A new part of the test starts at its top (the student does not have to
+  // scroll back up): the page and the scrolled reading-passage panes.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.querySelectorAll(".reading-passage-pane, .reading-questions-pane").forEach((el) => { el.scrollTop = 0; });
+  }, [stage]);
+
   const goStage = (next) => {
     const idx = SECTION_STEPS.indexOf(next);
     if (idx >= 0) setFurthestIndex((f) => Math.max(f, idx));

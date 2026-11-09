@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import { formatVN } from "@/lib/formatDate";
-import { requireTeacherOrRedirect } from "@/lib/auth";
+import { requireStaffPage, staffOwns, getTeacher, teacherLabel } from "@/lib/staff";
 import { getSubmissionFull } from "@/lib/classes";
 import WritingGrader from "./WritingGrader";
-import { aptisScaleFromRaw, aptisCefr } from "@/lib/grading";
+import { aptisScaleFromRaw, aptisCefr, aptisNearCut } from "@/lib/grading";
 import ExamTypeSwitch from "./ExamTypeSwitch";
 import IntegrityCard from "./IntegrityCard";
 import HighlightsCard from "./HighlightsCard";
@@ -14,17 +14,20 @@ import DeleteButton from "../DeleteButton";
 export const dynamic = "force-dynamic";
 
 export default async function SubmissionDetail({ params }) {
-  requireTeacherOrRedirect();
+  const staff = await requireStaffPage();
   await ensureReviewSchema();
   const s = await getSubmissionFull(params.id);
-  if (!s) notFound();
+  if (!s || !staffOwns(staff, s)) notFound();
+  const admin = staff.role === "admin";
+  const gv = admin && s.eff_teacher_id ? await getTeacher(s.eff_teacher_id) : null;
   const snapshot = s.content_snapshot || null;
   const skills = Array.isArray(s.skills_included) ? s.skills_included : ["grammar", "reading", "listening", "writing"];
   const examType = { type: s.exam_kind, source: s.exam_type_source };
   const aptis = examType.type === "aptis";
   const aptisSkill = (skill, earned, total) => {
     const scale = aptisScaleFromRaw(earned, total);
-    return <>{earned}/{total} câu — <b>{scale ?? "—"}/50</b> · CEFR <b>{scale !== null ? aptisCefr(skill, scale) : "—"}</b></>;
+    const near = scale !== null ? aptisNearCut(skill, scale) : null;
+    return <>{earned}/{total} câu — <b>{scale ?? "—"}/50</b> · CEFR <b>{scale !== null ? aptisCefr(skill, scale) : "—"}</b>{near && <span className="muted"> · sát mốc {near} (admin có thể nâng trên phiếu)</span>}</>;
   };
 
   return (
@@ -40,13 +43,19 @@ export default async function SubmissionDetail({ params }) {
             {s.student_class && s.student_class !== s.effective_class ? ` (HV nhập: ${s.student_class})` : ""}
           </p>
           <p className="mono" style={{ fontSize: 12, margin: "4px 0 0" }}>
-            <ExamTypeSwitch submissionId={s.id} type={examType.type} source={examType.source} />
+            {admin ? <ExamTypeSwitch submissionId={s.id} type={examType.type} source={examType.source} /> : <span className={`type-pill ${aptis ? "aptis" : ""}`}>{aptis ? "APTIS" : "IELTS"}</span>}
           </p>
+          {admin && (
+            <p className="mono muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+              GV phụ trách: {gv ? <b>{teacherLabel(gv)}</b> : "chưa có (link chưa gắn GV)"}
+              {s.teacher_done_at ? ` · đã nộp phiếu ${formatVN(s.teacher_done_at)}` : gv ? " · chưa nộp phiếu" : ""}
+            </p>
+          )}
         </div>
         <div className="row" style={{ gap: 10 }}>
           <a href="/teacher"><button className="btn-ghost btn-sm">← Danh sách</button></a>
           <a href={`/teacher/${s.id}/phieu`} target="_blank" rel="noreferrer"><button className="btn-ghost btn-sm">Phiếu kết quả ↗</button></a>
-          <DeleteButton id={s.id} studentName={s.student_name} redirectAfter="/teacher" />
+          {admin && <DeleteButton id={s.id} studentName={s.student_name} redirectAfter="/teacher" />}
         </div>
       </div>
 

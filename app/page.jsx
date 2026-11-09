@@ -1,7 +1,9 @@
-import { isTeacherLoggedIn } from "@/lib/auth";
+import { getStaff } from "@/lib/staff";
 import HomeContent from "./components/HomeContent";
 
-export default function HomePage() {
-  const loggedIn = isTeacherLoggedIn();
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const loggedIn = Boolean(await getStaff());
   return <HomeContent loggedIn={loggedIn} />;
 }

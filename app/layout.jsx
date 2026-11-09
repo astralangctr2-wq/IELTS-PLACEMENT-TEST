@@ -5,7 +5,10 @@ import TopControls from "./components/TopControls";
 export const metadata = {
   title: "IELTS Placement Test",
   description: "Bài kiểm tra xếp lớp IELTS đầu vào",
+  icons: { icon: "/icons/astra-192.png", apple: "/icons/astra-192.png" },
+  appleWebApp: { capable: true, title: "Astra Test" },
 };
+export const viewport = { themeColor: "#1f2a5c" };
 
 // Runs before React hydrates so the page never flashes the wrong theme
 // on load — reads the saved preference (defaulting to dark) and sets
