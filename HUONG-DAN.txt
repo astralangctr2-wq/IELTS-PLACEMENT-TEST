@@ -1,23 +1,19 @@
-CẬP NHẬT 09/11/2026 — GIAO DIỆN MỚI KHU GIÁO VIÊN + 3 SỬA NHỎ
-================================================================
-Dùng sau gói cap-nhat-tai-khoan-gv. Gói này ĐÃ GỘP gói nhỏ cap-nhat-nho-09-11
-(không cần push gói đó nữa).
+CẬP NHẬT 09/11/2026 — KIỂM TRA TOÀN BỘ KHU GV + SỬA 1 LỖI
+==========================================================
+Gói này = gói cap-nhat-giao-dien-gv + 1 file sửa lỗi (lib/report.js).
+ - Đã push gói giao-dien-gv rồi  → chỉ cần chép đè lib/report.js.
+ - Chưa push gói giao-dien-gv    → chép đè cả thư mục app/ và lib/ trong gói này
+                                   (không cần push gói giao-dien-gv riêng nữa).
 
-A. GIAO DIỆN MỚI (chỉ khu Giáo viên / Admin — trang thi của học viên không đổi)
-   - Menu bên trái, xếp theo đúng quy trình làm việc:
-       Admin : Chuẩn bị kỳ thi (Đề thi, Link thi) → Chấm & trả phiếu (Bài nộp,
-               Level & xuất phiếu) → Báo cáo (Thống kê, Khảo sát) → Quản lý (Giáo viên)
-       GV    : Ca thi của tôi (Link được giao) → Chấm bài → Thống kê lớp
-   - Admin: nền trắng. GV: nền đen. Màu nhấn theo nhận diện Astra (xanh navy / vàng).
-   - Số đỏ cạnh menu: Admin = bài chưa có GV; GV = bài chưa chấm Writing.
-   - GV copy link phòng thi ngay ở góc dưới menu.
-   - Điện thoại: bấm ☰ để mở menu.
-B. Câu "Choose TWO" đúng một phần: học viên thấy "1/2 đúng", từng lựa chọn ✓ / ✗.
-C. Thẻ bộ đề ghi đúng số câu (vd FL8 Midterm 40 / 40).
-D. Link phòng thi chỉ hiện ca đã mở hoặc mở trong 30 phút tới → nhớ đặt "Mở lúc".
+LỖI ĐÃ SỬA
+ - Phiếu Aptis: bấm "nâng lên B2" (kỹ năng sát mốc) rồi tải lại trang thì mất,
+   phiếu Word / Excel vẫn ra mức cũ. Nay lưu đúng và xuất đúng.
 
-Không đổi điểm, không đổi dữ liệu nào. Không cần sửa Vercel.
+ĐÃ KIỂM TRA (không thấy lỗi khác)
+ - 28 trang khu GV/Admin, bấm thử mọi nút: không lỗi trang, không lỗi tải.
+ - Xuất Word (1 HV, cả lớp, IELTS, Aptis, nhiều GV), Excel, khảo sát: mở được, đủ nội dung.
+ - Phân quyền ghi phiếu, nộp phiếu + chuông, bảng nhập nhanh, link phòng, mã 4 ký tự.
 
-Cách cập nhật: chép đè thư mục app/ và lib/ trong gói vào repo (giữ nguyên đường dẫn).
-Có thể xoá file app/teacher/SwRegister.jsx trong repo (không còn dùng; để lại cũng không sao).
-GitHub Desktop → Commit → Push.
+Không đổi dữ liệu, không cần sửa Vercel.
+Cách cập nhật: chép đè (giữ nguyên đường dẫn) → GitHub Desktop → Commit → Push.
+Có thể xoá app/teacher/SwRegister.jsx trong repo nếu còn (không dùng nữa).
