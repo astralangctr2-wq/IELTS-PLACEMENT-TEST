@@ -58,12 +58,21 @@ const NAV_PATHS = [...NAV.admin, ...NAV.teacher].flatMap((g) => g.items.map((i) 
 // under /teacher (a submission being graded) belongs to the submissions.
 const activeHref = (path) => NAV_PATHS.filter((h) => h !== "/teacher").sort((a, b) => b.length - a.length).find((h) => path.startsWith(h)) || "/teacher";
 
-export default function StaffShell({ me, counts, children }) {
+const THEME_COOKIE = "astra_gv_theme";
+
+export default function StaffShell({ me, counts, theme: initialTheme = "light", children }) {
   const path = usePathname() || "/teacher";
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const admin = me.role === "admin";
-  const scheme = admin ? "admin" : "teacher";
+  const role = admin ? "admin" : "teacher";
+  // Colours: admin always light; a teacher picks light (default) or dark.
+  const [theme, setTheme] = useState(initialTheme);
+  const scheme = !admin && theme === "dark" ? "teacher" : "admin";
+  const pickTheme = (t) => {
+    setTheme(t);
+    try { document.cookie = `${THEME_COOKIE}=${t}; path=/; max-age=31536000; samesite=lax`; } catch {}
+  };
 
   // The installed app + push notifications need the service worker.
   useEffect(() => {
@@ -96,7 +105,7 @@ export default function StaffShell({ me, counts, children }) {
           <span><b>Astra</b><small>{admin ? "Quản trị" : "Giáo viên"}</small></span>
         </a>
         <nav className="sh-nav">
-          {NAV[scheme].map((g) => (
+          {NAV[role].map((g) => (
             <div key={g.group} className="sh-group">
               <p className="sh-group-h">{g.group}</p>
               {g.items.map((it) => {
@@ -138,6 +147,12 @@ export default function StaffShell({ me, counts, children }) {
             {crumbs.map((c, i) => <span key={i} className={i === crumbs.length - 1 ? "cur" : ""}>{c}</span>)}
           </nav>
           <div className="sh-top-r">
+            {!admin && (
+              <div className="sh-theme" role="group" aria-label="Màu giao diện">
+                <button type="button" aria-pressed={theme !== "dark"} className={theme !== "dark" ? "on" : ""} onClick={() => pickTheme("light")} title="Nền sáng (giống trang admin)"><Icon name="sun" size={16} /><span>Sáng</span></button>
+                <button type="button" aria-pressed={theme === "dark"} className={theme === "dark" ? "on" : ""} onClick={() => pickTheme("dark")} title="Nền tối"><Icon name="moon" size={16} /><span>Tối</span></button>
+              </div>
+            )}
             <FontSizeToggle />
             {admin && <Bell />}
           </div>

@@ -855,6 +855,7 @@ input[type="datetime-local"]:focus { outline: none; border-color: var(--primary)
 .row-menu-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 240px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 6px; display: grid; gap: 2px; }
 .row-menu-pop > a, .row-menu-pop > button, .row-menu-sub button { font: inherit; font-size: 14px; text-align: left; padding: 9px 12px; border-radius: 8px; border: 0; background: transparent; color: var(--ink); cursor: pointer; text-decoration: none; display: block; width: 100%; }
 .row-menu-pop > a:hover, .row-menu-pop > button:hover, .row-menu-sub button:hover { background: var(--subtle); }
+.row-menu-pop.up { top: auto; bottom: calc(100% + 6px); }
 .row-menu-sub { max-height: 220px; overflow: auto; margin: 0 0 4px 12px; border-left: 2px solid var(--border); padding-left: 4px; }
 .row-menu-sub button { font-size: 13px; padding: 7px 10px; }
 .student-head { width: 100%; font: inherit; color: var(--ink); text-align: left; }
@@ -1444,7 +1445,8 @@ input.sb-inp { padding: 8px 10px; font-size: 14px; border-radius: 8px; }
 
 /* =====================================================================
    Teacher area frame (StaffShell): sidebar + top bar.
-   Admin = light, teacher = dark. Astra colours: navy #203167, yellow #F8D200.
+   data-shell="admin" = light (admin, and teachers by default),
+   data-shell="teacher" = dark (teachers who pick "Tối"). Astra colours: navy #203167, yellow #F8D200.
    Everything below is scoped to .shell — the student test is unchanged.
    ===================================================================== */
 [data-shell] {
@@ -1527,6 +1529,12 @@ body:has([data-shell]) .top-controls { display: none; }
 .sh-crumbs .cur { color: var(--ink); font-weight: 600; }
 .sh-top-r { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .sh-top-r .font-size-group { box-shadow: none; border-width: 1px; }
+.shell .font-size-btn.active { color: var(--on-primary); }
+.sh-theme { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); }
+.sh-theme button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--muted); font: 600 12.5px var(--font-body); padding: 5px 11px; border-radius: 999px; cursor: pointer; min-height: 30px; transition: background .15s ease, color .15s ease; }
+.sh-theme button:hover:not(.on) { color: var(--ink); }
+.sh-theme button.on { background: var(--primary); color: var(--on-primary); }
+.sh-theme button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .sh-main { padding: 28px 32px 72px; min-width: 0; }
 .shell .wrap, .shell .wrap-wide, .shell .wrap-reading { max-width: 1240px; margin: 0 auto; padding: 0; }
 
@@ -1554,6 +1562,9 @@ body:has([data-shell]) .top-controls { display: none; }
   font-family: var(--font-body); font-size: 14px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--ink);
 }
 .shell input[type="email"] { width: 100%; }
+/* Feedback boxes: taller / shorter only, never wider than their column. */
+.shell textarea { resize: vertical; max-width: 100%; }
+.shell textarea.sb-ta { resize: none; }
 .shell input:focus, .shell textarea:focus, .shell select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent); }
 .shell .option { border-radius: 8px; border-width: 1px; font-size: 14px; padding: 11px 14px; background: var(--surface); }
 .shell .option.selected { background: color-mix(in srgb, var(--primary) 9%, transparent); }
@@ -1562,9 +1573,12 @@ body:has([data-shell]) .top-controls { display: none; }
 .shell .seg-tabs button { border-radius: 8px; border-width: 1px; font-size: 13px; font-weight: 500; padding: 5px 11px; background: var(--surface); }
 .shell .seg-tabs button.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); font-weight: 600; }
 .shell .state-chip, .shell .meta-chip, .shell .class-pill, .shell .type-pill, .shell .gv-pill, .shell .q-chip, .shell .integrity-pill { border-radius: 6px; }
-.shell .sub-list { border-radius: 12px; overflow: hidden; }
+.shell .sub-list { border-radius: 12px; overflow: visible; } /* visible: the ⋯ menu of the last row must not be cut off */
+.shell .sub-list > :first-child { border-radius: 12px 12px 0 0; }
+.shell .sub-list > :last-child { border-radius: 0 0 12px 12px; }
+.shell .sub-list > :only-child { border-radius: 12px; }
 .shell .sub-head { text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 500; background: var(--surface-2); }
-.shell .sub-row:last-child { border-radius: 0; }
+
 .shell .sub-title a { font-weight: 600; }
 .shell .folder-header { border-radius: 10px; padding: 12px 16px; }
 .shell .class-toolbar select { min-width: 220px; }
@@ -1585,10 +1599,28 @@ body:has([data-shell]) .top-controls { display: none; }
   .sh-menu { display: inline-flex; }
   .sh-top { padding: 0 16px; }
   .sh-top-r .font-size-group { display: none; }
+  .sh-theme span { display: none; }
+  .sh-theme button { padding: 6px 9px; }
   .sh-main { padding: 20px 16px 56px; }
   .ph h1 { font-size: 21px; }
 }
 @media (prefers-reduced-motion: reduce) { .sh-side, .sh-item, .shell .btn, .shell .btn-ghost { transition: none; } }
+/* Text size A / A / A (top bar): the page content is scaled with CSS zoom
+   (the px sizes of the frame stay readable this way). The sidebar and the
+   top bar keep their size. vh is scaled by zoom too, so the panes that
+   must fit the screen divide by --shz. Phones keep 100 % (the buttons are
+   hidden there). */
+@media (min-width: 961px) {
+  html[data-font-size="small"] .sh-main { zoom: 0.9; --shz: 0.9; }
+  html[data-font-size="large"] .sh-main { zoom: 1.15; --shz: 1.15; }
+  .sh-main .gs-essay { max-height: calc(100vh / var(--shz, 1) - 90px); }
+  .sh-main .ps-editor { max-height: calc(100vh / var(--shz, 1) - 32px); }
+  .sh-main .rv-passage { max-height: calc(100vh / var(--shz, 1) - 24px); }
+  .sh-main .reading-passage-pane { max-height: calc(100vh / var(--shz, 1) - 44px); }
+}
 .shell .sh-main .sub-title a, .shell .sh-main .sub-title a:visited { color: var(--ink); }
 .shell .sh-main .sub-title a:hover { color: var(--primary); }
+/* dark: student names in white, yellow only on hover (beats the general link colour above) */
+[data-shell="teacher"] .sh-main .sub-title a:not(.btn):not(.btn-ghost):not(.bell-item):not(.room-pick):not(.sh-item) { color: var(--ink); }
+[data-shell="teacher"] .sh-main .sub-title a:not(.btn):not(.btn-ghost):not(.bell-item):not(.room-pick):not(.sh-item):hover { color: var(--primary); }
 .shell .quick-table th { text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 12.5px; background: var(--surface-2); }

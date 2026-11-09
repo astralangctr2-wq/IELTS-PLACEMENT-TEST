@@ -1,12 +1,17 @@
+import { cookies } from "next/headers";
 import { getStaff } from "@/lib/staff";
 import { classSummary, inboxCount } from "@/lib/classes";
 import StaffShell from "./StaffShell";
 
+const THEME_COOKIE = "astra_gv_theme";
+
 export const dynamic = "force-dynamic";
 
 // Teacher area frame: sidebar grouped by the workflow, top bar, and the
-// colour scheme of the role (admin light, teacher dark — Astra navy +
-// yellow). Visitors (login page) get the page alone.
+// colours (Astra navy + yellow). Admin: light. Teacher: light by default,
+// dark when they switch it on (kept in a cookie, so the page is drawn in
+// the right colours from the server — no flash). Visitors (login page) get
+// the page alone.
 export default async function TeacherLayout({ children }) {
   const staff = await getStaff();
   if (!staff) return children;
@@ -19,5 +24,6 @@ export default async function TeacherLayout({ children }) {
   const me = admin
     ? { role: "admin", name: "Admin", sub: "Tài khoản mật khẩu" }
     : { role: "teacher", name: staff.name, sub: staff.email, room: staff.roomSlug || "" };
-  return <StaffShell me={me} counts={counts}>{children}</StaffShell>;
+  const theme = !admin && cookies().get(THEME_COOKIE)?.value === "dark" ? "dark" : "light";
+  return <StaffShell me={me} counts={counts} theme={theme}>{children}</StaffShell>;
 }

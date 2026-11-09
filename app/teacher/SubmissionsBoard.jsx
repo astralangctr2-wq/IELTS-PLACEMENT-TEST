@@ -45,7 +45,17 @@ function RowMenu({ row, allSessions, onChanged, isAdmin }) {
   const [open, setOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [up, setUp] = useState(false);
   const ref = useRef(null);
+  // Near the bottom of the screen the menu opens upwards (fully visible).
+  const toggleMenu = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      const need = isAdmin ? 400 : 120;
+      setUp(window.innerHeight - r.bottom < need && r.top > window.innerHeight - r.bottom);
+    }
+    setOpen((v) => !v);
+  };
   useEffect(() => {
     if (!open) return;
     const close = (e) => { if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setMoveOpen(false); } };
@@ -81,9 +91,9 @@ function RowMenu({ row, allSessions, onChanged, isAdmin }) {
 
   return (
     <div className="row-menu" ref={ref}>
-      <button className="btn-ghost btn-sm row-menu-btn" disabled={busy} onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} title="Thêm thao tác">⋯</button>
+      <button className="btn-ghost btn-sm row-menu-btn" disabled={busy} onClick={toggleMenu} aria-haspopup="menu" aria-expanded={open} title="Thêm thao tác">⋯</button>
       {open && (
-        <div className="row-menu-pop" role="menu">
+        <div className={`row-menu-pop${up ? " up" : ""}`} role="menu">
           <a role="menuitem" href={`/teacher/${row.id}/phieu`} target="_blank" rel="noreferrer">🧾 Phiếu kết quả</a>
           {isAdmin && <button role="menuitem" onClick={() => setMoveOpen((v) => !v)}>🔗 Chuyển sang link thi khác {moveOpen ? "▴" : "▾"}</button>}
           {isAdmin && moveOpen && (
@@ -223,7 +233,9 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
   const [target, setTarget] = useState("");
   const [busy, setBusy] = useState(false);
   const [showExport, setShowExport] = useState(false);
-  const [open, setOpen] = useState(() => new Set());
+  // Student folders: open/closed by hand (key → true/false). Untouched
+  // folders follow the default: open when the list is short (≤ 3 students).
+  const [open, setOpen] = useState(() => new Map());
   const [status, setStatus] = useState("all");
 
   useEffect(() => { setSearch(q); }, [q]);
@@ -273,8 +285,11 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
 
   const onCheck = (id, on) => setSelected((prev) => { const n = new Set(prev); on ? n.add(id) : n.delete(id); return n; });
   const onCheckMany = (ids, on) => setSelected((prev) => { const n = new Set(prev); ids.forEach((id) => (on ? n.add(id) : n.delete(id))); return n; });
-  const toggle = (key) => setOpen((prev) => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
-  const allOpen = students.length > 0 && students.every((s) => open.has(s.key));
+  const openByDefault = students.length <= 3;
+  const isOpenKey = (key) => (open.has(key) ? open.get(key) : openByDefault);
+  const toggle = (key) => setOpen((prev) => new Map(prev).set(key, !isOpenKey(key)));
+  const allOpen = students.length > 0 && students.every((s) => isOpenKey(s.key));
+  const setAll = (v) => setOpen((prev) => { const n = new Map(prev); students.forEach((st) => n.set(st.key, v)); return n; });
 
   const fileClass = async (className) => {
     setBusy(true);
@@ -344,7 +359,7 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
             </button>
           ))}
           {!flat && students.length > 0 && (
-            <button className="seg-extra" onClick={() => setOpen(allOpen ? new Set() : new Set(students.map((s) => s.key)))}>
+            <button className="seg-extra" type="button" onClick={() => setAll(!allOpen)}>
               {allOpen ? "Thu gọn tất cả" : "Mở tất cả"}
             </button>
           )}
@@ -398,7 +413,7 @@ export default function SubmissionsBoard({ rows, total, cls, q, limit, summary, 
       {!flat && students.map((st) => {
         const pending = st.rows.filter(needsGrading).length;
         const flagged = st.rows.some((r) => r.integrity && r.integrity.level !== "normal");
-        const isOpen = open.has(st.key) || students.length <= 3;
+        const isOpen = isOpenKey(st.key);
         return (
           <div key={st.key} style={{ marginBottom: 10 }}>
             <button type="button" className="folder-header student-head" onClick={() => toggle(st.key)} aria-expanded={isOpen}>
