@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import ReviewPanel from "./ReviewPanel";
+import { scoredCount, sectionsCount } from "@/lib/scoring";
 
 const CATEGORY_LABELS = { placement: "Placement Test", midterm: "Mid-term Test", mock: "Mock Test", final: "Final Test", aptis: "Aptis ESOL", other: "Khác" };
 const CATEGORY_ORDER = ["placement", "midterm", "mock", "final", "aptis", "other"];
@@ -288,9 +289,9 @@ export default function BankManager({ initialBanks }) {
           category: b.category,
           className: b.class_name || "",
           created_at: b.created_at,
-          grammarCount: b.content.grammar?.length ?? null,
-          readingCount: b.content.reading ? b.content.reading.sections.reduce((n, s) => n + s.questions.length, 0) : null,
-          listeningCount: b.content.listening ? b.content.listening.sections.reduce((n, s) => n + s.questions.length, 0) : null,
+          grammarCount: Array.isArray(b.content.grammar) ? scoredCount(b.content.grammar) : null,
+          readingCount: sectionsCount(b.content.reading),
+          listeningCount: sectionsCount(b.content.listening),
           hasWriting: Boolean(b.content.writing),
         }))
       );

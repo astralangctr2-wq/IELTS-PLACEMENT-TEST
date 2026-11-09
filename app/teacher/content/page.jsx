@@ -1,5 +1,6 @@
 import { requireStaffPage } from "@/lib/staff";
 import { listContentBanks } from "@/lib/contentBanks";
+import { scoredCount, sectionsCount } from "@/lib/scoring";
 import BankManager from "./BankManager";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +17,9 @@ export default async function TeacherContentPage() {
     category: b.category,
     className: b.class_name || "",
     created_at: b.created_at,
-    grammarCount: b.content.grammar?.length ?? null,
-    readingCount: b.content.reading ? b.content.reading.sections.reduce((n, s) => n + s.questions.length, 0) : null,
-    listeningCount: b.content.listening ? b.content.listening.sections.reduce((n, s) => n + s.questions.length, 0) : null,
+    grammarCount: Array.isArray(b.content.grammar) ? scoredCount(b.content.grammar) : null,
+    readingCount: sectionsCount(b.content.reading),
+    listeningCount: sectionsCount(b.content.listening),
     hasWriting: Boolean(b.content.writing),
   }));
   return (

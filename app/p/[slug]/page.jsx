@@ -30,7 +30,7 @@ export default async function RoomPage({ params }) {
         {list.length === 0 ? (
           <>
             <p className="serif" style={{ fontSize: 22, margin: "10px 0 6px" }}>Chưa có bài thi nào đang mở</p>
-            <p className="muted" style={{ margin: 0 }}>Vui lòng chờ giáo viên mở ca thi. Trang tự kiểm tra lại mỗi 15 giây.</p>
+            <p className="muted" style={{ margin: 0 }}>Vui lòng chờ giáo viên mở ca thi (bài thi hiện ở đây từ 30 phút trước giờ mở). Trang tự kiểm tra lại mỗi 15 giây.</p>
             <RoomRefresh seconds={15} />
           </>
         ) : (

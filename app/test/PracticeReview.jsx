@@ -86,11 +86,13 @@ export default function PracticeReview({ review, studentName, hasWriting, order 
                         {it.q && <p className="practice-q">{it.q}</p>}
                         <div className="practice-parts">
                           {it.parts.map((p, pi) => (
-                            <div key={pi} className={`practice-part ${p.ok ? "ok" : "bad"}`}>
+                            <div key={pi} className={`practice-part ${p.ok ? "ok" : p.partial ? "partial" : "bad"}`}>
                               {p.label && <p className="practice-part-label">{p.label}</p>}
                               <p className="practice-line">
                                 <span className="practice-tag">Bạn trả lời</span>
-                                <span className={p.ok ? "practice-ok" : "practice-bad"}>{p.ok ? "✓" : "✗"} {p.given}</span>
+                                {p.choices && p.choices.length > 0 && !p.ok
+                                  ? <span className="practice-choices">{p.choices.map((c, ci) => <span key={ci} className={c.ok ? "practice-ok" : "practice-bad"}>{c.ok ? "✓" : "✗"} {c.text}</span>)}</span>
+                                  : <span className={p.ok ? "practice-ok" : "practice-bad"}>{p.ok ? "✓" : "✗"} {p.given}</span>}
                               </p>
                               {!p.ok && (
                                 <p className="practice-line">

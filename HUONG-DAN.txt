@@ -1,39 +1,15 @@
-CẬP NHẬT GỘP (dùng cho code đang chạy trên web, chưa có LMS)
-============================================================
-Gói này gồm TẤT CẢ các bản sửa chưa push (kể cả các đợt trước).
-MỚI (31/10) — Kiểm tra file đề khi tải lên:
-  - Phần để trống ("grammar": []) tự bỏ qua, không báo lỗi nữa.
-  - Báo rõ: "Choose TWO" bị tách 2 câu; Listening thiếu audio; Writing "… below" thiếu hình; đường dẫn audio/hình sai.
-  - File mẫu mới: mau-bo-de-ielts-v2.json (đủ các dạng câu IELTS).
+CẬP NHẬT NHỎ (09/11/2026) — dùng sau gói cap-nhat-tai-khoan-gv
+================================================================
+1. Câu "Choose TWO / THREE" làm đúng một phần: ở trang chữa bài và chế độ luyện tập,
+   học viên thấy "1/2 đúng" (màu vàng), từng lựa chọn có ✓ / ✗ — không còn bị tô đỏ như sai hết.
+2. Thẻ bộ đề (📚 Đề thi) ghi đúng số câu của đề: đếm theo số ô tính điểm
+   (bảng 5 ô = 5 câu, Choose TWO = 2 câu, dòng "Questions 1–5" không tính).
+3. Link phòng thi (/p/<tên GV>) chỉ hiện ca đã mở hoặc mở trong 30 phút tới.
+   Ví dụ cô Lan có FL4 lúc 8:00 và FL8 lúc 14:00: buổi sáng HV vào thẳng bài FL4,
+   ca FL8 chỉ hiện từ 13:30. Link không đặt giờ mở thì hiện ngay như cũ.
+   → Nhớ đặt "Mở lúc" cho các ca thi cùng ngày.
 
-MỚI (22/10) — Link chữa bài theo bộ đề:
-  - Bộ đề → nút "📖 Chữa bài": tải file "... -- chua-bai.json", Xem trước, "Công bố cho học viên".
-  - 1 link /chua-bai/... dùng chung cho mọi lớp thi đề đó. Chưa công bố thì học viên không xem được.
-  - Học viên: đáp án + vị trí (tô vàng trong bài đọc) + paraphrase + giải thích + bẫy;
-    Listening có audio + transcript, nút "▶ Nghe lại" đúng đoạn chứa đáp án.
-    Nhập đúng tên + lớp lúc thi → thấy bài làm của mình, câu sai đánh dấu đỏ.
-  - Đáp án dạng mẫu (bắt đầu bằng "re:") — dùng cho đáp án viết nhiều kiểu (vd khung giờ 9am-5pm).
+Không đổi điểm, không đổi dữ liệu nào.
 
-MỚI ở lần này (19/10):
-  1. Phiếu điểm: luôn lấy nhận xét Writing từ phần chấm (kể cả khi chấm SAU lúc đã mở/lưu phiếu);
-     phiếu ngắn (Mock test) cũng có nhận xét từng tiêu chí; buổi thi đến sau tự gộp vào phiếu;
-     nút "↻ Lấy lại nhận xét", danh sách cả lớp + "Lưu & HV tiếp theo", nút "⬇ Word cả lớp".
-  2. Thi: khoá phím khi toàn màn hình (Chrome/Edge: Esc, F11, Alt+Tab, phím Windows);
-     ra khỏi toàn màn hình thì bài bị che cho tới khi bấm quay lại; hỏi lại trước khi đóng/tải lại tab.
-     Writing: được Ctrl C / Ctrl V nội dung chép TRONG bài; dán từ ngoài vẫn bị chặn và ghi lại.
-  3. Reading/Listening: GV bấm ✓ Đúng / ✗ Sai từng câu, "Lưu & xác nhận điểm" → điểm + band tính lại.
-     Bảng bài nộp: bài không có Writing hiện "Máy đã chấm" / "GV đã duyệt" (không còn "Chưa chấm").
-  4. Chữ to hơn 1 bậc trên màn hình lớn (≥ 1500px, vd 20–22"); cỡ "A lớn" to hơn trước; sửa lỗi
-     khung bài đọc bị lệch/tràn khi phóng chữ.
-  5. Tự lưu bài đang làm (trên máy + trên hệ thống mỗi 20 giây). Mất điện / tắt máy / đổi máy:
-     mở lại đúng link, nhập đúng tên + lớp → "Tiếp tục bài làm". GV xem ai đang làm ở nút "👀 Đang làm".
-
-CÁC ĐỢT TRƯỚC (vẫn có trong gói):
-  - Thi nhiều buổi (vd Mid-term: buổi R+L, buổi W) → 1 phiếu chung cho mỗi học viên
-  - Sửa lỗi 1 bài bị lưu 2 lần
-  - Tải phiếu điểm bằng Word (.docx) — nút "⬇ Tải Word (.docx)" ở trang Phiếu kết quả
-  - package.json + package-lock.json: thêm thư viện "docx" (Vercel tự cài khi deploy)
-
-Cách cập nhật: chép đè toàn bộ thư mục app/, lib/, public/ và 2 file package.json,
-package-lock.json trong gói vào repo (giữ nguyên đường dẫn). Không cần xoá file nào.
-Rồi GitHub Desktop -> Commit -> Push. Đợi Vercel deploy xong (~3 phút, lần này lâu hơn vì cài thư viện mới).
+Cách cập nhật: chép đè thư mục app/ và lib/ trong gói vào repo (giữ nguyên đường dẫn).
+GitHub Desktop → Commit → Push. Không cần sửa biến môi trường trên Vercel.

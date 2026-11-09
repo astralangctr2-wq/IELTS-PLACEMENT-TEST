@@ -1443,3 +1443,5 @@ input.sb-inp { padding: 8px 10px; font-size: 14px; border-radius: 8px; }
 @media (max-width: 720px) { .topbar:has(.staff-nav) { flex-direction: column; } .staff-nav { justify-content: flex-start; } }
 .code-row input { padding: 10px 14px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); }
 .code-row input::placeholder { letter-spacing: 0.05em; font-weight: 500; }
+/* Choose TWO / THREE partly right: each choice marked ✓ / ✗ */
+.rv-choices, .practice-choices { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }

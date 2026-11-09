@@ -53,13 +53,15 @@ function Passage({ text, highlight }) {
 
 function PartBody({ p, mine, onLocate, onListen, skill }) {
   return (
-    <div className={`rv-part ${mine ? (mine.ok ? "ok" : "bad") : ""}`}>
+    <div className={`rv-part ${mine ? (mine.ok ? "ok" : mine.partial ? "partial" : "bad") : ""}`}>
       {(p.num || p.label) && (
         <p className="rv-part-label">{p.num ? <b>Câu {p.num}. </b> : null}{p.label}</p>
       )}
       <p className="rv-line"><span className="rv-tag">Đáp án</span><b className="rv-key">{p.correct || "—"}</b></p>
       {mine && (
-        <p className="rv-line"><span className="rv-tag">Bạn trả lời</span><span className={mine.ok ? "rv-ok" : "rv-bad"}>{mine.ok ? "✓" : "✗"} {mine.given}</span></p>
+        <p className="rv-line"><span className="rv-tag">Bạn trả lời</span>{mine.choices && mine.choices.length > 0 && !mine.ok
+          ? <span className="rv-choices">{mine.choices.map((c, i) => <span key={i} className={c.ok ? "rv-ok" : "rv-bad"}>{c.ok ? "✓" : "✗"} {c.text}</span>)}</span>
+          : <span className={mine.ok ? "rv-ok" : "rv-bad"}>{mine.ok ? "✓" : "✗"} {mine.given}</span>}</p>
       )}
       {(p.where || p.quote) && (
         <p className="rv-line">
@@ -95,11 +97,12 @@ function Entries({ entries, skill, mine, onlyWrong, onLocate, onListen }) {
     const allOk = my ? my.every((x) => x.ok) : null;
     if (onlyWrong && my && allOk) return null;
     const done = my ? my.filter((x) => x.ok).length : 0;
+    const part1 = my && my.length === 1 && my[0].partial ? my[0] : null; // Choose TWO, 1 right
     return (
-      <div key={`q${e.id}`} className={`rv-item ${my ? (allOk ? "ok" : done ? "partial" : "bad") : ""}`} id={`rv-${skill}-${e.id}`}>
+      <div key={`q${e.id}`} className={`rv-item ${my ? (allOk ? "ok" : done || part1 ? "partial" : "bad") : ""}`} id={`rv-${skill}-${e.id}`}>
         <div className="rv-item-head">
           <span className="rv-num">{e.start === e.end ? `Câu ${e.start}` : `Câu ${e.start}–${e.end}`}</span>
-          {my && <span className={`rv-badge ${allOk ? "ok" : done ? "partial" : "bad"}`}>{allOk ? "✓ Đúng" : my.length > 1 ? `${done}/${my.length} đúng` : "✗ Sai"}</span>}
+          {my && <span className={`rv-badge ${allOk ? "ok" : done || part1 ? "partial" : "bad"}`}>{allOk ? "✓ Đúng" : part1 ? `${part1.score[0]}/${part1.score[1]} đúng` : my.length > 1 ? `${done}/${my.length} đúng` : "✗ Sai"}</span>}
         </div>
         {e.q && <p className="rv-q">{e.q}</p>}
         {e.parts.map((p, pi) => (
