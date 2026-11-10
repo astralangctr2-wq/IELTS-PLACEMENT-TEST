@@ -1,26 +1,79 @@
-CẬP NHẬT GIAO DIỆN VÀ SỬA LỖI CƠ BẢN 1 — 09/11/2026
-===================================================
-Gói này gộp TẤT CẢ các gói từ sau cap-nhat-tai-khoan-gv:
-  cap-nhat-giao-dien-gv, kiem-tra-sua-loi-gv, nut-sang-toi-gv, co-chu-sang-toi-gv.
-→ Chỉ cần push gói này. Chép đè cả thư mục app/ và lib/ (giữ nguyên đường dẫn).
+BỘ ĐỀ — 7 ĐỀ: FL1 FINAL · FL2 FINAL · FL2 MIDTERM · FL2 MOCK 1 · FL2 MOCK 2 · FL3 FINAL · FL3 MIDTERM
+===============================================================================================
+1. Chép thư mục public/ vào repo web (giữ nguyên đường dẫn), rồi GitHub Desktop → Commit → Push:
+     public/audio/FL1-FINAL-AUDIO-1.mp3        FL1 Final Listening Section 1 (5:34)
+     public/audio/FL1-FINAL-AUDIO-2.mp3        FL1 Final Listening Section 2 (6:28)
+     public/audio/FL2-FINAL-SECTION_1.mp3      FL2 Final Listening Section 1 (6:04)
+     public/audio/FL2-FINAL-SECTION_2.mp3      FL2 Final Listening Section 2 (6:51)
+     public/audio/FL2-MIDTERM-SECTION_1.mp3    FL2 Midterm Listening Section 1 (6:13)
+     public/audio/FL2-MIDTERM-SECTION_2.mp3    FL2 Midterm Listening Section 2 (6:52)
+     public/audio/FL2-MOCK1-SECTION_2.mp3      FL2 Mock 1 Listening (6:46)
+     public/audio/FL2-MOCK2-SECTION_2.mp3      FL2 Mock 2 Listening (7:54)
+     public/audio/FL3-FINAL-SECTION_1.mp3      FL3 Final Listening Section 1 (7:14)
+     public/audio/FL3-FINAL-SECTION_3.mp3      FL3 Final Listening Section 3 (6:33)
+     public/audio/FL3-MIDTERM-SECTION_1.mp3    FL3 Midterm Listening Section 1 (7:23)
+     public/audio/FL3-MIDTERM-SECTION_2.mp3    FL3 Midterm Listening Section 2 (7:43)
+     public/images/de/FL1-FINAL-writing-task1-maps.png   FL1 Final Writing Task 1
+     public/images/de/FL2-FINAL-listening-map.jpg        FL2 Final Listening câu 16-20
+     public/images/de/FL2-FINAL-writing-task1-pie.png    FL2 Final Writing Task 1
+     public/images/de/FL2-MIDTERM-writing-task1-graph.jpg  FL2 Midterm Writing Task 1
+     public/images/de/FL2-MOCK1-listening-map.jpg          FL2 Mock 1 Listening (bản đồ)
+     public/images/de/FL2-MOCK1-writing-task1-pie.png      FL2 Mock 1 Writing Task 1
+     public/images/de/FL2-MOCK2-listening-plan.png         FL2 Mock 2 Listening (sơ đồ)
+     public/images/de/FL3-FINAL-writing-task1-charts.png   FL3 Final Writing Task 1
+     public/images/de/FL3-MIDTERM-writing-task1-charts.jpg FL3 Midterm Writing Task 1
+2. Đợi Vercel deploy xong (~2 phút).
+3. Trang Admin → Đề thi → thêm 7 bộ đề (7 file .json trong gói).
+Speaking không có trong JSON (GV chấm tay như các đề trước).
 
-GIAO DIỆN
- 1. Khu Admin / GV: menu bên trái xếp theo quy trình; màu Astra navy / vàng.
- 2. Trang Admin: 1 màu sáng, không có nút đổi màu.
- 3. Trang GV: mặc định sáng (giống admin), nút "Sáng | Tối" để đổi; mỗi máy nhớ riêng.
- 4. Nút cỡ chữ A A A có tác dụng ở cả Admin và GV (90 % · 100 % · 115 %).
+FL1 -- FINAL
+ - Reading 26 câu · Listening 22 câu · Writing 2 task.
+ - Câu 8 và 9 trên giấy là "chọn 2 đáp án" → web tính mỗi câu 2 ô, nên Listening web có 22 câu:
+   giấy 8 → web 8-9 · giấy 9 → web 10-11 · giấy 10 → web 12 · giấy 11-20 → web 13-22.
+ - Nhận nhiều cách viết: McDonald/Macdonald · PO Box 676/P.O. Box 676/Post Office Box 676 ·
+   credit card/Visa · after (the) exams · Maths/Math/Mathematics · 17/seventeen ·
+   holiday(s)/vacation(s) · managers and sportsmen (đảo thứ tự, "&") · pharmaceutical (companies).
 
-SỬA LỖI
- 5. Menu "⋯" ở dòng cuối danh sách bị cắt mất → nay hiện đủ (gần cuối màn hình thì mở lên trên).
- 6. "Thu gọn tất cả" / bấm tên học viên không thu gọn được khi lớp (hoặc tab Giám sát)
-    có ≤ 3 học viên → nay thu gọn / mở được bình thường.
- 7. Ô nhập nhận xét (mọi kỹ năng, trang chấm và phiếu): không kéo ngang được nữa,
-    chỉ kéo dài / thu ngắn theo chiều dọc.
- 8. Phiếu Aptis: nút "nâng lên B2" lưu đúng, xuất Word / Excel đúng.
- 9. Nền tối: tên học viên chữ trắng (trước bị vàng hết).
- 10. Câu "Choose TWO" đúng một phần hiện "1/2 đúng"; thẻ bộ đề ghi đúng số câu;
-     link phòng thi chỉ hiện ca đã mở hoặc mở trong 30 phút tới.
+FL2 -- FINAL
+ - Reading 26 câu (giữ tên bài: "The natural of Yawning", "The contribution of language to business") · Listening 20 câu · Writing 2 task.
+ - Đánh số web trùng với đề giấy và đáp án.
+ - Câu 16-20 (bản đồ): học viên gõ chữ cái A-H.
+ - Nhận nhiều cách viết: 6 days/six days/6/six · good/good skills ·
+   receptionists and telephonists (đảo thứ tự, "&") · negotiation(s)/negotiating.
 
-Không đổi dữ liệu, không cần sửa Vercel. Trang thi của học viên không đổi.
-Cách cập nhật: chép đè → GitHub Desktop → Commit → Push.
-Có thể xoá app/teacher/SwRegister.jsx trong repo nếu còn (không dùng nữa).
+FL2 -- MIDTERM
+ - Reading 25 câu (giữ tên bài: "How we manage the land on Earth", "The Geography of Antarctica")
+   · Listening 20 câu · Writing 2 task. Đánh số web trùng đề giấy và đáp án.
+ - Câu 21-25: học viên chọn từ danh sách A-G (ô thả xuống).
+ - Nhận nhiều cách viết: (amazing) weather · plane/airplane · older than 40/forty ·
+   mid-range/mid range · ice-free/ice free · greenhouse gas(es) · ice shelves/ice shelf.
+
+FL2 -- MOCK TEST 1 (đề ngắn: 1 bài đọc, 1 section nghe, Writing Task 1)
+ - Reading 13 câu (giữ tên bài "Eco-Resort Management"); câu 11-13 chọn 3 đáp án A-E.
+ - Listening 10 câu. Đề giấy đánh số 11-20 → trên web là câu 1-10 (11 → 1 … 20 → 10).
+ - Câu bản đồ: học viên gõ chữ cái A-I.
+ - Nhận nhiều cách viết: ferry · bicycle(s) · fan/ceiling fan · air-conditioner/air conditioner ·
+   mosquito/mosquitos/mosquitoes.
+
+FL2 -- MOCK TEST 2 (đề ngắn: 1 bài đọc, 1 section nghe, Writing Task 2)
+ - Reading 14 câu (giữ tên bài "Memory and Age").
+ - Listening 10 câu. Đề giấy đánh số 11-20 → trên web là câu 1-10.
+ - Câu sơ đồ: học viên gõ chữ cái A-I.
+ - Nhận nhiều cách viết: episodic memory/event memory · vocabulary.
+
+FL3 -- FINAL
+ - Reading 27 câu (giữ tên bài: "The Concept of Childhood in Western Countries", "The Study of Chimpanzee Culture").
+ - Listening 20 câu: Section 1 (câu 1-10) + Section 3. Đề giấy Section 3 đánh số 21-30 → trên web là câu 11-20.
+ - Writing 2 task.
+ - Câu 5, 6 đề giấy bị mất chữ đầu câu → đã thêm: "With the aid of half-time schools…", "In the 20th century…".
+ - Nhận nhiều cách viết: cheapest/budget · non-smoking · John A. Smyth/John A Smyth · $110/110 dollars ·
+   Cultural Centre/Center · ionisation/ionization · industrialisation/industrialization · (the) Factory Act ·
+   (a) classroom · (in) the 1960s · cultural (origin).
+
+FL3 -- MIDTERM
+ - Reading 26 câu (giữ tên bài: "The Farmers! Parade of history", "Pollution! In the Bay").
+   Đáp án giấy Passage 2 đánh lại 1-13 → web là câu 14-26 (theo đúng đề giấy).
+ - Listening 20 câu, đánh số trùng đề giấy. Câu 16-20: học viên kéo/chọn đáp án A-H.
+ - Writing 2 task.
+ - Nhận nhiều cách viết: 18/eighteen · activities and/& workshops · 250/£250 · material(s) ·
+   programme/program · not available/unavailable · mail-order company · buying office(s).
