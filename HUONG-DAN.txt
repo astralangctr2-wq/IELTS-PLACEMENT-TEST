@@ -1,79 +1,48 @@
-BỘ ĐỀ — 7 ĐỀ: FL1 FINAL · FL2 FINAL · FL2 MIDTERM · FL2 MOCK 1 · FL2 MOCK 2 · FL3 FINAL · FL3 MIDTERM
-===============================================================================================
-1. Chép thư mục public/ vào repo web (giữ nguyên đường dẫn), rồi GitHub Desktop → Commit → Push:
-     public/audio/FL1-FINAL-AUDIO-1.mp3        FL1 Final Listening Section 1 (5:34)
-     public/audio/FL1-FINAL-AUDIO-2.mp3        FL1 Final Listening Section 2 (6:28)
-     public/audio/FL2-FINAL-SECTION_1.mp3      FL2 Final Listening Section 1 (6:04)
-     public/audio/FL2-FINAL-SECTION_2.mp3      FL2 Final Listening Section 2 (6:51)
-     public/audio/FL2-MIDTERM-SECTION_1.mp3    FL2 Midterm Listening Section 1 (6:13)
-     public/audio/FL2-MIDTERM-SECTION_2.mp3    FL2 Midterm Listening Section 2 (6:52)
-     public/audio/FL2-MOCK1-SECTION_2.mp3      FL2 Mock 1 Listening (6:46)
-     public/audio/FL2-MOCK2-SECTION_2.mp3      FL2 Mock 2 Listening (7:54)
-     public/audio/FL3-FINAL-SECTION_1.mp3      FL3 Final Listening Section 1 (7:14)
-     public/audio/FL3-FINAL-SECTION_3.mp3      FL3 Final Listening Section 3 (6:33)
-     public/audio/FL3-MIDTERM-SECTION_1.mp3    FL3 Midterm Listening Section 1 (7:23)
-     public/audio/FL3-MIDTERM-SECTION_2.mp3    FL3 Midterm Listening Section 2 (7:43)
-     public/images/de/FL1-FINAL-writing-task1-maps.png   FL1 Final Writing Task 1
-     public/images/de/FL2-FINAL-listening-map.jpg        FL2 Final Listening câu 16-20
-     public/images/de/FL2-FINAL-writing-task1-pie.png    FL2 Final Writing Task 1
-     public/images/de/FL2-MIDTERM-writing-task1-graph.jpg  FL2 Midterm Writing Task 1
-     public/images/de/FL2-MOCK1-listening-map.jpg          FL2 Mock 1 Listening (bản đồ)
-     public/images/de/FL2-MOCK1-writing-task1-pie.png      FL2 Mock 1 Writing Task 1
-     public/images/de/FL2-MOCK2-listening-plan.png         FL2 Mock 2 Listening (sơ đồ)
-     public/images/de/FL3-FINAL-writing-task1-charts.png   FL3 Final Writing Task 1
-     public/images/de/FL3-MIDTERM-writing-task1-charts.jpg FL3 Midterm Writing Task 1
+BỘ ĐỀ FL5 — FINAL · MIDTERM · MOCK TEST 1 · MOCK TEST 2
+=======================================================
+1. Chép thư mục public/ vào repo web (giữ nguyên đường dẫn) → GitHub Desktop → Commit → Push.
+     public/audio/FL5-FINAL-SECTION_1.mp3   (5:34)
+     public/audio/FL5-FINAL-SECTION_2.mp3   (6:49)
+     public/audio/FL5-FINAL-SECTION_3.mp3   (5:28)
+     public/audio/FL5-FINAL-SECTION_4.mp3   (7:25)
+     public/audio/FL5-MIDTERM-SECTION_1.mp3   (6:53)
+     public/audio/FL5-MIDTERM-SECTION_2.mp3   (7:31)
+     public/audio/FL5-MIDTERM-SECTION_3.mp3   (7:33)
+     public/audio/FL5-MIDTERM-SECTION_4.mp3   (7:09)
+     public/audio/FL5-MOCK1-SECTION_2.mp3   (6:48)
+     public/audio/FL5-MOCK1-SECTION_3.mp3   (6:38)
+     public/audio/FL5-MOCK2-SECTION_3A.mp3   (8:00)
+     public/audio/FL5-MOCK2-SECTION_3B.mp3   (5:57)
+     public/images/de/FL5-FINAL-listening-map.jpg
+     public/images/de/FL5-FINAL-writing-task1-leather.jpg
+     public/images/de/FL5-MIDTERM-writing-task1-honey.jpg
+     public/images/de/FL5-MOCK1-writing-task1-recycling.jpg
+     public/images/de/FL5-MOCK2-reading-coffee-bean.jpg
 2. Đợi Vercel deploy xong (~2 phút).
-3. Trang Admin → Đề thi → thêm 7 bộ đề (7 file .json trong gói).
+3. Trang Admin → Đề thi → thêm 4 bộ đề (4 file .json trong gói).
 Speaking không có trong JSON (GV chấm tay như các đề trước).
 
-FL1 -- FINAL
- - Reading 26 câu · Listening 22 câu · Writing 2 task.
- - Câu 8 và 9 trên giấy là "chọn 2 đáp án" → web tính mỗi câu 2 ô, nên Listening web có 22 câu:
-   giấy 8 → web 8-9 · giấy 9 → web 10-11 · giấy 10 → web 12 · giấy 11-20 → web 13-22.
- - Nhận nhiều cách viết: McDonald/Macdonald · PO Box 676/P.O. Box 676/Post Office Box 676 ·
-   credit card/Visa · after (the) exams · Maths/Math/Mathematics · 17/seventeen ·
-   holiday(s)/vacation(s) · managers and sportsmen (đảo thứ tự, "&") · pharmaceutical (companies).
+FL5 -- FINAL (đề đủ: 3 bài đọc, 4 section nghe, 2 bài viết)
+ - Reading 40 câu · Listening 40 câu · Writing Task 1 (quy trình làm đồ da) + Task 2. Đánh số trùng đề giấy.
+ - Section 4 gốc là file .m4a → đã đổi sang .mp3 để chạy được trên mọi trình duyệt.
+ - Nhận nhiều cách viết: string(s) · full version · families/family and friends · twice a/per month ·
+   (the) club secretary · March 25th/25th March/25 March · (a/the) senior lecturer.
 
-FL2 -- FINAL
- - Reading 26 câu (giữ tên bài: "The natural of Yawning", "The contribution of language to business") · Listening 20 câu · Writing 2 task.
- - Đánh số web trùng với đề giấy và đáp án.
- - Câu 16-20 (bản đồ): học viên gõ chữ cái A-H.
- - Nhận nhiều cách viết: 6 days/six days/6/six · good/good skills ·
-   receptionists and telephonists (đảo thứ tự, "&") · negotiation(s)/negotiating.
+FL5 -- MIDTERM (đề đủ)
+ - Reading 40 câu (giữ tên bài "Voyage of going: beyond the blue line 2", "Oxytocin", "MAKING THE MOST OF TRENDS").
+ - Listening 40 câu. File audio gốc là 1 file 29 phút → đã cắt thành 4 section theo đúng chỗ ngắt
+   (Section 2 từ 6:53, Section 3 từ 14:24, Section 4 từ 21:57 của file gốc).
+ - Câu 11-12 (đề giấy ghi nhầm "11-14"): chọn 2 đáp án.
+ - Bài đọc 1 trong PDF bị lỗi chữ do quét (expbrers, abng, vokanoes, at feast, um…) → đã sửa lại thành
+   explorers, along, volcanoes, at least, urn… Tên bài giữ nguyên.
+ - Nhận nhiều cách viết: 19/nineteen · 30/thirty · (in) canoes · (the) trade winds · seabirds and turtles (đảo thứ tự, "&").
 
-FL2 -- MIDTERM
- - Reading 25 câu (giữ tên bài: "How we manage the land on Earth", "The Geography of Antarctica")
-   · Listening 20 câu · Writing 2 task. Đánh số web trùng đề giấy và đáp án.
- - Câu 21-25: học viên chọn từ danh sách A-G (ô thả xuống).
- - Nhận nhiều cách viết: (amazing) weather · plane/airplane · older than 40/forty ·
-   mid-range/mid range · ice-free/ice free · greenhouse gas(es) · ice shelves/ice shelf.
+FL5 -- MOCK TEST 1 (đề ngắn: 2 bài đọc, Listening Section 2 + 3, Writing Task 1)
+ - Reading 26 câu · Listening 20 câu: đề giấy đánh số 11-30 → trên web là câu 1-20.
+ - Nhận nhiều cách viết: 60,000/60000 · email voice/e-mail voice · (great) engineering feat.
 
-FL2 -- MOCK TEST 1 (đề ngắn: 1 bài đọc, 1 section nghe, Writing Task 1)
- - Reading 13 câu (giữ tên bài "Eco-Resort Management"); câu 11-13 chọn 3 đáp án A-E.
- - Listening 10 câu. Đề giấy đánh số 11-20 → trên web là câu 1-10 (11 → 1 … 20 → 10).
- - Câu bản đồ: học viên gõ chữ cái A-I.
- - Nhận nhiều cách viết: ferry · bicycle(s) · fan/ceiling fan · air-conditioner/air conditioner ·
-   mosquito/mosquitos/mosquitoes.
-
-FL2 -- MOCK TEST 2 (đề ngắn: 1 bài đọc, 1 section nghe, Writing Task 2)
- - Reading 14 câu (giữ tên bài "Memory and Age").
- - Listening 10 câu. Đề giấy đánh số 11-20 → trên web là câu 1-10.
- - Câu sơ đồ: học viên gõ chữ cái A-I.
- - Nhận nhiều cách viết: episodic memory/event memory · vocabulary.
-
-FL3 -- FINAL
- - Reading 27 câu (giữ tên bài: "The Concept of Childhood in Western Countries", "The Study of Chimpanzee Culture").
- - Listening 20 câu: Section 1 (câu 1-10) + Section 3. Đề giấy Section 3 đánh số 21-30 → trên web là câu 11-20.
- - Writing 2 task.
- - Câu 5, 6 đề giấy bị mất chữ đầu câu → đã thêm: "With the aid of half-time schools…", "In the 20th century…".
- - Nhận nhiều cách viết: cheapest/budget · non-smoking · John A. Smyth/John A Smyth · $110/110 dollars ·
-   Cultural Centre/Center · ionisation/ionization · industrialisation/industrialization · (the) Factory Act ·
-   (a) classroom · (in) the 1960s · cultural (origin).
-
-FL3 -- MIDTERM
- - Reading 26 câu (giữ tên bài: "The Farmers! Parade of history", "Pollution! In the Bay").
-   Đáp án giấy Passage 2 đánh lại 1-13 → web là câu 14-26 (theo đúng đề giấy).
- - Listening 20 câu, đánh số trùng đề giấy. Câu 16-20: học viên kéo/chọn đáp án A-H.
- - Writing 2 task.
- - Nhận nhiều cách viết: 18/eighteen · activities and/& workshops · 250/£250 · material(s) ·
-   programme/program · not available/unavailable · mail-order company · buying office(s).
+FL5 -- MOCK TEST 2 (đề ngắn: 2 bài đọc, Listening Section 3A + 3B, Writing Task 2)
+ - Reading 26 câu (câu 7-9 có hình hạt cà phê) · Listening 20 câu: 3A (đề giấy 21-30) → web câu 1-10,
+   3B (đề giấy 21-30) → web câu 11-20.
+ - Nhận nhiều cách viết: wet milled/wet-milled · customer(s)’ specifications · all-inclusive camps ·
+   real-life/real life · 10%/10 percent/ten per cent.
