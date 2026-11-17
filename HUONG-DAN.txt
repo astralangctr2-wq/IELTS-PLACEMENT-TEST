@@ -1,48 +1,68 @@
-BỘ ĐỀ FL5 — FINAL · MIDTERM · MOCK TEST 1 · MOCK TEST 2
-=======================================================
+BỘ ĐỀ FL6 + FL7 + FL9 — mỗi khoá 4 đề (FINAL · MIDTERM · MOCK TEST 1 · MOCK TEST 2) = 12 đề
+======================================================================================
 1. Chép thư mục public/ vào repo web (giữ nguyên đường dẫn) → GitHub Desktop → Commit → Push.
-     public/audio/FL5-FINAL-SECTION_1.mp3   (5:34)
-     public/audio/FL5-FINAL-SECTION_2.mp3   (6:49)
-     public/audio/FL5-FINAL-SECTION_3.mp3   (5:28)
-     public/audio/FL5-FINAL-SECTION_4.mp3   (7:25)
-     public/audio/FL5-MIDTERM-SECTION_1.mp3   (6:53)
-     public/audio/FL5-MIDTERM-SECTION_2.mp3   (7:31)
-     public/audio/FL5-MIDTERM-SECTION_3.mp3   (7:33)
-     public/audio/FL5-MIDTERM-SECTION_4.mp3   (7:09)
-     public/audio/FL5-MOCK1-SECTION_2.mp3   (6:48)
-     public/audio/FL5-MOCK1-SECTION_3.mp3   (6:38)
-     public/audio/FL5-MOCK2-SECTION_3A.mp3   (8:00)
-     public/audio/FL5-MOCK2-SECTION_3B.mp3   (5:57)
-     public/images/de/FL5-FINAL-listening-map.jpg
-     public/images/de/FL5-FINAL-writing-task1-leather.jpg
-     public/images/de/FL5-MIDTERM-writing-task1-honey.jpg
-     public/images/de/FL5-MOCK1-writing-task1-recycling.jpg
-     public/images/de/FL5-MOCK2-reading-coffee-bean.jpg
-2. Đợi Vercel deploy xong (~2 phút).
-3. Trang Admin → Đề thi → thêm 4 bộ đề (4 file .json trong gói).
+   (44 file audio trong public/audio, 15 hình trong public/images/de)
+2. Đợi Vercel deploy xong (~2-3 phút).
+3. Trang Admin → Đề thi → thêm 12 bộ đề (12 file .json trong gói).
 Speaking không có trong JSON (GV chấm tay như các đề trước).
 
-FL5 -- FINAL (đề đủ: 3 bài đọc, 4 section nghe, 2 bài viết)
- - Reading 40 câu · Listening 40 câu · Writing Task 1 (quy trình làm đồ da) + Task 2. Đánh số trùng đề giấy.
- - Section 4 gốc là file .m4a → đã đổi sang .mp3 để chạy được trên mọi trình duyệt.
- - Nhận nhiều cách viết: string(s) · full version · families/family and friends · twice a/per month ·
-   (the) club secretary · March 25th/25th March/25 March · (a/the) senior lecturer.
+############ FL9 ############
+Cả 4 đề đủ: Reading 40 câu · Listening 40 câu (4 section) · Writing Task 1 + Task 2.
+AUDIO ĐÃ CẮT: Mock Test 1 và Mock Test 2 gốc là 1 file liền ~29 phút → đã cắt thành 4 section tại đúng chỗ "Section 2/3/4".
+ - Final: "Design the mat and Foot health", "Brunel: ‘The Practical Prophet’", "Movie of Metropolis". Writing Task 1 sơ đồ trường West Park.
+ - Midterm: "THE LOCH NESS MONSTER", "A GUIDE TO WOMENOMICS", "A LIBRARY AT YOUR FINGERTIPS". Writing Task 1 sơ đồ ký túc xá.
+   Đề PDF quét chữ bị lỗi → đã sửa: Jiving→living, modem→modern, arc→are, tills→this, Cordon→Gordon (câu 8)…
+ - Mock 1: "The Innovation of Grocery Stores", "Bestcom—Considerate Computing" (câu 20-26 có hình sơ đồ), "Improving Patient Safety".
+   Listening câu 17-20 có hình sơ đồ phòng khách. Writing Task 1 quy trình tái chế chai thuỷ tinh.
+ - Mock 2: "POLLUTING SOUNDS: IN SEARCH OF SILENCE", "Fatal Attraction", "Communication in science". Writing Task 1 bản đồ đập thuỷ điện.
+   Đề ghi câu 32-35 "Reading Passage 1" → đã sửa thành Passage 3.
 
-FL5 -- MIDTERM (đề đủ)
- - Reading 40 câu (giữ tên bài "Voyage of going: beyond the blue line 2", "Oxytocin", "MAKING THE MOST OF TRENDS").
- - Listening 40 câu. File audio gốc là 1 file 29 phút → đã cắt thành 4 section theo đúng chỗ ngắt
-   (Section 2 từ 6:53, Section 3 từ 14:24, Section 4 từ 21:57 của file gốc).
- - Câu 11-12 (đề giấy ghi nhầm "11-14"): chọn 2 đáp án.
- - Bài đọc 1 trong PDF bị lỗi chữ do quét (expbrers, abng, vokanoes, at feast, um…) → đã sửa lại thành
-   explorers, along, volcanoes, at least, urn… Tên bài giữ nguyên.
- - Nhận nhiều cách viết: 19/nineteen · 30/thirty · (in) canoes · (the) trade winds · seabirds and turtles (đảo thứ tự, "&").
+############ FL7 ############
+AUDIO ĐÃ CẮT LẠI
+ - Midterm: file gốc là 1 file liền 30 phút → đã cắt thành 4 section tại đúng chỗ "Now turn to Section 2/3/4".
+ - Mock Test 2: file gốc "Section 1-2-3" → đã cắt thành Section 1, 2, 3; Section 4 giữ nguyên.
+ - Mock Test 1: Section 1 gốc là .m4a → đã đổi sang .mp3.
 
-FL5 -- MOCK TEST 1 (đề ngắn: 2 bài đọc, Listening Section 2 + 3, Writing Task 1)
+FL7 -- FINAL
+ - Writing Task 1 (bảng du lịch quốc tế) + Task 2.
+ - Tên bài: "Why are Americans so angry?", "Do e-cigarettes make it harder to stop smoking?", "The battle over the gender price gap".
+
+FL7 -- MIDTERM TEST
+ - Câu 18-23 (Reading) có hình sơ đồ "The Envisioning Process". Writing Task 1 (biểu đồ cột sách) + Task 2.
+ - Tên bài: "Make That Wine!", "That Vision Thing", "Destination Mars".
+
+FL7 -- MOCK TEST 1
+ - File đáp án không ghi đáp án Reading dạng chữ — đã lấy từ bảng hình trong file đáp án (Cam 20 Test 1).
+ - Câu 36-40 bảng đáp án ghi YES/NO, đề hỏi TRUE/FALSE → đã quy đổi YES = TRUE, NO = FALSE.
+ - Chỉ có Writing Task 1 (biểu đồ đường 3 loại bơ). Tên bài giữ nguyên: "The kakapo", "To Britain", "How Stress Affects Our Judgement".
+
+FL7 -- MOCK TEST 2
+ - Chỉ có Writing Task 2. Tên bài: "Manatees", "Procrastination", "Invasion of the Robot Umpires".
+ - Câu 33-37 chọn cụm từ A-H từ danh sách.
+ - Nhận nhiều cách viết: 4628 3095 / 4628-3095 · 9am-3:30pm / 9:00 a.m. – 3:30 p.m. / 9am to 3:30pm · 2.5% / 2.5 percent ·
+   1,500 pounds / £1,500 · woodland/woods/forest(s) · grey/gray · humans/people.
+
+############ FL6 ############
+FL6 -- FINAL (đề đủ: 3 bài đọc, 4 section nghe, 2 bài viết)
+ - Reading 40 câu · Listening 40 câu (câu 16-20 có bản đồ Mount Rushmore) · Writing Task 1 (biểu đồ chi tiêu hộ gia đình Anh) + Task 2.
+ - Tên bài giữ nguyên: "Biodiversity", "What are you laughing at?", "The reconstruction of community in Talbot Park, Auckland".
+ - Đề giấy ghi "Reading Passage ?" / "Reading Passage 1" ở câu 24-26 → đã ghi đúng số bài đọc.
+ - Sửa vài lỗi chữ trong bài đọc: spcies → species, what7 s → what’s, IVs → It’s.
+ - Nhận nhiều cách viết: adaptor/adapter · 0777594128 (có hoặc không dấu cách) · 30th April/30 April/April 30 ·
+   1 million/1,000,000 · southeast/south-east · 7/seven · (company’s) income.
+
+FL6 -- MIDTERM TEST (đề đủ)
+ - Reading 40 câu · Listening 40 câu (câu 36-40 có sơ đồ London Eye) · Writing Task 1 (sơ đồ phòng sinh hoạt) + Task 2.
+ - Đề giấy để Listening trước Reading → trên web vẫn làm Reading trước như các đề khác, số câu giữ nguyên.
+ - Sửa lỗi chữ do quét: modem → modern, HI → H1.
+ - Nhận nhiều cách viết: driving licence/license · (a/the) sextant · (the) teeth (of skeletons) · 9000/9,000 years old ·
+   135 meters/metres · A-Frame/A Frame · role-play/role play activities.
+
+FL6 -- MOCK TEST 1 (đề ngắn: 2 bài đọc, Listening Section 2 + 3, Writing Task 1 bản đồ sân thể thao)
  - Reading 26 câu · Listening 20 câu: đề giấy đánh số 11-30 → trên web là câu 1-20.
- - Nhận nhiều cách viết: 60,000/60000 · email voice/e-mail voice · (great) engineering feat.
+ - Nhận nhiều cách viết: (the) Netherlands · Los Angeles/LA · 2 minutes/two minutes.
 
-FL5 -- MOCK TEST 2 (đề ngắn: 2 bài đọc, Listening Section 3A + 3B, Writing Task 2)
- - Reading 26 câu (câu 7-9 có hình hạt cà phê) · Listening 20 câu: 3A (đề giấy 21-30) → web câu 1-10,
-   3B (đề giấy 21-30) → web câu 11-20.
- - Nhận nhiều cách viết: wet milled/wet-milled · customer(s)’ specifications · all-inclusive camps ·
-   real-life/real life · 10%/10 percent/ten per cent.
+FL6 -- MOCK TEST 2 (đề ngắn: 2 bài đọc, Listening Section 2 + 3, Writing Task 2)
+ - Reading 26 câu · Listening 20 câu: đề giấy đánh số 11-30 → trên web là câu 1-20.
+ - Nhận nhiều cách viết: 5 pound fee/£5 fee · Friday(s) · 6/six books · 1 week/one week · (the) computers ·
+   non-lending (section) · (the) basement.
