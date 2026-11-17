@@ -1,15 +1,21 @@
 import { getReviewBySlug, buildReviewModel } from "@/lib/bankReview";
 import { getContentBank } from "@/lib/contentBanks";
 import { staffSignedIn } from "@/lib/sheetAuth";
+import { unstable_noStore as noStore } from "next/cache";
 import ReviewView from "./ReviewView";
 
+// Always read the review fresh from the database: publishing or uploading
+// a new review must show on this link right away (never a cached copy).
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 export const metadata = { title: "Đáp án & chữa bài — Astra", robots: { index: false } };
 
 // Public answer review of one test bank ("link chữa bài"): the same link
 // for every class that took this test. Shown only once the teacher has
 // published it; a signed-in teacher can preview it before (?preview=1).
 export default async function ReviewPage({ params, searchParams }) {
+  noStore();
   const r = await getReviewBySlug(params.slug);
   const preview = Boolean(searchParams?.preview) && (await staffSignedIn());
   if (!r || (!r.published && !preview)) {

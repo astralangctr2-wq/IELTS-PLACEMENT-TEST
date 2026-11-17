@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { adminSignedIn } from "@/lib/staff";
 import { getContentBank } from "@/lib/contentBanks";
 import { getBankReview, saveBankReview, reviewCoverage } from "@/lib/bankReview";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const view = (bank, r) => ({
   slug: r?.slug || null,
@@ -25,7 +27,7 @@ async function load(id) {
 export async function GET(_req, { params }) {
   const { bank, error } = await load(params.id);
   if (error) return error;
-  return NextResponse.json(view(bank, await getBankReview(params.id)));
+  return NextResponse.json(view(bank, await getBankReview(params.id)), { headers: { "Cache-Control": "no-store" } });
 }
 
 // { data } — the explanations (JSON file "chữa bài"); { published } — on/off.
@@ -37,5 +39,7 @@ export async function POST(req, { params }) {
     ...(body.data !== undefined ? { data: body.data } : {}),
     ...(body.published !== undefined ? { published: Boolean(body.published) } : {}),
   });
-  return NextResponse.json(view(bank, r));
+  // Drop any cached copy of the public link so the change shows at once.
+  if (r?.slug) { try { revalidatePath(`/chua-bai/${r.slug}`); } catch {} }
+  return NextResponse.json(view(bank, r), { headers: { "Cache-Control": "no-store" } });
 }
