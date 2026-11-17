@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 import { formatVN } from "@/lib/formatDate";
 import { requireStaffPage, staffOwns, getTeacher, teacherLabel } from "@/lib/staff";
 import { getSubmissionFull } from "@/lib/classes";
-import WritingGrader from "./WritingGrader";
+import DocGrader from "./DocGrader";
+import GradeFlow from "./GradeFlow";
+import { getContentBank } from "@/lib/contentBanks";
+import { writingPromptsOf } from "@/lib/grading";
 import { aptisScaleFromRaw, aptisCefr, aptisNearCut } from "@/lib/grading";
 import ExamTypeSwitch from "./ExamTypeSwitch";
 import IntegrityCard from "./IntegrityCard";
@@ -13,7 +16,7 @@ import DeleteButton from "../DeleteButton";
 
 export const dynamic = "force-dynamic";
 
-export default async function SubmissionDetail({ params }) {
+export default async function SubmissionDetail({ params, searchParams }) {
   const staff = await requireStaffPage();
   await ensureReviewSchema();
   const s = await getSubmissionFull(params.id);
@@ -29,6 +32,16 @@ export default async function SubmissionDetail({ params }) {
     const near = scale !== null ? aptisNearCut(skill, scale) : null;
     return <>{earned}/{total} câu — <b>{scale ?? "—"}/50</b> · CEFR <b>{scale !== null ? aptisCefr(skill, scale) : "—"}</b>{near && <span className="muted"> · sát mốc {near} (admin có thể nâng trên phiếu)</span>}</>;
   };
+
+  // Writing prompts: kept with the submission since this version; older
+  // submissions read them from their bank (if it still exists).
+  let prompts = Array.isArray(snapshot?.writing) ? snapshot.writing : null;
+  if (!prompts && skills.includes("writing") && s.content_bank_id) {
+    const bank = await getContentBank(s.content_bank_id).catch(() => null);
+    prompts = bank?.content?.writing ? writingPromptsOf(bank.content.writing) : null;
+  }
+  const hasObjective = ["grammar", "reading", "listening"].some((k) => skills.includes(k));
+  const sheetHref = `/teacher/${s.id}/phieu`;
 
   return (
     <div className="wrap-wide grade-page">
@@ -54,13 +67,21 @@ export default async function SubmissionDetail({ params }) {
         </div>
         <div className="row" style={{ gap: 10 }}>
           <a href="/teacher"><button className="btn-ghost btn-sm">← Danh sách</button></a>
-          <a href={`/teacher/${s.id}/phieu`} target="_blank" rel="noreferrer"><button className="btn-ghost btn-sm">Phiếu kết quả ↗</button></a>
+          <a href={sheetHref}><button className="btn-ghost btn-sm">Phiếu kết quả →</button></a>
           {admin && <DeleteButton id={s.id} studentName={s.student_name} redirectAfter="/teacher" />}
         </div>
       </div>
 
       <IntegrityCard integrity={s.integrity} />
 
+      <GradeFlow
+        hasObjective={hasObjective}
+        hasWriting={skills.includes("writing")}
+        initialStep={searchParams?.buoc || ""}
+        sheetHref={sheetHref}
+        objectiveConfirmed={Boolean(s.answer_review?.confirmedAt)}
+        writingGraded={Boolean(s.graded)}
+        objective={<>
       {(skills.includes("reading") || skills.includes("listening")) && <HighlightsCard highlights={s.answers?.highlights} />}
 
       {aptis ? (
@@ -72,27 +93,12 @@ export default async function SubmissionDetail({ params }) {
       </div>
       ) : (
       <div className="card stack">
-        <p className="mono muted" style={{ fontSize: 12 }}>{s.answer_review?.confirmedAt ? "ĐIỂM TRẮC NGHIỆM — GV ĐÃ XÁC NHẬN ✓" : "ĐIỂM TỰ ĐỘNG (máy chấm — GV xác nhận ở cuối trang)"}</p>
+        <p className="mono muted" style={{ fontSize: 12 }}>{s.answer_review?.confirmedAt ? "ĐIỂM TRẮC NGHIỆM — GV ĐÃ XÁC NHẬN ✓" : "ĐIỂM TỰ ĐỘNG (máy chấm — GV xem & xác nhận từng câu bên dưới)"}</p>
         {skills.includes("grammar") && <p>Ngữ pháp: <b>{s.grammar_score}/{s.grammar_total}</b></p>}
         {skills.includes("reading") && <p>Reading: <b>{s.reading_score}/{s.reading_total}</b></p>}
         {skills.includes("listening") && <p>Listening: <b>{s.listening_score}/{s.listening_total}</b></p>}
         <p>Band ước tính (chưa gồm Writing): <b>{s.objective_band !== null ? Number(s.objective_band).toFixed(1) : "— (HV không làm phần trắc nghiệm nào)"}</b></p>
       </div>
-      )}
-
-      {skills.includes("writing") && (
-        <WritingGrader
-          submissionId={s.id}
-          type={aptis ? "aptis" : "ielts"}
-          text={s.writing_text || ""}
-          wordCount={s.writing_word_count}
-          objectiveBand={s.objective_band !== null ? Number(s.objective_band) : null}
-          initialGrading={s.grading || null}
-          graded={s.graded}
-        />
-      )}
-      {!skills.includes("writing") && (
-        <div className="card"><p className="muted" style={{ fontSize: 13 }}>Bài này không có Writing. Máy đã chấm phần trắc nghiệm — GV xem lại từng câu bên dưới (bấm ✓ Đúng / ✗ Sai nếu cần) rồi bấm <b>Lưu &amp; xác nhận điểm</b>.</p></div>
       )}
 
       {snapshot && Array.isArray(snapshot.grammar) && Array.isArray(snapshot.reading) && Array.isArray(snapshot.listening) ? (
@@ -108,6 +114,21 @@ export default async function SubmissionDetail({ params }) {
           <p className="muted" style={{ fontSize: 13 }}>Không có dữ liệu chi tiết từng câu cho bài nộp này (có thể do nộp trước khi tính năng này được bật, hoặc dữ liệu bị thiếu). Chỉ hiện được điểm tổng ở trên.</p>
         </div>
       )}
+
+        </>}
+        writing={skills.includes("writing") ? (
+          <DocGrader
+            submissionId={s.id}
+            type={aptis ? "aptis" : "ielts"}
+            text={s.writing_text || ""}
+            objectiveBand={s.objective_band !== null ? Number(s.objective_band) : null}
+            initialGrading={s.grading || null}
+            graded={s.graded}
+            prompts={prompts}
+            sheetHref={sheetHref}
+          />
+        ) : null}
+      />
 
     </div>
   );

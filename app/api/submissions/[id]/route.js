@@ -141,6 +141,20 @@ export async function PATCH(req, { params }) {
 
   if (body.action === "grade") return saveDetailedGrade(params.id, body);
 
+  // Highlights / comments on the essay only (step "Chữa Writing"), saved
+  // as the teacher works — before the bands are chosen. Merged into an
+  // existing grade; otherwise kept as a draft ("draft" type is ignored by
+  // the sheet, stats and exports until the real grade is saved).
+  if (body.action === "annotate") {
+    const row = await getSubmissionFull(params.id);
+    if (!row) return NextResponse.json({ error: "Không tìm thấy bài làm." }, { status: 404 });
+    const annotations = cleanAnnotations(body.annotations, (row.writing_text || "").length);
+    const g = row.grading && typeof row.grading === "object" ? row.grading : null;
+    const next = g && g.type && g.type !== "draft" ? { ...g, annotations } : { type: "draft", annotations };
+    await sql`UPDATE submissions SET grading = ${JSON.stringify(next)}::jsonb WHERE id = ${params.id}`;
+    return NextResponse.json({ ok: true, count: annotations.length });
+  }
+
   // Teacher overrides the IELTS / Aptis detection for this submission
   // (null = automatic again). Only changes which grading form is used.
   if (body.action === "setExamType") {

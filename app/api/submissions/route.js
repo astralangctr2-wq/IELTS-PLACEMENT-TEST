@@ -8,6 +8,8 @@ import { getSession, sessionMode } from "@/lib/testSessions";
 import { buildReview } from "@/lib/review";
 import { normalizeClassName } from "@/lib/classNames";
 import { sanitizeIntegrity } from "@/lib/integrity";
+import { writingPromptsOf } from "@/lib/grading";
+
 
 const ALL_SKILLS = ["grammar", "reading", "listening", "writing"];
 
@@ -55,6 +57,9 @@ export async function POST(req) {
     grammar: grammarQs,
     reading: readingQs,
     listening: listeningQs,
+    // Writing prompts (+ chart image) as the student saw them — shown next
+    // to the essay on the teacher's grading screen.
+    ...(skillsIncluded.includes("writing") ? { writing: writingPromptsOf(content.writing) } : {}),
   };
 
   const answersJson = JSON.stringify({

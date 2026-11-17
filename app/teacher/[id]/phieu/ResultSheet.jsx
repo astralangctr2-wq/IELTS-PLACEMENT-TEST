@@ -450,7 +450,7 @@ export default function ResultSheet({ data, initial, classmates = [], rights = A
                 <div className="sb-eyebrow"><span className={`sb-badge b-${statusOf({ current: true })}`}>{ST[statusOf({ current: true })]}</span>{idx >= 0 && <span>{idx + 1} / {classmates.length}</span>}</div>
                 <h1>{data.name}</h1>
               </div>
-              {data.hasWriting && !data.graded && <a className="sb-warnlink" href={`/teacher/${data.writerId}`}>✍ Writing chưa chấm — chấm ngay →</a>}
+              {data.hasWriting && !data.graded && <a className="sb-warnlink" href={`/teacher/${data.writerId}?buoc=writing`}>✍ Writing chưa chấm — chấm ngay →</a>}
             </div>
             {partLine.length > 0 && (
               <div className="sb-parts">
@@ -478,7 +478,7 @@ export default function ResultSheet({ data, initial, classmates = [], rights = A
                   <div key={c.name} className="sb-sc ro">
                     <div className="k">{c.name}</div>
                     <div className="v">{c.val === "" || c.val === null || c.val === undefined ? "–" : c.val}<small>{c.name === "Writing" ? "" : `/${c.max}`}</small></div>
-                    <div className="hint">{c.name === "Writing" ? (data.graded ? "từ phần chấm" : <a href={`/teacher/${data.writerId}`}>chưa chấm →</a>) : data.aptis ? c.sub || "" : "từ bài làm"}</div>
+                    <div className="hint">{c.name === "Writing" ? (data.graded ? <a href={`/teacher/${data.writerId}?buoc=writing`}>từ phần chấm · sửa</a> : <a href={`/teacher/${data.writerId}?buoc=writing`}>chưa chấm →</a>) : data.aptis ? c.sub || "" : "từ bài làm"}</div>
                     {apt && c.name !== "TOTAL" && (() => { const k = c.name.toLowerCase(); const a = apt[k]; if (!a) return null; return a.raised
                       ? <div className="sb-near up">↑ đã nâng lên {a.cefr}{can("cefrUp") && <> · <button type="button" className="sb-link" onClick={() => toggleUp(k)}>bỏ nâng</button></>}</div>
                       : a.near ? <div className="sb-near">Sát mốc {a.near}{can("cefrUp") && <> · <button type="button" className="sb-link" onClick={() => toggleUp(k)}>nâng lên {a.near}</button></>}</div> : null; })()}
