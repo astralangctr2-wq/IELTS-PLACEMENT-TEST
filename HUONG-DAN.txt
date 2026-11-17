@@ -1,24 +1,6 @@
-QUY TRÌNH CHẤM BÀI MỚI (3 bước)
-================================
-Chép thư mục app/ và lib/ đè vào repo (9 file) → GitHub Desktop → Commit → Push → đợi Vercel deploy (~2 phút).
-
-  app/teacher/[id]/page.jsx            trang chấm bài: chia 3 bước
-  app/teacher/[id]/GradeFlow.jsx       (mới) thanh 3 bước
-  app/teacher/[id]/DocGrader.jsx       (mới) chữa Writing kiểu Google Docs
-  app/teacher/[id]/phieu/ResultSheet.jsx   link "chưa chấm / sửa" mở thẳng bước Chữa Writing
-  app/api/submissions/[id]/route.js    lưu bình luận tự động (chưa cần chọn band)
-  app/api/submissions/route.js         bài nộp mới lưu kèm đề Writing (+ hình Task 1)
-  lib/grading.js, lib/sheetData.js, app/globals.css
-
-CÁCH DÙNG
- 1. Trắc nghiệm: xem máy chấm Reading/Listening, sửa ✓/✗ nếu cần → "Lưu & xác nhận điểm" → "Tiếp: Chữa Writing".
- 2. Chữa Writing: bên trái đề bài (có hình Task 1) + bài làm; bôi đen chữ → chọn loại lỗi → ghi cách sửa → "Bình luận".
-    Bình luận hiện bên phải, ngang chỗ lỗi; tự lưu. Bấm vào chỗ tô màu / thẻ bình luận để sửa hoặc xoá.
-    Chọn band 4 tiêu chí ở thanh dưới (2 Task: chuyển tab Task 1 / Task 2) → "Lưu & viết nhận xét →".
- 3. Nhận xét & phiếu: viết nhận xét Viết, Nói, Speaking… rồi lưu và nộp cho admin như cũ.
-
-GHI CHÚ
- - Không còn ô nhận xét theo từng tiêu chí ở trang chấm: nhận xét Writing viết ở phiếu (ô "Viết").
-   Nhận xét đã viết trước đây vẫn giữ nguyên.
- - Bài nộp cũ: đề Writing lấy từ bộ đề (nếu bộ đề đã xoá thì không hiện đề).
- - Không đổi giao diện học viên, không mất dữ liệu.
+IELTS PLACEMENT TEST (LONG TEST) — Reading 40 · Listening 40 (4 section) · Writing 2 task
+1. Chép thư mục public/ vào repo (đè file cũ nếu đã chép bản trước) → Commit → Push → đợi Vercel deploy (~2 phút).
+2. Admin → Đề thi → thêm file "IELTS PLACEMENT TEST (LONG TEST).json"
+   (nếu đã thêm bản trước thì không cần thêm lại — JSON không đổi, chỉ thêm audio).
+Audio: đủ 4 section (file của trung tâm), đã kiểm tra mở đầu từng section khớp đề.
+Writing Task 1: hình biểu đồ dân số Nhật vẽ lại sạch từ ảnh chụp đề giấy.
