@@ -1,8 +1,4 @@
-SỬA LỖI: link chữa bài báo "Chưa có đáp án" / Xem trước không hiện giải thích dù đã công bố
-Nguyên nhân: trang chữa bài trên Vercel bị giữ bản cũ (cache) từ lần mở đầu tiên.
-Cách chép: giải nén, chép thư mục app/ đè vào repo (2 file):
-  app/chua-bai/[slug]/page.jsx
-  app/api/teacher/banks/[id]/review/route.js
-→ GitHub Desktop → Commit → Push → đợi Vercel deploy xong (~2 phút).
-Sau khi deploy: vào bộ đề → bấm "Ẩn đáp án" rồi "Công bố cho học viên" 1 lần để xoá bản cũ.
-Không đổi dữ liệu, không đổi giao diện học viên.
+ĐỔI TÊN TAB TRÌNH DUYỆT
+Chép app/layout.jsx đè vào repo → Commit → Push → đợi Vercel deploy (~2 phút).
+Muốn tên khác: mở app/layout.jsx, sửa dòng 6:  title: "Astra – Thi thử IELTS & Aptis",
+Chỉ đổi tên tab + mô tả khi chia sẻ link. Không đổi gì khác.

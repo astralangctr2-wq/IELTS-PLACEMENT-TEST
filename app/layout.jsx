@@ -3,8 +3,8 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import TopControls from "./components/TopControls";
 
 export const metadata = {
-  title: "IELTS Placement Test",
-  description: "Bài kiểm tra xếp lớp IELTS đầu vào",
+  title: "Astra Computer-based Testing System",
+  description: "Thi thử IELTS / Aptis và chấm bài — Trung tâm Ngoại ngữ & Tin học Astra",
   icons: { icon: "/icons/astra-192.png", apple: "/icons/astra-192.png" },
   appleWebApp: { capable: true, title: "Astra Test" },
 };
