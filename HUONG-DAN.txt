@@ -1,7 +1,18 @@
-SỬA LỖI: học viên nhập tên + lớp trên link chữa bài vẫn báo "Giáo viên chưa công bố đáp án"
-Chép đè 3 file vào repo → Commit → Push → đợi Vercel deploy (~2 phút):
-  lib/db.js                        mọi lệnh đọc dữ liệu luôn lấy bản mới (không dùng bản cũ Vercel giữ lại)
-  lib/bankReview.js                tìm bài theo tên không phân biệt dấu, bỏ phần (biệt danh)
-  app/api/review/[slug]/route.js   ô "Xem bài làm của bạn" luôn đọc dữ liệu mới
-Ví dụ: gõ "Lê Đức Tài" + "FL4" sẽ tìm ra bài thi đã nộp với tên "Le Duc Tai (Tony)" lớp FL4.
-Vẫn phải đúng lớp và đúng bộ đề. Không đổi dữ liệu, không đổi giao diện.
+SỬA LỖI: học viên nhập đúng tên + lớp trên link chữa bài vẫn báo "Không tìm thấy bài làm"
+Nguyên nhân: đề các em làm đã bị xoá / tải lên lại thành đề mới (mã đề mới), nên bài nộp cũ không khớp với link chữa bài.
+
+Chép đè 7 file vào repo → Commit → Push → đợi Vercel deploy (~2 phút):
+  lib/bankReview.js                        tra bài: nếu không thấy theo đề này, tìm tiếp trong bài của đề đã xoá
+                                           (cùng lớp, cùng tên, và câu hỏi phải trùng đề đang chữa → không lẫn kỳ thi khác)
+  lib/contentBanks.js                      đếm bài nộp / link thi / link chữa bài của một đề; tìm đề trùng tên + lớp
+  app/api/teacher/banks/route.js           tải đề trùng tên + lớp → hỏi "Thay nội dung đề cũ?"
+  app/api/teacher/banks/[id]/route.js      xoá đề đang được dùng → báo trước, phải xác nhận
+  app/teacher/content/BankManager.jsx      2 hộp xác nhận ở trang Đề thi
+  app/teacher/SubmissionsBoard.jsx         bài nộp của đề đã xoá có nhãn "Đề đã xoá"
+  app/globals.css                          kiểu chữ cho nhãn "Đề đã xoá"
+
+Sau khi deploy:
+  • Tina, Tô Thiên Kim (FL4) xem được bài ngay, không cần làm gì thêm. Không sửa dữ liệu nào.
+  • Sửa đáp án một đề: dùng nút "Sửa nội dung" hoặc tải lại file cùng tên + lớp rồi chọn OK (thay nội dung).
+    KHÔNG xoá đề rồi tải lại.
+Giao diện học viên không đổi.

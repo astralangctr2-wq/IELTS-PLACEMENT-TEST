@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminSignedIn } from "@/lib/staff";
-import { getContentBank, updateContentBank, deleteContentBank } from "@/lib/contentBanks";
+import { getContentBank, updateContentBank, deleteContentBank, bankUsage } from "@/lib/contentBanks";
 
 // Admin only: teachers receive links and grade, they do not manage them.
 const requireTeacher = adminSignedIn;
@@ -26,9 +26,15 @@ export async function PATCH(req, { params }) {
   }
 }
 
-export async function DELETE(_req, { params }) {
+export async function DELETE(req, { params }) {
   if (!(await requireTeacher())) return NextResponse.json({ error: "Chỉ admin được làm việc này (hoặc chưa đăng nhập)." }, { status: 401 });
   try {
+    // Still used → say how much and wait for ?force=1.
+    const force = new URL(req.url).searchParams.get("force") === "1";
+    if (!force) {
+      const usage = await bankUsage(params.id);
+      if (usage.submissions || usage.sessions || usage.review) return NextResponse.json({ needConfirm: true, usage }, { status: 409 });
+    }
     await deleteContentBank(params.id);
     return NextResponse.json({ ok: true });
   } catch (err) {

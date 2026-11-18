@@ -117,7 +117,8 @@ function SubRow({ row, showName, checked, onCheck, allSessions, onChanged, isAdm
       {isAdmin ? <input type="checkbox" className="sub-check" checked={checked} onChange={(e) => onCheck(row.id, e.target.checked)} aria-label={`Chọn ${row.student_name}`} /> : <span />}
       <div className="sub-main">
         <div className="sub-title">
-          <Link href={`/teacher/${row.id}`}>{showName ? row.student_name : row.bank_name || "Bài thi"}</Link>
+          <Link href={`/teacher/${row.id}`}>{showName ? row.student_name : row.bank_name || row.session_name || "Bài thi"}</Link>
+          {!showName && !row.bank_name && row.bank_id && <span className="deleted-pill" title="Bộ đề của bài này đã bị xoá khỏi Kho đề. Link chữa bài vẫn tìm được bài nếu đề mới có cùng câu hỏi.">Đề đã xoá</span>}
           {flag && <span className={`integrity-pill ${flag}`} title="Giám sát làm bài">⚠ {INTEGRITY_LABEL[flag]}</span>}
         </div>
         <div className="sub-meta">
@@ -126,6 +127,7 @@ function SubRow({ row, showName, checked, onCheck, allSessions, onChanged, isAdm
           {isAdmin && (row.teacher_id ? <span className="gv-pill">GV {teacherName(row.teacher_id)}</span> : <span className="gv-pill none">Chưa có GV</span>)}
           {row.teacher_done_at && <span className="gv-pill done" title="Giáo viên đã nộp phiếu">✓ GV nộp {formatVN(row.teacher_done_at)}</span>}
           {showName && row.bank_name && <span>{row.bank_name}</span>}
+          {showName && !row.bank_name && row.bank_id && <span>{row.session_name ? `${row.session_name} ` : ""}<span className="deleted-pill" style={{ marginLeft: 0 }} title="Bộ đề của bài này đã bị xoá khỏi Kho đề. Link chữa bài vẫn tìm được bài nếu đề mới có cùng câu hỏi.">Đề đã xoá</span></span>}
           <span className="mono">{skills.map((s) => SKILL_LABEL[s] || s).join(" ")}</span>
           <span className="mono">{formatVN(row.created_at)}</span>
         </div>

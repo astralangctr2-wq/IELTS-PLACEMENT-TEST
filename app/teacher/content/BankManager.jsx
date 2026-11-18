@@ -113,8 +113,15 @@ function BankRow({ bank, onChanged }) {
 
   const remove = async () => {
     if (!confirm(`Xoá bộ đề "${bank.name}"? Không thể hoàn tác.`)) return;
-    const res = await fetch(`/api/teacher/banks/${bank.id}`, { method: "DELETE" });
-    const data = await res.json();
+    let res = await fetch(`/api/teacher/banks/${bank.id}`, { method: "DELETE" });
+    let data = await res.json();
+    if (res.status === 409 && data.needConfirm) {
+      // Still used: deleting cuts the submissions off this test (students
+      // can no longer look up their answers on the review link).
+      if (!confirm(deleteWarning(bank.name, data.usage))) return;
+      res = await fetch(`/api/teacher/banks/${bank.id}?force=1`, { method: "DELETE" });
+      data = await res.json();
+    }
     if (!res.ok) {
       alert(data.error || "Không xoá được.");
       return;
@@ -172,6 +179,37 @@ function BankRow({ bank, onChanged }) {
   );
 }
 
+// Deleting a test that is still used.
+function deleteWarning(name, u = {}) {
+  const lines = [`Bộ đề "${name}" đang được dùng:`];
+  if (u.submissions) lines.push(`• ${u.submissions} bài nộp`);
+  if (u.sessions) lines.push(`• ${u.sessions} link thi`);
+  if (u.review) lines.push("• link chữa bài đã công bố");
+  lines.push("");
+  if (u.submissions) lines.push("Xoá đề thì các bài nộp tách khỏi đề (danh sách ghi “Đề đã xoá”).");
+  if (u.sessions) lines.push("Link thi của đề này sẽ không vào thi được nữa.");
+  if (u.review) lines.push("Link chữa bài đã gửi cho học viên sẽ ngừng hoạt động.");
+  lines.push("Chỉ cần sửa đáp án / nội dung? Bấm Huỷ rồi dùng “Sửa nội dung” (giữ nguyên mọi thứ).", "", "Vẫn xoá?");
+  return lines.join("\n");
+}
+
+// Creates a bank; when one with the same name + class exists, asks
+// whether to put the new content into it (keeps its submissions, links
+// and answer review) or to make a separate bank.
+async function postBank(body) {
+  let res = await fetch("/api/teacher/banks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, onDuplicate: "ask" }) });
+  let data = await res.json();
+  if (res.status === 409 && data.duplicate) {
+    const d = data.duplicate, u = d.usage || {};
+    const used = [u.submissions ? `${u.submissions} bài nộp` : "", u.sessions ? `${u.sessions} link thi` : "", u.review ? "link chữa bài" : ""].filter(Boolean).join(", ");
+    const replace = confirm(`Đã có bộ đề "${d.name}"${d.className ? ` (lớp ${d.className})` : ""}${used ? ` — đang có ${used}` : ""}.\n\nOK = THAY NỘI DUNG đề cũ bằng file này (giữ nguyên bài nộp, link thi, link chữa bài).\nHuỷ = tạo thêm một đề MỚI riêng.`);
+    res = await fetch("/api/teacher/banks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, onDuplicate: replace ? "replace" : "new" }) });
+    data = await res.json();
+  }
+  if (!res.ok) throw new Error(data.error || "Không tạo được bộ đề.");
+  return data;
+}
+
 function BulkUpload({ onDone }) {
   const [category, setCategory] = useState("other");
   const [files, setFiles] = useState([]);
@@ -197,14 +235,8 @@ function BulkUpload({ onDone }) {
         } catch {
           throw new Error("Không đọc được JSON — kiểm tra lại định dạng file.");
         }
-        const res = await fetch("/api/teacher/banks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: testName, content: parsed, category, className }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Không tạo được bộ đề.");
-        done.push({ fileName: file.name, status: "ok", className, testName });
+        const data = await postBank({ name: testName, content: parsed, category, className });
+        done.push({ fileName: file.name, status: "ok", className, testName, replaced: Boolean(data.replaced) });
       } catch (err) {
         done.push({ fileName: file.name, status: "error", className, testName, message: err.message });
       }
@@ -252,7 +284,7 @@ function BulkUpload({ onDone }) {
                 <span className={r.status === "ok" ? "success" : "accent"}>{r.status === "ok" ? "✓" : "✗"}</span>
                 <span className="mono" style={{ flex: 1, wordBreak: "break-all" }}>{r.fileName}</span>
                 {r.status === "ok" ? (
-                  <span className="muted">→ Lớp: {r.className || "(chưa có)"} · {r.testName}</span>
+                  <span className="muted">→ Lớp: {r.className || "(chưa có)"} · {r.testName}{r.replaced ? " · đã thay nội dung đề cũ" : ""}</span>
                 ) : (
                   <span className="accent">{r.message}</span>
                 )}
@@ -343,14 +375,8 @@ export default function BankManager({ initialBanks }) {
     }
     setCreating(true);
     try {
-      const res = await fetch("/api/teacher/banks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim() || "Bộ đề mới", content: parsed, category: newCategory, className: newClassName }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Không tạo được bộ đề.");
-      setCreateSuccess("✓ Đã tạo bộ đề mới. Vào Tạo link phiên thi để gửi link cho học viên.");
+      const data = await postBank({ name: newName.trim() || "Bộ đề mới", content: parsed, category: newCategory, className: newClassName });
+      setCreateSuccess(data.replaced ? "✓ Đã thay nội dung bộ đề cũ (bài nộp, link thi, link chữa bài giữ nguyên)." : "✓ Đã tạo bộ đề mới. Vào Tạo link phiên thi để gửi link cho học viên.");
       setNewName("");
       setNewClassName("");
       setNewText("");

@@ -1698,3 +1698,7 @@ body:has([data-shell]) .top-controls { display: none; }
   .dg-margin { display: grid; gap: 8px; }
   .dg-card { position: static; transform: none !important; }
 }
+
+/* Submissions list: the test's bank was deleted */
+.deleted-pill { display: inline-block; margin-left: 8px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; vertical-align: middle;
+  color: var(--gold); background: var(--subtle); border: 1px solid currentColor; }
