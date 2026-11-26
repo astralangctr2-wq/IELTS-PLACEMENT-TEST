@@ -1,18 +1,18 @@
-SỬA LỖI: học viên nhập đúng tên + lớp trên link chữa bài vẫn báo "Không tìm thấy bài làm"
-Nguyên nhân: đề các em làm đã bị xoá / tải lên lại thành đề mới (mã đề mới), nên bài nộp cũ không khớp với link chữa bài.
+ĐỀ FL4 — FINAL TEST (IELTS đủ 4 phần: Reading 40 câu · Listening 40 câu · Writing 2 task)
+==============================================================================
+1. Chép thư mục public/ vào repo web (giữ nguyên đường dẫn) → GitHub Desktop → Commit → Push.
+   - public/audio: 4 file nghe Section 1-4
+   - public/images/de: bản đồ Section 2 + biểu đồ Writing Task 1
+2. Đợi Vercel deploy xong (~2-3 phút).
+3. Admin → Đề thi → Tải nhiều đề → chọn "FL4 -- FINAL.json" (tên file tự điền lớp FL4).
+Speaking không có trong JSON (GV chấm tay).
 
-Chép đè 7 file vào repo → Commit → Push → đợi Vercel deploy (~2 phút):
-  lib/bankReview.js                        tra bài: nếu không thấy theo đề này, tìm tiếp trong bài của đề đã xoá
-                                           (cùng lớp, cùng tên, và câu hỏi phải trùng đề đang chữa → không lẫn kỳ thi khác)
-  lib/contentBanks.js                      đếm bài nộp / link thi / link chữa bài của một đề; tìm đề trùng tên + lớp
-  app/api/teacher/banks/route.js           tải đề trùng tên + lớp → hỏi "Thay nội dung đề cũ?"
-  app/api/teacher/banks/[id]/route.js      xoá đề đang được dùng → báo trước, phải xác nhận
-  app/teacher/content/BankManager.jsx      2 hộp xác nhận ở trang Đề thi
-  app/teacher/SubmissionsBoard.jsx         bài nộp của đề đã xoá có nhãn "Đề đã xoá"
-  app/globals.css                          kiểu chữ cho nhãn "Đề đã xoá"
-
-Sau khi deploy:
-  • Tina, Tô Thiên Kim (FL4) xem được bài ngay, không cần làm gì thêm. Không sửa dữ liệu nào.
-  • Sửa đáp án một đề: dùng nút "Sửa nội dung" hoặc tải lại file cùng tên + lớp rồi chọn OK (thay nội dung).
-    KHÔNG xoá đề rồi tải lại.
-Giao diện học viên không đổi.
+ĐÃ CHỈNH SO VỚI ĐỀ GIẤY
+ - Reading câu 1-6: đề in bị dính 2 câu vào nhau (câu 1 lẫn câu 2, câu 3 bị tách đôi). Đã tách lại đúng 6 câu,
+   khớp đáp án 1C 2A 3D 4C 5A 6E.
+ - Passage 3 ghi "Questions 27-40" → sửa thành 28-40.
+ - Lỗi đánh máy trong bài đọc: "arc fight" → are right, "tile USA" → the USA, "‘1 really" → ‘I really,
+   "die sides" → the sides, "wailing for it" → waiting for it, "re vamped" → revamped, "new’ technology" → new technology.
+ - Câu 14-21: học viên chọn từ trong khung (danh sách thả xuống), đúng như đề "using words from the box".
+ - Đáp án theo đúng file AK; một số câu nhận thêm cách viết tương đương
+   (câu 1 có/không dấu cách, $39 / 39 dollars, sandglass / sand glass, the government…).
